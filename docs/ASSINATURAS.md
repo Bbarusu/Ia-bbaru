@@ -6,6 +6,9 @@ nos provedores nem teste de consumo das assinaturas nesta etapa.
 
 ## Proposta de arquitetura
 
+Primeira etapa aprovada: extensão Firefox com backend local. Consultar também
+`ARQUITETURA.md`; o navegador independente fica para avaliação posterior.
+
 Manter a experiência web, com backend/companheiro inicialmente no computador do
 usuário. Ele guarda projetos, fontes selecionadas e resultados. Um adaptador por
 serviço usa apenas o caminho oficial disponível. Quando não houver integração

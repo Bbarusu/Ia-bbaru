@@ -1,6 +1,8 @@
 # Referência visual: KInfo
 
-O usuário definiu o KInfo como referência principal de design e estilo. A análise
+O usuário definiu o KInfo como referência principal de design e estilo. A primeira
+aplicação será um painel lateral de extensão Firefox e uma página interna ampla.
+A análise
 se baseou na captura enviada na conversa e na leitura de arquivos de interface do
 repositório Bbarusu/monitoringtest. Não copiamos o código nem materiais privados
 desse repositório para o Ia-bbaru.

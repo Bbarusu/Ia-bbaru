@@ -1,4 +1,49 @@
-# Instruções para o Claude — API de integração dos agentes
+# Briefing para o Claude — integrações de IA do Ia-bbaru
+
+## Repositório e ponto de partida
+
+Trabalhe no repositório **https://github.com/Bbarusu/Ia-bbaru**.
+Clone-o, atualize a branch principal e crie `claude/integracoes` antes de editar.
+O repositório foi criado público pelo usuário. Não enviar dados de estudo, bancos
+locais, credenciais ou sessões de login. Código e documentação são os entregáveis.
+
+Leia nesta ordem: `README.md`, `docs/ARQUITETURA.md`, `docs/STATUS.md`,
+`docs/ASSINATURAS.md`, `backend/contracts.py` e este briefing.
+
+O produto evoluiu para navegação centrada em projetos e agentes. A primeira etapa
+aprovada é **uma extensão Firefox com backend local**, usando Gecko por meio do
+Firefox instalado. Não criar um navegador completo ou fork do Firefox nesta etapa.
+
+## Sua responsabilidade e as outras frentes
+
+- **Claude:** conexões com os provedores, autenticação oficial, catálogo real de
+  capacidades, execução e normalização de respostas/erros. Trabalhar em
+  `integrations/` e documentar configuração e limitações.
+- **Gemini:** frontend e extensão Firefox em `frontend/` e `extension/`.
+- **Codex:** `backend/`, banco, tarefas, contexto, coordenação e ponte local.
+
+Não duplicar os serviços de projetos/histórico ou editar o frontend. Propor
+alterações do contrato em documento e PR; não quebrar os consumidores existentes.
+Para testes de integração, usar `tests/integrations/` com fixtures explícitas.
+
+## Primeiro marco de entrega
+
+1. Fazer um diagnóstico local de disponibilidade: quais clientes oficiais estão
+   instalados e quais caminhos de login suportam o plano do usuário. Não ler nem
+   exportar os arquivos privados de tokens dos aplicativos para detectar login.
+2. Documentar uma conexão preferencial e suas capacidades reais. O objetivo é
+   aproveitar a assinatura, sem habilitar faturamento de API por padrão.
+3. Implementar um único adaptador oficial e seus testes. Se faltar autenticação,
+   retornar indisponível com próxima ação clara, sem resposta fictícia.
+4. Coordenar com Codex a evolução do contrato quando o adaptador não consegue
+   garantir limites/cancelamento definidos no v1. O contrato existente é descrito
+   abaixo para compatibilidade, não para obrigar um transporte incompatível.
+5. Só chamar uma conta real depois de o usuário autenticar pelo fluxo oficial e
+   autorizar o teste de uso. Informar separadamente testes com mocks e teste real.
+
+Entregar README para Windows, comando de inicialização, configuração sem segredos,
+testes de contrato, tratamento de timeout/cota e PR para `main` com as limitações.
+Não fazer merge automático nem usar force push sobre trabalho de outra frente.
 
 ## Atualização de escopo: assinaturas primeiro
 
@@ -23,7 +68,7 @@ As instruções sobre chaves abaixo valem apenas para o adaptador opcional de AP
 
 ## Contexto e responsabilidade
 
-Estamos construindo um launcher web com a identidade visual do KInfo. O usuário
+Estamos construindo uma experiência no Firefox com a identidade visual do KInfo. O usuário
 conecta materiais e seleciona agentes para executar ou revisar tarefas. O backend
 principal já usa Python 3.12, FastAPI e SQLite. Você implementará **um serviço
 separado de integração com provedores**, ouvindo localmente na porta 8010.
@@ -33,7 +78,7 @@ Não implemente frontend nesta etapa. Pode usar FastAPI para compartilhar os mod
 Pydantic de `backend/contracts.py`. O contrato HTTP é a fonte de verdade; outra
 linguagem é possível desde que cumpra `docs/openapi-gateway.json`.
 
-## Primeira entrega: dois endpoints
+## Contrato HTTP v1 existente: dois endpoints
 
 ### GET /v1/models
 

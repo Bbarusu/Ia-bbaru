@@ -1,6 +1,9 @@
 # Ia-bbaru — ponto de entrada para colaboração
 
 Leia primeiro README.md, docs/STATUS.md e docs/ASSINATURAS.md.
+Repositório: https://github.com/Bbarusu/Ia-bbaru.
+Direção aprovada: extensão Firefox com backend local, seguida de avaliação de um
+navegador próprio baseado em Firefox/Gecko. Leia docs/ARQUITETURA.md.
 O briefing de integração está em docs/INSTRUCOES_CLAUDE.md; o contrato HTTP atual
 está em backend/contracts.py e docs/openapi-gateway.json.
 
@@ -19,3 +22,5 @@ chamadas cobradas como passo implícito de instalação.
 
 Ao colaborar em sessões simultâneas, usar branches próprias e verificar o remoto
 antes de enviar commits. Não sobrescrever mudanças de outra sessão com force push.
+Claude trabalha em integrations/; Gemini em frontend/ e extension/; Codex mantém
+backend/ e a ponte local. As pastas das novas frentes serão criadas por seus autores.

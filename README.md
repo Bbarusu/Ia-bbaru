@@ -1,7 +1,23 @@
-# Ia-bbaru — launcher pessoal de agentes de IA
+# Ia-bbaru — navegação com agentes de IA
+
+Just a school project.
 
 Projeto independente. O KInfo é a referência visual para a futura interface.
-Esta entrega contém **somente o backend**, sem interface nem publicação.
+Esta entrega contém **o backend e os briefings de implementação**. A interface e
+as conexões reais com os provedores ainda não foram implementadas.
+
+Repositório: https://github.com/Bbarusu/Ia-bbaru
+
+## Primeira etapa aprovada
+
+Construir uma extensão para Firefox, aproveitando Gecko, com painel lateral e
+backend local. Validar o fluxo de projeto, contexto selecionado e agentes antes
+de manter um navegador independente baseado em Firefox.
+
+- [Briefing do Claude: integrações](docs/INSTRUCOES_CLAUDE.md).
+- [Briefing do Gemini: frontend e extensão Firefox](docs/INSTRUCOES_GEMINI.md).
+- [Arquitetura Firefox/Gecko e divisão do trabalho](docs/ARQUITETURA.md).
+- [Transporte entre extensão e backend: proposta](docs/TRANSPORTE_EXTENSAO.md).
 
 ## Direção atual: aproveitar contas e assinaturas
 
@@ -26,6 +42,9 @@ revisto antes de integrar o fluxo documentado de Sign in with ChatGPT.
 - Serviço de integrações feito com Claude: verificar elegibilidade das contas,
   integrar os caminhos oficiais disponíveis e informar capacidades reais de cada
   conexão. API com chave fica opcional; não contratar cobrança por padrão.
+- Frontend feito com Gemini: interface React/TypeScript e extensão Firefox,
+  preservando o estilo do KInfo e consumindo os contratos do backend.
+- Codex: backend principal, persistência, coordenação, ponte local e integração.
 - Guia para o Claude: `docs/INSTRUCOES_CLAUDE.md`.
 - Contratos: `docs/openapi-backend.json` e `docs/openapi-gateway.json`.
 
