@@ -22,7 +22,7 @@ from integrations.app import create_app
 from integrations.config import ClaudeCodeSettings, Settings
 from integrations.dedup import DedupStore
 from integrations.prompt import SYSTEM_PROMPT
-from integrations.runner import ProcessTimeout, child_env, run_process
+from integrations.runner import ProcessStartError, ProcessTimeout, child_env, run_process
 
 ROOT = Path(__file__).resolve().parents[2]
 FAKE = Path(__file__).parent / "fixtures" / "fake_claude.py"
@@ -287,20 +287,39 @@ class GenerateTests(GatewayTestCase):
         self.assertEqual(other.status_code, 429)
         self.assertEqual(other.json()["error"]["code"], "gateway_busy")
 
-    def test_auth_error_is_503_and_frees_request_id(self):
+    def test_auth_error_after_start_is_replayed_not_rerun(self):
+        # Review P1: the CLI already started; its text does not prove no usage.
         self.set_mode(FAKE_CLAUDE_MODE="auth_error")
         response = self.client.post("/v1/generate", json=request_body())
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["error"]["code"], "provider_not_authenticated")
         self.assertNotIn("Please run", response.text)  # provider text is not echoed
         self.set_mode(FAKE_CLAUDE_MODE="success")
-        self.assertEqual(self.client.post("/v1/generate", json=request_body()).status_code, 200)
+        again = self.client.post("/v1/generate", json=request_body())
+        self.assertEqual(again.json(), response.json())
+        self.assertEqual(self.runner.generations, 1)
+        # A new request_id after logging in again works normally.
+        self.assertEqual(self.client.post("/v1/generate", json=request_body(request_id="task-9:0")).status_code, 200)
 
-    def test_usage_limit_is_429(self):
+    def test_usage_limit_is_429_and_not_rerun(self):
         self.set_mode(FAKE_CLAUDE_MODE="usage_limit")
+        for _ in range(2):
+            response = self.client.post("/v1/generate", json=request_body())
+            self.assertEqual(response.status_code, 429)
+            self.assertEqual(response.json()["error"]["code"], "provider_quota_exceeded")
+        self.assertEqual(self.runner.generations, 1)
+
+    def test_cli_that_never_started_frees_request_id(self):
+        def not_starting(args, stdin, timeout_s, env, cwd):
+            if "--print" in args:
+                raise ProcessStartError("FileNotFoundError")
+            return run_process(args, stdin, timeout_s, env, cwd)
+
+        self.make_client(runner=not_starting)
         response = self.client.post("/v1/generate", json=request_body())
-        self.assertEqual(response.status_code, 429)
-        self.assertEqual(response.json()["error"]["code"], "provider_quota_exceeded")
+        self.assertEqual(response.json()["error"]["code"], "provider_cli_not_runnable")
+        self.make_client()
+        self.assertEqual(self.client.post("/v1/generate", json=request_body()).status_code, 200)
 
     def test_unparseable_output_is_502_and_replayed(self):
         self.set_mode(FAKE_CLAUDE_MODE="garbage")
@@ -317,9 +336,24 @@ class GenerateTests(GatewayTestCase):
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["error"]["code"], "output_limit_not_honored")
 
-    def test_output_at_cap_is_reported_as_length(self):
-        response = self.client.post("/v1/generate", json=request_body(max_output_tokens=42))
-        self.assertEqual(response.json()["finish_reason"], "length")
+    def test_v1_finish_reason_comes_only_from_provider(self):
+        # Review P2: token counts are not evidence; only stop_reason is.
+        at_cap = self.client.post("/v1/generate", json=request_body(max_output_tokens=42))
+        self.assertEqual(at_cap.json()["finish_reason"], "stop")
+        self.set_mode(FAKE_CLAUDE_MODE="max_tokens")
+        cut = self.client.post("/v1/generate", json=request_body(request_id="task-2:0"))
+        self.assertEqual(cut.json()["finish_reason"], "length")
+
+    def test_v1_never_fabricates_completion(self):
+        for index, mode in enumerate(("no_stop_reason", "null_stop_reason", "refusal")):
+            self.set_mode(FAKE_CLAUDE_MODE=mode)
+            body = request_body(request_id=f"task-u{index}:0")
+            response = self.client.post("/v1/generate", json=body)
+            self.assertEqual(response.status_code, 502, mode)
+            self.assertEqual(response.json()["error"]["code"], "completion_unconfirmed")
+            # Stored and replayed; never re-run.
+            self.assertEqual(self.client.post("/v1/generate", json=body).status_code, 502)
+        self.assertEqual(self.runner.generations, 3)
 
     def test_validation_errors_are_sanitized(self):
         response = self.client.post("/v1/generate", json=request_body(

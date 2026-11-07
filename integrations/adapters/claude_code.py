@@ -12,20 +12,22 @@ What it does:
 What it cannot guarantee (see integrations/docs/PROPOSTA_CAPACIDADES.md):
 - a hard output-token cap: CLAUDE_CODE_MAX_OUTPUT_TOKENS is best effort;
 - provider-side cancellation: killing the process does not limit billing/quota;
-- `finish_reason`: the result JSON does not document a stop reason.
+- documented completion: `stop_reason` exists in the CLI's result schema but
+  not in its public docs; without it the completion is reported as unknown.
 """
 import json
 import shutil
 import tempfile
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
-from backend.contracts import GenerateRequest, GenerateResponse, ModelProfile, TokenUsage
+from backend.contracts import ModelProfile, TokenUsage
 
 from .. import errors
 from ..config import ClaudeCodeSettings
+from ..contracts_v1_1 import ModelCapabilities, ModelProfileV11
 from ..prompt import CLI_ARGUMENT_PROMPT, SYSTEM_PROMPT, build_user_prompt, input_chars
 from ..runner import ProcessStartError, ProcessTimeout, child_env, run_process
 
@@ -39,6 +41,15 @@ REQUIRED_FLAGS = (
 SUBSCRIPTION_AUTH = {"claude.ai", "oauth_token"}
 CHARS_PER_TOKEN_RESERVE = 4
 STATUS_TTL_S = 30
+STOP_REASONS_COMPLETE = {"end_turn", "stop_sequence"}
+CAPABILITIES = ModelCapabilities(
+    output_limit="best_effort",        # CLAUDE_CODE_MAX_OUTPUT_TOKENS, "most requests"
+    cancellation="local_process_only",  # killing the CLI does not refund quota
+    finish_reason="reported",           # stop_reason from the CLI result; else unknown
+    billing="subscription_quota",       # API-key variables are stripped from the child
+    streaming=False,
+    tools="disabled",
+)
 
 
 @dataclass
@@ -137,27 +148,47 @@ class ClaudeCodeAdapter:
         if not subscription:
             return result(**installed, **login, reason="not_subscription_login",
                           next_action="O login ativo não é por assinatura; faça /login com a conta Claude para não usar cobrança de API.")
-        if not self.settings.accept_unenforced_output_limit:
-            return result(**installed, **login, reason="output_limit_not_enforced",
-                          next_action=("O contrato v1 exige teto de saída garantido e o Claude Code não o garante. "
-                                       "Aguarde a evolução do contrato ou defina "
-                                       "IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT=1 conscientemente."))
+        # Transport ready. Whether a task may use it depends on the contract
+        # version: see v1_gate() and the per-request acceptance in 1.1.
         return result(**installed, **login, ready=True)
+
+    def v1_gate(self) -> ConnectionStatus:
+        """Contract 1 promises a hard output cap, which this CLI cannot give.
+        Its models stay unavailable there unless the operator opted in."""
+        status = self.status()
+        if status.ready and not self.settings.accept_unenforced_output_limit:
+            return replace(
+                status, ready=False, reason="output_limit_not_enforced",
+                next_action=("O contrato 1 exige teto de saída garantido e o Claude Code não o garante. "
+                             "Use o contrato 1.1 com aceite por tarefa ou defina "
+                             "IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT=1 conscientemente."))
+        return status
 
     def profile_id(self, model: str) -> str:
         return f"{PROVIDER}:{model}"
 
-    def profiles(self) -> list[ModelProfile]:
-        if not self.settings.models:
-            return []
-        ready = self.status().ready
-        return [ModelProfile(
+    def _profile_fields(self, model: str) -> dict:
+        return dict(
             id=self.profile_id(model), provider=PROVIDER,
-            label=f"Claude Code ({model}) - assinatura", available=ready,
+            label=f"Claude Code ({model}) - assinatura",
             task_kinds=self.settings.task_kinds,
             context_char_limit=self.settings.context_char_limit,
             max_output_tokens=self.settings.max_output_tokens,
-        ) for model in self.settings.models]
+        )
+
+    def profiles(self) -> list[ModelProfile]:
+        """Contract 1 catalog (unchanged shape)."""
+        ready = self.v1_gate().ready if self.settings.models else False
+        return [ModelProfile(**self._profile_fields(m), available=ready) for m in self.settings.models]
+
+    def profiles_v11(self) -> list[ModelProfileV11]:
+        """Contract 1.1 catalog: transport availability plus real capabilities."""
+        status = self.status() if self.settings.models else None
+        return [ModelProfileV11(
+            **self._profile_fields(m), available=status.ready,
+            capabilities=CAPABILITIES,
+            unavailable_reason=None if status.ready else status.reason,
+        ) for m in self.settings.models]
 
     def model_for(self, model_id: str) -> str | None:
         for model in self.settings.models:
@@ -167,8 +198,8 @@ class ClaudeCodeAdapter:
 
     # ----- generation -----
 
-    def check_request(self, request: GenerateRequest):
-        """Validation that must happen before any provider call."""
+    def check_request(self, request):
+        """Validation that must happen before any provider call (v1 and 1.1)."""
         if self.model_for(request.model_id) is None:
             raise errors.unknown_model()
         if request.max_output_tokens > self.settings.max_output_tokens:
@@ -179,7 +210,13 @@ class ClaudeCodeAdapter:
         reserve = request.max_output_tokens * CHARS_PER_TOKEN_RESERVE
         if input_chars(request) + reserve > self.settings.context_char_limit:
             raise errors.context_too_large()
-        status = self.status()
+        if request.protocol_version == "1.1":
+            # Acceptance belongs to the task, not to the operator's env flag.
+            if not request.allow_unenforced_output_limit:
+                raise errors.output_limit_not_accepted()
+            status = self.status()
+        else:
+            status = self.v1_gate()
         if not status.ready:
             raise errors.provider_unavailable(f"provider_{status.reason}", status.next_action)
 
@@ -197,8 +234,8 @@ class ClaudeCodeAdapter:
             "--permission-prompts", "none",
         ]
 
-    def generate(self, request: GenerateRequest) -> GenerateResponse:
-        """Call the CLI once. Raise GatewayError; `.started` tells if it ran."""
+    def generate(self, request) -> "ProviderResult":
+        """Call the CLI once. NotStarted means the process never ran."""
         model = self.model_for(request.model_id)
         env = child_env({"CLAUDE_CODE_MAX_OUTPUT_TOKENS": str(request.max_output_tokens)})
         with tempfile.TemporaryDirectory(prefix="ia-bbaru-cc-") as cwd:
@@ -209,9 +246,9 @@ class ClaudeCodeAdapter:
                 raise NotStarted(errors.provider_unavailable("provider_cli_not_runnable"))
             except ProcessTimeout:
                 raise errors.provider_timeout()
-        return self.parse(request, model, proc)
+        return self.parse(model, proc)
 
-    def parse(self, request: GenerateRequest, model: str, proc) -> GenerateResponse:
+    def parse(self, model: str, proc) -> "ProviderResult":
         try:
             data = json.loads(proc.stdout)
             if not isinstance(data, dict):
@@ -226,15 +263,8 @@ class ClaudeCodeAdapter:
         if len(result) > 100000:
             raise errors.provider_error("provider_output_too_large")
         self._check_model(model, data.get("modelUsage"))
-        usage = _usage(data.get("usage"))
-        if usage and usage.output_tokens > request.max_output_tokens:
-            # The cap was not honored; refuse instead of hiding it (contract v1).
-            raise errors.provider_error("output_limit_not_honored")
-        return GenerateResponse(
-            request_id=request.request_id, model_id=request.model_id, output=result,
-            usage=usage, provider_request_id=None,
-            finish_reason=_finish_reason(data, usage, request.max_output_tokens),
-        )
+        return ProviderResult(output=result, usage=_usage(data.get("usage")),
+                              finish_reason=finish_reason_from(data))
 
     @staticmethod
     def _check_model(model: str, model_usage):
@@ -243,6 +273,13 @@ class ClaudeCodeAdapter:
             return
         if not any(str(key).startswith(model) for key in model_usage):
             raise errors.provider_error("provider_model_mismatch")
+
+
+@dataclass
+class ProviderResult:
+    output: str
+    usage: TokenUsage | None
+    finish_reason: str  # stop | length | unknown
 
 
 class NotStarted(Exception):
@@ -264,14 +301,20 @@ def _usage(raw) -> TokenUsage | None:
         return None
 
 
-def _finish_reason(data: dict, usage: TokenUsage | None, cap: int) -> str:
-    # Undocumented field; used when present. Otherwise reaching the cap is
-    # treated as truncation so the backend never shows a cut answer as complete.
-    if data.get("stop_reason") == "max_tokens":
+def finish_reason_from(data: dict) -> str:
+    """Only the provider's own stop_reason counts as evidence.
+
+    `stop_reason` is part of the result schema embedded in the CLI (seen in
+    v2.1.319, nullable) but not in the public headless docs. Absent, null or
+    any other value (refusal, pause_turn, ...) means completion is unconfirmed.
+    Token counts are never used to guess truncation.
+    """
+    reason = data.get("stop_reason")
+    if reason in STOP_REASONS_COMPLETE:
+        return "stop"
+    if reason == "max_tokens":
         return "length"
-    if usage and usage.output_tokens >= cap:
-        return "length"
-    return "stop"
+    return "unknown"
 
 
 def classify_failure(text: str) -> errors.GatewayError:

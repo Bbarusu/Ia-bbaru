@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from backend.contracts import GenerateResponse
+from integrations.contracts_v1_1 import GenerateResponseV11
 from integrations.adapters.claude_code import ClaudeCodeAdapter
 from integrations.app import create_app
 from integrations.config import ClaudeCodeSettings, Settings
@@ -30,7 +30,6 @@ ENABLED = os.environ.get("IA_BBARU_REAL_TEST") == "claude-code"
 class RealClaudeCodeTest(unittest.TestCase):
     def test_one_small_real_generation(self):
         cc = ClaudeCodeSettings.from_env()
-        cc.accept_unenforced_output_limit = True  # explicit consent given by the opt-in variable
         if not cc.models:
             self.skipTest("defina IA_BBARU_CLAUDE_CODE_MODELS, por exemplo sonnet")
         status = ClaudeCodeAdapter(cc).status(refresh=True)
@@ -40,14 +39,17 @@ class RealClaudeCodeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             app = create_app(Settings(token, Path(tmp) / "real.sqlite3", cc))
             client = TestClient(app, headers={"Authorization": f"Bearer {token}"})
-            response = client.post("/v1/generate", json={
-                "protocol_version": "1", "request_id": f"real-test-{uuid.uuid4()}",
+            # Contract 1.1: the opt-in variable is the consent; the task carries it.
+            response = client.post("/v1.1/generate", json={
+                "protocol_version": "1.1", "allow_unenforced_output_limit": True,
+                "request_id": f"real-test-{uuid.uuid4()}",
                 "model_id": f"claude-code:{cc.models[0]}", "role": "answer",
                 "instruction": "Responda apenas com a palavra da fonte.",
                 "context": [{"id": "fonte-1", "title": "Teste", "content": "A palavra é laranja."}],
                 "previous_output": None, "max_output_tokens": 64,
             })
         self.assertEqual(response.status_code, 200, response.text)
-        result = GenerateResponse.model_validate(response.json())
+        result = GenerateResponseV11.model_validate(response.json())
+        # finish "stop"/"length" = the CLI reported stop_reason; "unknown" = it did not.
         print("\nSaída real:", result.output[:200], "| usage:", result.usage, "| finish:", result.finish_reason)
         self.assertIn("laranja", result.output.lower())

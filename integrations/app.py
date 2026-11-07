@@ -1,4 +1,10 @@
-"""HTTP service implementing contract v1 (docs/openapi-gateway.json) on port 8010."""
+"""HTTP gateway on port 8010.
+
+- Contract 1 (docs/openapi-gateway.json): /v1/models and /v1/generate, unchanged.
+- Contract 1.1 (docs/DECISAO_CAPACIDADES.md): /v1.1/models and /v1.1/generate,
+  with capabilities, per-task acceptance and finish_reason "unknown".
+- /v1/connections: experimental diagnostics, outside both contracts.
+"""
 import hmac
 import threading
 
@@ -11,15 +17,36 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 
 from . import __version__, errors
-from .adapters.claude_code import ClaudeCodeAdapter, NotStarted
+from .adapters.claude_code import CAPABILITIES, ClaudeCodeAdapter, NotStarted, ProviderResult
 from .config import Settings
+from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 from .dedup import DedupStore, payload_hash
 
-# After the provider process started: a timeout leaves the outcome uncertain
-# (never re-run); a refusal before any generation (login missing, plan quota
-# reached) frees the request_id; any other error is stored and replayed.
+# Once the provider process has started, the request_id is never released:
+# a timeout is stored as uncertain (409 forever) and every other outcome,
+# success or error, is stored and replayed. Only NotStarted frees the ID.
 UNCERTAIN_CODES = {"provider_timeout"}
-REFUSED_BEFORE_GENERATION = {"provider_not_authenticated", "provider_quota_exceeded"}
+RESPONSE_MODELS = {"1": GenerateResponse, "1.1": GenerateResponseV11}
+
+
+def to_v1(request: GenerateRequest, result: ProviderResult) -> GenerateResponse:
+    """Contract 1 only knows stop|length and a hard output cap."""
+    if result.finish_reason == "unknown":
+        raise errors.completion_unconfirmed()
+    if result.usage and result.usage.output_tokens > request.max_output_tokens:
+        raise errors.provider_error("output_limit_not_honored")
+    return GenerateResponse(
+        request_id=request.request_id, model_id=request.model_id, output=result.output,
+        usage=result.usage, provider_request_id=None, finish_reason=result.finish_reason,
+    )
+
+
+def to_v11(request: GenerateRequestV11, result: ProviderResult) -> GenerateResponseV11:
+    # The task accepted a best-effort cap; the output is delivered as is.
+    return GenerateResponseV11(
+        request_id=request.request_id, model_id=request.model_id, output=result.output,
+        usage=result.usage, provider_request_id=None, finish_reason=result.finish_reason,
+    )
 
 
 def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | None = None,
@@ -58,32 +85,32 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
 
     @app.get("/health")
     def health():
-        return {"status": "ok"}
+        return {"status": "ok", "protocol_versions": ["1", "1.1"]}
 
+    # Catalogs are built from operator configuration + local status. No model call.
     @app.get("/v1/models", response_model=ModelCatalog, dependencies=protected)
     def models():
-        # Built from operator configuration + local status. Never calls a model.
         return ModelCatalog(models=adapter.profiles())
+
+    @app.get("/v1.1/models", response_model=ModelCatalogV11, dependencies=protected)
+    def models_v11():
+        return ModelCatalogV11(models=adapter.profiles_v11())
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():
-        """Experimental, outside contract v1: diagnostics and real capabilities."""
+        """Experimental, outside the contracts: diagnostics and real capabilities."""
         status = adapter.status(refresh=True)
         return {"connections": [{
             **status.as_dict(),
+            "contract_1_available": adapter.v1_gate().ready,
             "configured_models": [adapter.profile_id(m) for m in settings.claude_code.models],
-            "capabilities": {
-                "inference": True, "review": True, "streaming": False, "tools": "disabled",
-                "output_limit": "best_effort", "cancellation": "local_process_only",
-                "finish_reason": "inferred", "billing": "subscription_quota",
-                "source_import": False,
-            },
+            "capabilities": CAPABILITIES.model_dump(),
         }]}
 
-    @app.post("/v1/generate", response_model=GenerateResponse, dependencies=protected)
-    def generate(body: GenerateRequest):
+    def run(body, convert):
         digest = payload_hash(body.model_dump(mode="json"))
-        replay = _existing(store, body.request_id, digest)
+        response_model = RESPONSE_MODELS[body.protocol_version]
+        replay = _existing(store, body.request_id, digest, response_model)
         if replay is not None:
             return replay
         adapter.check_request(body)
@@ -91,20 +118,18 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
             raise errors.busy()
         try:
             if not store.reserve(body.request_id, digest):
-                replay = _existing(store, body.request_id, digest)
+                replay = _existing(store, body.request_id, digest, response_model)
                 if replay is not None:
                     return replay
                 raise errors.request_in_progress()
             try:
-                result = adapter.generate(body)
+                result = convert(body, adapter.generate(body))
             except NotStarted as exc:
                 store.release(body.request_id)
                 raise exc.error
             except errors.GatewayError as exc:
                 if exc.code in UNCERTAIN_CODES:
                     store.mark_uncertain(body.request_id, exc.status, exc.body())
-                elif exc.code in REFUSED_BEFORE_GENERATION:
-                    store.release(body.request_id)
                 else:
                     store.complete(body.request_id, exc.status, exc.body())
                 raise
@@ -116,10 +141,18 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
         finally:
             slots.release()
 
+    @app.post("/v1/generate", response_model=GenerateResponse, dependencies=protected)
+    def generate(body: GenerateRequest):
+        return run(body, to_v1)
+
+    @app.post("/v1.1/generate", response_model=GenerateResponseV11, dependencies=protected)
+    def generate_v11(body: GenerateRequestV11):
+        return run(body, to_v11)
+
     return app
 
 
-def _existing(store: DedupStore, request_id: str, digest: str):
+def _existing(store: DedupStore, request_id: str, digest: str, response_model):
     existing = store.get(request_id)
     if existing is None:
         return None
@@ -130,5 +163,5 @@ def _existing(store: DedupStore, request_id: str, digest: str):
     if existing.state == "uncertain":
         raise errors.request_outcome_uncertain()
     if existing.status_code == 200:
-        return GenerateResponse.model_validate(existing.body)
+        return response_model.model_validate(existing.body)
     return JSONResponse(existing.body, status_code=existing.status_code)

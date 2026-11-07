@@ -4,6 +4,7 @@ Its output imitates the documented shape of `claude -p --output-format json`
 (result, session_id, usage) plus fields seen in practice but not documented
 (is_error, subtype). Behaviour is selected with FAKE_CLAUDE_MODE:
   success (default) | auth_error | usage_limit | sleep | garbage | over_cap
+  | max_tokens | no_stop_reason | null_stop_reason | refusal
 FAKE_CLAUDE_LOGIN: claude.ai (default) | api_key | none
 FAKE_CLAUDE_RECORD: file that receives argv, stdin and selected env vars.
 """
@@ -57,12 +58,18 @@ def main():
         return 1
     cap = int(os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "4096"))
     output_tokens = cap + 50 if mode == "over_cap" else 42
-    print(json.dumps({
+    # stop_reason is in the CLI's embedded result schema (nullable), not in its docs.
+    stop_reason = {"max_tokens": "max_tokens", "null_stop_reason": None,
+                   "refusal": "refusal"}.get(mode, "end_turn")
+    payload = {
         "type": "result", "subtype": "success", "is_error": False,
         "result": "Resposta do dublê de teste", "session_id": "s-3",
-        "total_cost_usd": 0.0,
+        "stop_reason": stop_reason, "total_cost_usd": 0.0,
         "usage": {"input_tokens": 100, "cache_read_input_tokens": 20, "output_tokens": output_tokens},
-    }))
+    }
+    if mode == "no_stop_reason":
+        del payload["stop_reason"]
+    print(json.dumps(payload))
     return 0
 
 

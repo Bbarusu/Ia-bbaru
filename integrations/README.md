@@ -1,7 +1,9 @@
 # Ia-bbaru — gateway de integrações (frente do Claude)
 
-Serviço local separado do backend. Implementa o contrato HTTP v1
-(`docs/openapi-gateway.json`) em `http://127.0.0.1:8010` e tem **um** adaptador:
+Serviço local separado do backend, em `http://127.0.0.1:8010`. Implementa o
+contrato 1 (`docs/openapi-gateway.json`, inalterado) e o contrato **1.1** definido
+em `docs/DECISAO_CAPACIDADES.md` (branch do Codex), com schema próprio em
+[docs/openapi-gateway-1.1.json](docs/openapi-gateway-1.1.json). Tem **um** adaptador:
 o **Claude Code oficial**, usando o login que o próprio usuário fez pela Anthropic.
 O serviço não guarda projetos, fontes nem histórico: isso continua no `backend/`.
 
@@ -11,6 +13,8 @@ Windows do usuário. Com conta real: **uma** geração pequena, autorizada pelo
 usuário, passou no Windows dele (Claude Code 2.1.307, login por assinatura).
 Depois, o fluxo completo backend → gateway → Claude Code também passou com
 uma tarefa real (modo `single`).
+Esses testes reais usaram o contrato 1, **antes** das correções da revisão do Codex
+(`docs/REVISAO_CLAUDE.md`) e do contrato 1.1; ainda precisam ser repetidos.
 Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
 Ver [docs/CONEXOES.md](docs/CONEXOES.md).
 
@@ -18,9 +22,10 @@ Ver [docs/CONEXOES.md](docs/CONEXOES.md).
 
 | Item | Estado |
 | --- | --- |
-| `GET /v1/models` | Catálogo a partir da configuração do operador + estado local. Não chama modelo. |
-| `POST /v1/generate` | Uma execução de `claude -p --output-format json`, sem ferramentas. |
-| `GET /v1/connections` | **Experimental, fora do v1**: diagnóstico e capacidades reais. |
+| `GET /v1/models`, `POST /v1/generate` | Contrato 1, legado. Formato inalterado. |
+| `GET /v1.1/models` | Catálogo 1.1: disponibilidade do transporte, `capabilities` obrigatórias e `unavailable_reason`. Não chama modelo. |
+| `POST /v1.1/generate` | Exige `allow_unenforced_output_limit: true` da tarefa; `finish_reason` pode ser `unknown`. |
+| `GET /v1/connections` | **Experimental, fora dos contratos**: diagnóstico. |
 | `python -m integrations diagnose` | Relatório local sem chamar modelos nem ler arquivos de credencial. |
 | Deduplicação persistente | SQLite próprio (`data/integrations.sqlite3`, fora do Git). |
 | ChatGPT / Gemini | **Não implementados**; o diagnóstico só informa se o CLI está instalado. |
@@ -72,7 +77,7 @@ Em bash, troque `$env:NOME = valor` por `export NOME=valor` e ative com
 | `IA_BBARU_CLAUDE_CODE_CONTEXT_CHARS` | 80000 | Limite de entrada em caracteres. |
 | `IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS` | 4096 | Teto pedido ao CLI (não garantido, ver abaixo). |
 | `IA_BBARU_CLAUDE_CODE_TIMEOUT_S` | 90 | Entre 5 e 110 s; o backend desiste em 120 s. |
-| `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` | desligado | Ver "Limite de saída". |
+| `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` | desligado | Só contrato 1 (legado). Ver "Contratos 1 e 1.1". |
 
 `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, as variáveis de
 Bedrock/Vertex/Foundry, `GATEWAY_TOKEN` e `LAUNCHER_API_TOKEN` **são removidas** do
@@ -98,24 +103,42 @@ claude --print "<pedido fixo>" --output-format json --model <modelo configurado>
 - Nenhum `--fallback-model`: o modelo vem só do `model_id` pedido.
 - Timeout derruba a árvore de processos (`taskkill /T` no Windows).
 
-## Limite de saída: por que o modelo vem `available: false` por padrão
+## Contratos 1 e 1.1: limite de saída e término
 
-O contrato v1 trata `max_output_tokens` como teto. O Claude Code só oferece a
-variável `CLAUDE_CODE_MAX_OUTPUT_TOKENS`, documentada para "a maioria das
-requisições", e matar o processo não limita a cota consumida. Por isso:
+O Claude Code não garante o teto de saída: só há a variável
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS`, documentada para "a maioria das requisições", e
+matar o processo não limita a cota consumida. Capacidades reais declaradas no 1.1:
 
-1. Sem `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT=1`, o catálogo lista os
-   modelos configurados como indisponíveis e `/v1/generate` responde 503 com
-   `provider_output_limit_not_enforced`. Não há chamada.
-2. Com a opção ligada, o gateway passa o teto ao CLI e confere o uso devolvido:
-   se `output_tokens` passar do teto, responde 502 `output_limit_not_honored` em vez
-   de entregar como se o limite tivesse sido respeitado.
-3. `finish_reason` é inferido: `length` quando o uso alcança o teto (ou se o CLI
-   devolver `stop_reason: max_tokens`, campo não documentado), senão `stop`.
+| Capacidade | Valor |
+| --- | --- |
+| `output_limit` | `best_effort` |
+| `cancellation` | `local_process_only` |
+| `finish_reason` | `reported`: vem do `stop_reason` do CLI; sem ele, `unknown` |
+| `billing` | `subscription_quota` |
+| `streaming` | `false` |
+| `tools` | `disabled` |
 
-A evolução proposta do contrato está em
-[docs/PROPOSTA_CAPACIDADES.md](docs/PROPOSTA_CAPACIDADES.md) e precisa ser acordada
-com o Codex antes de ser consumida pelo backend.
+**Contrato 1.1** (`/v1.1/*`):
+- `available` indica só se o transporte está pronto; `unavailable_reason` explica
+  quando não está (`not_logged_in`, `not_subscription_login`, `cli_not_installed`...).
+- `/v1.1/generate` sem `allow_unenforced_output_limit: true` responde 422
+  `output_limit_not_accepted` **antes** de iniciar o CLI. A variável
+  `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` não substitui esse aceite.
+- Com o aceite, a saída é entregue mesmo se passar do teto indicativo.
+- `finish_reason`: `stop` só com `stop_reason` `end_turn`/`stop_sequence`; `length`
+  só com `max_tokens`; ausente, `null` ou outro valor (por exemplo `refusal`) →
+  `unknown`. Contagem de tokens nunca é usada para adivinhar truncamento.
+
+**Contrato 1** (`/v1/*`, legado):
+1. Sem `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT=1`, os modelos vêm
+   indisponíveis e `/v1/generate` responde 503 `provider_output_limit_not_enforced`.
+   A instalação do aplicativo não deve ligar essa variável.
+2. Com ela, `output_tokens` acima do teto vira 502 `output_limit_not_honored`.
+3. O contrato 1 não tem valor para término não confirmado: nesse caso o gateway
+   responde 502 `completion_unconfirmed` em vez de fabricar `stop` ou `length`.
+
+`stop_reason` faz parte do schema de resultado embutido no CLI (visto na 2.1.319,
+anulável), mas não da documentação pública do modo headless.
 
 ## Exemplos completos (gerados com o dublê de teste, não com a conta real)
 
@@ -175,10 +198,10 @@ caminho local é devolvido.
 | HTTP | Códigos |
 | --- | --- |
 | 401 | `invalid_gateway_token` |
-| 422 | `invalid_request`, `unknown_model`, `context_too_large`, `max_output_tokens_above_profile`, `missing_previous_output` |
+| 422 | `invalid_request`, `unknown_model`, `context_too_large`, `max_output_tokens_above_profile`, `missing_previous_output`, `output_limit_not_accepted` (1.1) |
 | 409 | `request_id_conflict`, `request_in_progress`, `request_outcome_uncertain` |
 | 429 | `gateway_busy` (já há uma geração em curso), `provider_quota_exceeded` |
-| 502 | `provider_error`, `provider_invalid_output`, `provider_empty_output`, `output_limit_not_honored`, `provider_model_mismatch` |
+| 502 | `provider_error`, `provider_invalid_output`, `provider_empty_output`, `provider_model_mismatch`, `output_limit_not_honored` (1), `completion_unconfirmed` (1) |
 | 503 | `provider_cli_not_installed`, `provider_not_logged_in`, `provider_not_subscription_login`, `provider_output_limit_not_enforced`, `provider_not_authenticated`, ... |
 | 504 | `provider_timeout` (a chamada pode ter consumido cota) |
 
@@ -189,13 +212,16 @@ A classificação de login expirado e limite de uso usa o texto devolvido pelo C
 
 Chave: `request_id` + SHA-256 do payload canônico.
 
-- Concluída → mesma resposta (inclusive erros 502 armazenados), sem nova chamada.
+- Concluída → mesma resposta, inclusive erros armazenados (502, cota 429, login
+  503), sem nova chamada.
 - Mesmo `request_id` com outro payload → 409 `request_id_conflict`.
 - Em andamento → 409 `request_in_progress`.
 - Timeout ou queda do processo durante a chamada → 409 `request_outcome_uncertain`
   para sempre; o gateway nunca repete por conta própria.
-- Erros antes de iniciar o CLI (validação, não configurado) e recusas sem geração
-  (sem login, cota esgotada) liberam o `request_id`.
+- Só libera o `request_id` o que acontece **antes** de o CLI iniciar: validação,
+  falta de aceite, modelo indisponível ou processo que não chegou a abrir. Depois
+  de iniciado, o texto de erro do CLI não prova que não houve consumo.
+- A chave inclui a versão: o mesmo `request_id` em `/v1` e `/v1.1` dá 409.
 
 ## Testes
 
@@ -207,8 +233,12 @@ python -m unittest discover -s tests/integrations -v   # gateway, com dublê
 As integrações rodam numa descoberta separada porque `tests/integrations/` teria
 o mesmo nome do pacote `integrations`.
 
-Teste real **opcional**, uma geração pequena que consome cota da assinatura. Só
-rode depois de fazer login e decidir gastar esse uso:
+Atualizar o schema 1.1 publicado depois de mudar `contracts_v1_1.py`:
+`python -m integrations.export_openapi` (um teste falha se ele estiver desatualizado).
+
+Teste real **opcional**, uma geração pequena pelo contrato 1.1 que consome cota da
+assinatura. Mostra `finish: stop` se o CLI informou `stop_reason`, `unknown` se não.
+Só rode depois de fazer login e decidir gastar esse uso:
 
 ```powershell
 $env:IA_BBARU_REAL_TEST = "claude-code"

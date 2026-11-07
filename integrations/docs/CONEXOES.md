@@ -62,7 +62,7 @@ as afirmações sobre eles vêm de `docs/ASSINATURAS.md` e não foram revalidada
 | Revisão (`review`) | Sim | Mesmo transporte, com `previous_output` como dado. |
 | Teto de saída | **Best effort** | `CLAUDE_CODE_MAX_OUTPUT_TOKENS`; o gateway confere `usage` depois. |
 | Cancelamento | **Somente local** | Matar o processo não devolve cota nem garante interrupção no servidor. |
-| `finish_reason` | **Inferido** | O JSON de resultado não documenta motivo de parada. |
+| `finish_reason` | **Informado pelo CLI, quando existe** | `stop_reason` do resultado: `end_turn`/`stop_sequence` → `stop`, `max_tokens` → `length`, ausente/`null`/outro → `unknown` (1.1) ou erro 502 `completion_unconfirmed` (1). |
 | Uso de tokens | Quando o CLI informa | Soma `input_tokens` com os tokens de cache. O custo em USD do CLI é descartado. |
 | `provider_request_id` | `null` | O CLI devolve `session_id`, que não é id de requisição do provedor. |
 | Streaming | Não usado | O contrato v1 é síncrono. |
@@ -74,8 +74,9 @@ as afirmações sobre eles vêm de `docs/ASSINATURAS.md` e não foram revalidada
 ### Campos do JSON do CLI usados
 
 Documentados: `result`, `session_id`, `usage`, `total_cost_usd` (descartado).
-Usados se existirem, mas **não documentados**: `is_error`, `stop_reason`,
-`modelUsage`. Se o CLI mudar esses campos, o gateway responde erro em vez de
+Usados se existirem, mas **não documentados** publicamente: `is_error`, `modelUsage` e
+`stop_reason`. Os três aparecem no schema de resultado embutido no binário 2.1.319
+(`stop_reason` anulável). Se faltarem, o gateway responde erro ou `unknown` em vez de
 inventar resultado.
 
 ## 3. Mocks e conta real
@@ -88,8 +89,8 @@ inventar resultado.
 | Deduplicação, 409, timeout, reinício, concorrência | Teste automatizado com dublê |
 | Derrubar processo no timeout | Teste com processo real (o dublê), só em Linux |
 | `claude --version`, `--help`, `auth status --json` | Executados na CLI real 2.1.319, **no contêiner de nuvem** |
-| Geração real com a conta do usuário | **Feita uma vez** (7/11/2026), autorizada pelo usuário, no Windows dele: Claude Code 2.1.307, login `claude.ai`, modelo `sonnet`, `max_output_tokens` 64. Resposta correta (`laranja`, lida de uma fonte com acento), `usage` 933 tokens de entrada (incluindo cache) e 5 de saída, `finish_reason: stop`, cerca de 6 s. Uma chamada não prova que o teto de saída é respeitado. |
-| Fluxo completo backend → gateway → Claude Code, conta real | **Feito uma vez** (7/11/2026), autorizado pelo usuário, no Windows dele (branch local com `codex/frontend-firefox` + esta): projeto e fonte criados, plano com `claude-code:sonnet` e teto 1024, `execute` → `completed`, resposta em 3 frases citando a fonte pelo id, `usage` 990/117, `finish_reason: stop`, acentos preservados de ponta a ponta. Segundo `execute` → 409 `task_already_executed_or_running`, sem nova chamada. Modo `review` (dois modelos) ainda não testado com conta real. |
+| Geração real com a conta do usuário | **Feita uma vez** (7/11/2026), autorizada pelo usuário, no Windows dele: Claude Code 2.1.307, login `claude.ai`, modelo `sonnet`, `max_output_tokens` 64. Resposta correta (`laranja`, lida de uma fonte com acento), `usage` 933 tokens de entrada (incluindo cache) e 5 de saída, `finish_reason: stop`, cerca de 6 s. Uma chamada não prova que o teto de saída é respeitado. **Atenção:** nessa versão o `stop` podia ser inferido pela contagem de tokens; não prova que o CLI informou `stop_reason`. |
+| Fluxo completo backend → gateway → Claude Code, conta real | **Feito uma vez** (7/11/2026), autorizado pelo usuário, no Windows dele (branch local com `codex/frontend-firefox` + esta): projeto e fonte criados, plano com `claude-code:sonnet` e teto 1024, `execute` → `completed`, resposta em 3 frases citando a fonte pelo id, `usage` 990/117, `finish_reason: stop`, acentos preservados de ponta a ponta. Segundo `execute` → 409 `task_already_executed_or_running`, sem nova chamada. Modo `review` (dois modelos) ainda não testado com conta real. Mesma ressalva sobre `stop`: feito antes da correção do item 2 da revisão. |
 | Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. |
 
 ## Fontes oficiais consultadas

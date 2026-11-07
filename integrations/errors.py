@@ -75,3 +75,15 @@ def provider_timeout():
         504, "provider_timeout",
         "Tempo esgotado; a chamada pode ter consumido cota",
     )
+
+
+def output_limit_not_accepted():
+    return GatewayError(
+        422, "output_limit_not_accepted",
+        "O modelo não garante o teto de saída e a tarefa não aceitou essa limitação",
+    )
+
+
+def completion_unconfirmed():
+    # Contract 1 has no value for an unconfirmed completion; never fabricate stop/length.
+    return GatewayError(502, "completion_unconfirmed", "Provedor não confirmou o término da resposta")

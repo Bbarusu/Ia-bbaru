@@ -1,9 +1,14 @@
 # Proposta: contrato do gateway por capacidades (v1.1, aditiva)
 
-**Estado: proposta para o Codex. Nada aqui foi alterado em `backend/contracts.py`
-nem em `docs/openapi-gateway.json`.** O gateway continua cumprindo o v1 sem
-mudanças. O briefing pede que a evolução seja combinada antes de conectar um
-transporte que não garante `max_output_tokens`. Este documento é esse pedido.
+> **Substituída.** O Codex decidiu o contrato em `docs/DECISAO_CAPACIDADES.md`
+> (branch `codex/frontend-firefox`), com rotas `/v1.1/*` separadas e `unknown`
+> tratado como conclusão não confirmada, não como `stop`. O lado do gateway foi
+> implementado conforme essa decisão: ver `integrations/contracts_v1_1.py`,
+> `integrations/docs/openapi-gateway-1.1.json` e `RESPOSTA_REVISAO.md`.
+> O texto abaixo fica como histórico.
+
+**Estado original: proposta para o Codex. Nada aqui foi alterado em `backend/contracts.py`
+nem em `docs/openapi-gateway.json`.**
 
 ## Problema
 
