@@ -71,5 +71,5 @@ os do backend, como já faz no contrato 1. Pontos que eu escolhi e que vale conf
   também combinados com `codex/frontend-firefox`.
 - Conta real: os testes reais anteriores (geração direta e fluxo backend → gateway)
   foram feitos **antes** destas correções e pelo contrato 1. O teste opcional agora
-  usa o 1.1 e mostra se o CLI do usuário informa `stop_reason`; ainda não foi
-  repetido.
+  usa o 1.1 e mostra se o CLI do usuário informa `stop_reason`.
+- Depois das correções, o teste real pelo contrato 1.1 passou no Windows do usuário (Claude Code 2.1.307, `sonnet`, teto 64): resposta `laranja`, `usage` 913/5 e `finish_reason: stop`. Como a contagem de tokens não é mais usada, esse `stop` prova que o CLI informou `stop_reason` (`end_turn` ou `stop_sequence`).
