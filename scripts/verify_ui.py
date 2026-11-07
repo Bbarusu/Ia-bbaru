@@ -89,9 +89,28 @@ def main():
         assert 'Texto exclusivo A' not in latest['content'], "Text from capture A leaked into capture B!"
         assert 'https://example.org/a' not in latest['content'], "Origin A leaked into capture B!"
 
+        # Test P1 extra: capture arriving while user is manually creating/editing a source
+        page.get_by_role('button',name='Adicionar texto',exact=True).click()
+        expect(page.get_by_role('dialog')).to_be_visible()
+        page.get_by_label('Título',exact=True).fill('Rascunho manual')
+        page.get_by_label('Conteúdo',exact=True).fill('Texto que estava sendo digitado manualmente')
+        page.evaluate("window.testCapture({id:'cap-manual-replace',title:'Fonte Durante Edição',url:'https://example.org/manual-replace',text:'Texto capturado substituindo rascunho manual'})")
+        expect(page.get_by_role('dialog')).to_be_visible()
+        page.get_by_role('button',name='Salvar no projeto',exact=True).click()
+        expect(page.get_by_role('heading',name='Fonte Durante Edição')).to_be_visible()
+        records=client.get(f"/v1/projects/{project['id']}/sources").json()['items']
+        assert len(records)==4
+        latest=records[-1]
+        assert latest['title']=='Fonte Durante Edição'
+        assert 'Texto capturado substituindo rascunho manual' in latest['content']
+        assert 'https://example.org/manual-replace' in latest['content']
+        assert 'Texto que estava sendo digitado manualmente' not in latest['content']
+        assert 'Rascunho manual' not in latest['content']
+
         # Test P2 accessibility: semantic project list in navigation rail (ul > li > button)
         assert page.locator('ul.project-list > li > button').count() >= 1, "Project items must be semantic li under ul"
         assert page.locator('.project-list[role="list"]').count() == 0, "Do not use role='list' on container without listitem children"
+        assert page.locator('ul.project-list > li > button[aria-current="true"]').count() == 1, "Selected project button must have aria-current='true'"
 
         page.screenshot(path=str(artifacts/'workspace-firefox.png'),full_page=True)
         page.set_viewport_size({'width':360,'height':900})
