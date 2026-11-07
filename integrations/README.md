@@ -5,9 +5,12 @@ Serviço local separado do backend. Implementa o contrato HTTP v1
 o **Claude Code oficial**, usando o login que o próprio usuário fez pela Anthropic.
 O serviço não guarda projetos, fontes nem histórico: isso continua no `backend/`.
 
-Estado: implementado e testado **somente com um dublê de teste** do CLI
-(`tests/integrations/fixtures/fake_claude.py`). **Nenhuma geração real foi
-feita com a conta do usuário.** Ver [docs/CONEXOES.md](docs/CONEXOES.md).
+Estado: testes automatizados com um dublê do CLI
+(`tests/integrations/fixtures/fake_claude.py`), todos passando no Linux e no
+Windows do usuário. Com conta real: **uma** geração pequena, autorizada pelo
+usuário, passou no Windows dele (Claude Code 2.1.307, login por assinatura).
+Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
+Ver [docs/CONEXOES.md](docs/CONEXOES.md).
 
 ## O que já existe
 

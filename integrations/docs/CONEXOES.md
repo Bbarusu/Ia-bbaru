@@ -35,7 +35,8 @@ adaptador existem nessa versão), `loggedIn: true`, `authMethod: claude.ai`
 (assinatura), nenhuma variável de chave de API presente; Codex e Gemini CLI
 ausentes. Estado: `output_limit_not_enforced`, ou seja, pronto exceto pela decisão
 consciente sobre o teto de saída. Isso valida no Windows a localização do CLI,
-`--version`, `--help` e `auth status --json`; **geração real ainda não feita**.
+`--version`, `--help` e `auth status --json`. Depois, com autorização do usuário, uma geração real
+pequena passou (ver tabela abaixo).
 
 ## 2. Conexão preferencial: Claude Code oficial
 
@@ -87,8 +88,8 @@ inventar resultado.
 | Deduplicação, 409, timeout, reinício, concorrência | Teste automatizado com dublê |
 | Derrubar processo no timeout | Teste com processo real (o dublê), só em Linux |
 | `claude --version`, `--help`, `auth status --json` | Executados na CLI real 2.1.319, **no contêiner de nuvem** |
-| Geração real com a conta do usuário | **Não feita.** Teste opt-in pronto (`test_real_claude_code.py`). |
-| Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. Geração real ainda não executada. |
+| Geração real com a conta do usuário | **Feita uma vez** (7/11/2026), autorizada pelo usuário, no Windows dele: Claude Code 2.1.307, login `claude.ai`, modelo `sonnet`, `max_output_tokens` 64. Resposta correta (`laranja`, lida de uma fonte com acento), `usage` 933 tokens de entrada (incluindo cache) e 5 de saída, `finish_reason: stop`, cerca de 6 s. Uma chamada não prova que o teto de saída é respeitado. |
+| Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. |
 
 ## Fontes oficiais consultadas
 
