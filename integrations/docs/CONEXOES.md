@@ -25,8 +25,17 @@ de credencial é proibido pelo briefing. Eles aparecem como `adapter_not_impleme
 O diagnóstico rodou **no contêiner de nuvem da sessão do Claude**, não no computador
 do usuário. Resultado: Claude Code 2.1.319 instalado, opções necessárias presentes,
 `authMethod: oauth_token` (credencial da própria sessão de nuvem, **não** a conta do
-usuário); Codex e Gemini CLI ausentes. **O diagnóstico no Windows do usuário
-ainda precisa ser feito** e é o próximo passo.
+usuário); Codex e Gemini CLI ausentes.
+
+### No PC Windows do usuário (7/11/2026)
+
+Executado pelo usuário com `python -m integrations diagnose`, sem chamada de modelo:
+Claude Code **2.1.307** instalado, `missing_flags: []` (todas as opções usadas pelo
+adaptador existem nessa versão), `loggedIn: true`, `authMethod: claude.ai`
+(assinatura), nenhuma variável de chave de API presente; Codex e Gemini CLI
+ausentes. Estado: `output_limit_not_enforced`, ou seja, pronto exceto pela decisão
+consciente sobre o teto de saída. Isso valida no Windows a localização do CLI,
+`--version`, `--help` e `auth status --json`; **geração real ainda não feita**.
 
 ## 2. Conexão preferencial: Claude Code oficial
 
@@ -79,7 +88,7 @@ inventar resultado.
 | Derrubar processo no timeout | Teste com processo real (o dublê), só em Linux |
 | `claude --version`, `--help`, `auth status --json` | Executados na CLI real 2.1.319, **no contêiner de nuvem** |
 | Geração real com a conta do usuário | **Não feita.** Teste opt-in pronto (`test_real_claude_code.py`). |
-| Windows (`claude.cmd`/`claude.exe`, `taskkill`) | **Não testado**: código escrito para Windows, sem execução nele. |
+| Windows (`claude.exe`, `taskkill`) | Diagnóstico validado no PC do usuário; geração e timeout ainda não executados no Windows. |
 
 ## Fontes oficiais consultadas
 
