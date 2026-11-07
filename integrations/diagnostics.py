@@ -7,6 +7,7 @@ files and never calls a model, so running it consumes no quota.
 import json
 import os
 import shutil
+import sys
 import tempfile
 
 from .adapters.claude_code import ClaudeCodeAdapter
@@ -60,4 +61,6 @@ def report(claude_settings: ClaudeCodeSettings | None = None) -> dict:
 
 
 def main():
-    print(json.dumps(report(), ensure_ascii=False, indent=2))
+    # When piped (e.g. `| clip` on Windows) the console code page garbles
+    # accents; escaped JSON stays valid and readable everywhere.
+    print(json.dumps(report(), ensure_ascii=not sys.stdout.isatty(), indent=2))
