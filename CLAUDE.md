@@ -6,6 +6,8 @@ Direção aprovada: extensão Firefox com backend local, seguida de avaliação 
 navegador próprio baseado em Firefox/Gecko. Leia docs/ARQUITETURA.md.
 O briefing de integração está em docs/INSTRUCOES_CLAUDE.md; o contrato HTTP atual
 está em backend/contracts.py e docs/openapi-gateway.json.
+A decisão para a próxima versão está em docs/DECISAO_CAPACIDADES.md; ela ainda não
+foi aplicada aos schemas. Não emitir objetos 1.1 para consumidores do contrato 1.
 
 O usuário definiu que o KInfo é a referência de design e quer aproveitar suas
 contas e assinaturas. Não presumir APIs pagas como requisito do produto. Não
