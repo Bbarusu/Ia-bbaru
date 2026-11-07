@@ -9,6 +9,8 @@ Estado: testes automatizados com um dublê do CLI
 (`tests/integrations/fixtures/fake_claude.py`), todos passando no Linux e no
 Windows do usuário. Com conta real: **uma** geração pequena, autorizada pelo
 usuário, passou no Windows dele (Claude Code 2.1.307, login por assinatura).
+Depois, o fluxo completo backend → gateway → Claude Code também passou com
+uma tarefa real (modo `single`).
 Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
 Ver [docs/CONEXOES.md](docs/CONEXOES.md).
 

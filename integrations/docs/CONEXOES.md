@@ -89,6 +89,7 @@ inventar resultado.
 | Derrubar processo no timeout | Teste com processo real (o dublê), só em Linux |
 | `claude --version`, `--help`, `auth status --json` | Executados na CLI real 2.1.319, **no contêiner de nuvem** |
 | Geração real com a conta do usuário | **Feita uma vez** (7/11/2026), autorizada pelo usuário, no Windows dele: Claude Code 2.1.307, login `claude.ai`, modelo `sonnet`, `max_output_tokens` 64. Resposta correta (`laranja`, lida de uma fonte com acento), `usage` 933 tokens de entrada (incluindo cache) e 5 de saída, `finish_reason: stop`, cerca de 6 s. Uma chamada não prova que o teto de saída é respeitado. |
+| Fluxo completo backend → gateway → Claude Code, conta real | **Feito uma vez** (7/11/2026), autorizado pelo usuário, no Windows dele (branch local com `codex/frontend-firefox` + esta): projeto e fonte criados, plano com `claude-code:sonnet` e teto 1024, `execute` → `completed`, resposta em 3 frases citando a fonte pelo id, `usage` 990/117, `finish_reason: stop`, acentos preservados de ponta a ponta. Segundo `execute` → 409 `task_already_executed_or_running`, sem nova chamada. Modo `review` (dois modelos) ainda não testado com conta real. |
 | Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. |
 
 ## Fontes oficiais consultadas
