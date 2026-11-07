@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 
@@ -29,7 +29,7 @@ class Store:
 
     @contextmanager
     def connect(self):
-        with sqlite3.connect(self.path, timeout=10) as conn:
+        with closing(sqlite3.connect(self.path, timeout=10)) as conn, conn:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys=ON")
             yield conn
