@@ -88,7 +88,7 @@ inventar resultado.
 | Derrubar processo no timeout | Teste com processo real (o dublê), só em Linux |
 | `claude --version`, `--help`, `auth status --json` | Executados na CLI real 2.1.319, **no contêiner de nuvem** |
 | Geração real com a conta do usuário | **Não feita.** Teste opt-in pronto (`test_real_claude_code.py`). |
-| Windows (`claude.exe`, `taskkill`) | Diagnóstico validado no PC do usuário; geração e timeout ainda não executados no Windows. |
+| Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. Geração real ainda não executada. |
 
 ## Fontes oficiais consultadas
 
