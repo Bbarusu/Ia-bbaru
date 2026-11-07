@@ -31,7 +31,9 @@ def main():
         print(json.dumps({"loggedIn": login != "none", "authMethod": login, "apiProvider": "firstParty"}))
         return 0 if login != "none" else 1
 
-    stdin = sys.stdin.read()
+    # Read bytes and decode UTF-8 like the real (Node.js) CLI does. sys.stdin
+    # would use the Windows ANSI code page (cp1252) and garble accents.
+    stdin = sys.stdin.buffer.read().decode("utf-8")
     record = os.environ.get("FAKE_CLAUDE_RECORD")
     if record:
         with open(record, "w", encoding="utf-8") as fh:
