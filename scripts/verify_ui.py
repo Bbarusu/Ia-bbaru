@@ -72,6 +72,27 @@ def main():
         expect(page.get_by_role('heading',name='Uma referência')).to_be_visible()
         records=client.get(f"/v1/projects/{project['id']}/sources").json()['items']
         assert len(records)==2 and 'https://example.org/aula' in records[-1]['content']
+
+        # Test P1 regression: replace capture while modal is already open (double capture)
+        page.evaluate("window.testCapture({id:'cap-a',title:'Fonte A',url:'https://example.org/a',text:'Texto exclusivo A'})")
+        expect(page.get_by_role('dialog')).to_be_visible()
+        page.evaluate("window.testCapture({id:'cap-b',title:'Fonte B',url:'https://example.org/b',text:'Texto exclusivo B'})")
+        expect(page.get_by_role('dialog')).to_be_visible()
+        page.get_by_role('button',name='Salvar no projeto',exact=True).click()
+        expect(page.get_by_role('heading',name='Fonte B')).to_be_visible()
+        records=client.get(f"/v1/projects/{project['id']}/sources").json()['items']
+        assert len(records)==3
+        latest=records[-1]
+        assert latest['title']=='Fonte B', f"Expected title 'Fonte B', got {latest['title']}"
+        assert 'Texto exclusivo B' in latest['content'], f"Expected content B, got {latest['content']}"
+        assert 'https://example.org/b' in latest['content'], f"Expected origin B, got {latest['content']}"
+        assert 'Texto exclusivo A' not in latest['content'], "Text from capture A leaked into capture B!"
+        assert 'https://example.org/a' not in latest['content'], "Origin A leaked into capture B!"
+
+        # Test P2 accessibility: semantic project list in navigation rail (ul > li > button)
+        assert page.locator('ul.project-list > li > button').count() >= 1, "Project items must be semantic li under ul"
+        assert page.locator('.project-list[role="list"]').count() == 0, "Do not use role='list' on container without listitem children"
+
         page.screenshot(path=str(artifacts/'workspace-firefox.png'),full_page=True)
         page.set_viewport_size({'width':360,'height':900})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
