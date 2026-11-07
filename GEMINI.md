@@ -1,14 +1,19 @@
-# Ia-bbaru — instruções para a frente de frontend
+# Ia-bbaru — frontend com Gemini
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru.
 
-Leia `docs/INSTRUCOES_GEMINI.md`, `docs/DESIGN.md`, `docs/ARQUITETURA.md` e
-`docs/TRANSPORTE_EXTENSAO.md`. Use `gemini/frontend-firefox` como branch de trabalho.
+O usuário pediu uma nova tentativa com Gemini no frontend. **A interface já existe.**
+Leia `docs/INSTRUCOES_GEMINI.md` antes de editar: ele contém a base correta,
+responsabilidades, fluxos, critérios de aceite e testes.
 
-Implemente a interface e a extensão Firefox em `frontend/` e `extension/`.
-Não implemente uma segunda API, não altere o backend sem coordenar o contrato e não
-habilite chamadas pagas para completar uma demonstração visual.
+Enquanto a entrega de Codex não estiver integrada na main, use
+`origin/codex/frontend-firefox` como base e trabalhe em `gemini/frontend-v2`.
+Não reinicie a interface a partir da antiga main. Preserve as alterações locais
+antes de trocar de branch e não use force push.
 
-O KInfo é a referência de design. O frontend deve distinguir dados reais,
-indisponibilidade e demonstração. Não versionar segredos, histórico de navegação,
-sessões de contas ou material pessoal. Siga os critérios do briefing e entregue PR.
+Gemini mantém UI/UX e componentes em `frontend/`. Codex mantém backend, host local
+e transporte da extensão. Claude está trabalhando nas integrações; o usuário está
+executando testes com ele. Não alterar a branch de outra frente.
+
+Siga a linguagem visual do KInfo. Não simule conexão ou geração de IA, não exponha
+tokens e não habilite execução pelo painel enquanto a ponte não declarar suporte.

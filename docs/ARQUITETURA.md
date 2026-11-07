@@ -19,7 +19,8 @@ um substituto desktop de Electron/WebView2. Criar uma janela Electron não atend
 
 | Frente | Responsável | Área |
 | --- | --- | --- |
-| Frontend, captura explícita e extensão Firefox | Gemini | frontend/, extension/ |
+| UI/UX e evolução dos componentes | Gemini, sobre base implementada por Codex | frontend/ |
+| Captura, transporte e extensão Firefox | Codex | extension/ |
 | Provedores de IA e autenticação compatível | Claude | integrations/ |
 | Projetos, dados, tarefas, coordenação e host local | Codex | backend/, native_host/ |
 
@@ -36,8 +37,8 @@ flowchart LR
     B --> I[Integrações oficiais de IA]
 ```
 
-Somente o backend HTTP/SQLite e o cliente de gateway existem hoje. Os demais
-componentes do desenho são o trabalho planejado. Login no navegador não implica
+Frontend, extensão, backend HTTP/SQLite e host local estão implementados. O gateway
+do Claude está na PR #1, ainda separado e com correções pendentes. Login no navegador não implica
 que o backend possa extrair conversas ou consumir assinaturas por qualquer rota.
 
 ## Marcos

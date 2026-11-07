@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import Field, field_validator
 
@@ -113,9 +113,10 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return project
 
     @app.get("/v1/projects", dependencies=protected)
-    def list_projects():
+    def list_projects(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
         with store.connect() as conn:
-            return {"items": [dict(r) for r in conn.execute("SELECT * FROM projects ORDER BY created_at DESC")]}
+            rows = conn.execute("SELECT * FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?", (limit + 1, offset)).fetchall()
+            return {"items": [dict(r) for r in rows[:limit]], "next_offset": offset + limit if len(rows) > limit else None}
 
     @app.post("/v1/projects/{project_id}/sources", status_code=201, dependencies=protected)
     def add_source(project_id: str, data: SourceInput):
@@ -127,11 +128,27 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return source
 
     @app.get("/v1/projects/{project_id}/sources", dependencies=protected)
-    def list_sources(project_id: str):
+    def list_sources(project_id: str, limit: int = Query(20, ge=1, le=100),
+                     offset: int = Query(0, ge=0), summary: bool = False):
         project_exists(project_id)
         with store.connect() as conn:
-            return {"items": [dict(r) for r in conn.execute(
-                "SELECT * FROM sources WHERE project_id=? ORDER BY created_at", (project_id,))]}
+            rows = conn.execute("SELECT * FROM sources WHERE project_id=? ORDER BY created_at, id LIMIT ? OFFSET ?",
+                                (project_id, limit + 1, offset)).fetchall()
+            items = [dict(r) for r in rows[:limit]]
+            if summary:
+                for item in items:
+                    content = item.pop("content")
+                    item.update(preview=content[:160], char_count=len(content))
+            return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
+
+    @app.get("/v1/projects/{project_id}/sources/{source_id}", dependencies=protected)
+    def get_source(project_id: str, source_id: str):
+        project_exists(project_id)
+        with store.connect() as conn:
+            row = conn.execute("SELECT * FROM sources WHERE id=? AND project_id=?", (source_id, project_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "source_not_found")
+        return dict(row)
 
     @app.post("/v1/projects/{project_id}/tasks", status_code=201, dependencies=protected)
     def create_task(project_id: str, data: TaskInput):
@@ -195,11 +212,16 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return task
 
     @app.get("/v1/projects/{project_id}/tasks", dependencies=protected)
-    def list_tasks(project_id: str):
+    def list_tasks(project_id: str, limit: int = Query(20, ge=1, le=100),
+                   offset: int = Query(0, ge=0), summary: bool = False):
         project_exists(project_id)
         with store.connect() as conn:
-            rows = conn.execute("SELECT body FROM tasks WHERE project_id=? ORDER BY rowid DESC", (project_id,))
-            return {"items": [json.loads(r["body"]) for r in rows]}
+            rows = conn.execute("SELECT body FROM tasks WHERE project_id=? ORDER BY rowid DESC LIMIT ? OFFSET ?",
+                                (project_id, limit + 1, offset)).fetchall()
+            items = [json.loads(r["body"]) for r in rows[:limit]]
+            if summary:
+                items = [{k: t[k] for k in ("id", "project_id", "created_at", "status", "instruction", "kind", "plan", "error")} for t in items]
+            return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
 
     @app.get("/v1/tasks/{task_id}", dependencies=protected)
     def get_task(task_id: str):

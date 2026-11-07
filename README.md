@@ -2,11 +2,19 @@
 
 Just a school project.
 
-Projeto independente. O KInfo é a referência visual para a futura interface.
-Esta entrega contém **o backend e os briefings de implementação**. A interface e
-as conexões reais com os provedores ainda não foram implementadas.
+Projeto independente com a linguagem visual do KInfo. Esta entrega contém o
+**painel React, extensão Firefox, ponte local e backend**. Projetos e materiais
+funcionam localmente; a integração real de IA está em revisão na PR #1.
+
+**[Instalar no Firefox](docs/INSTALAR_FIREFOX.md)** ·
+[Estado e pendências](docs/STATUS.md) · [Revisão do Claude](docs/REVISAO_CLAUDE.md)
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru
+
+![Prévia do painel Ia-bbaru](docs/images/painel-demonstracao.png)
+
+*Prévia capturada em Firefox. Modo de demonstração identificado, com dados fictícios;
+nenhuma conta de IA conectada.*
 
 ## Primeira etapa aprovada
 
@@ -15,16 +23,17 @@ backend local. Validar o fluxo de projeto, contexto selecionado e agentes antes
 de manter um navegador independente baseado em Firefox.
 
 - [Briefing do Claude: integrações](docs/INSTRUCOES_CLAUDE.md).
-- [Briefing do Gemini: frontend e extensão Firefox](docs/INSTRUCOES_GEMINI.md).
+- [Novo briefing do Gemini: evolução do frontend existente](docs/INSTRUCOES_GEMINI.md).
 - [Arquitetura Firefox/Gecko e divisão do trabalho](docs/ARQUITETURA.md).
-- [Transporte entre extensão e backend: proposta](docs/TRANSPORTE_EXTENSAO.md).
+- [Transporte implementado entre extensão e backend](docs/TRANSPORTE_EXTENSAO.md).
 
 ## Direção atual: aproveitar contas e assinaturas
 
 O objetivo é usar as contas que o usuário já possui. A proposta é uma interface web
 local com um componente local para integrar os caminhos oficiais de cada serviço,
 além de transferência assistida de contexto quando a automação não estiver disponível.
-Isso ainda é um desenho de integração, não uma conexão já implementada.
+O transporte local está implementado. A integração com assinaturas ainda não foi
+validada com uma conta real e não é ativada pela instalação da extensão.
 
 - [Contas, assinaturas e arquitetura proposta](docs/ASSINATURAS.md).
 - [Referência visual do KInfo](docs/DESIGN.md).
@@ -35,20 +44,25 @@ como interface inicial, mas **não é compatível automaticamente com todos os f
 de assinatura**. Em especial, o limite obrigatório de tokens de saída precisa ser
 revisto antes de integrar o fluxo documentado de Sign in with ChatGPT.
 
-## Divisão proposta
+## Divisão atual
 
 - Backend deste repositório: projetos, fontes de texto, tarefas, plano de execução,
   seleção de modelos, execução em até duas etapas e histórico persistido.
 - Serviço de integrações feito com Claude: verificar elegibilidade das contas,
   integrar os caminhos oficiais disponíveis e informar capacidades reais de cada
   conexão. API com chave fica opcional; não contratar cobrança por padrão.
-- Frontend feito com Gemini: interface React/TypeScript e extensão Firefox,
-  preservando o estilo do KInfo e consumindo os contratos do backend.
-- Codex: backend principal, persistência, coordenação, ponte local e integração.
+- Codex: implementação inicial de frontend, extensão Firefox, backend principal,
+  persistência, coordenação e ponte local.
+- Gemini: nova tentativa de evolução do frontend sobre essa base, seguindo
+  `docs/INSTRUCOES_GEMINI.md`. O usuário está testando as integrações com Claude.
 - Guia para o Claude: `docs/INSTRUCOES_CLAUDE.md`.
 - Contratos: `docs/openapi-backend.json` e `docs/openapi-gateway.json`.
 
-## Executar localmente
+## Executar somente o backend para desenvolvimento
+
+Para usar o aplicativo completo, siga [Instalar no Firefox](docs/INSTALAR_FIREFOX.md).
+O instalador provisiona o mesmo token para a ponte e o serviço; não misture esse
+fluxo com um token aleatório de outro terminal.
 
 Requer Python 3.12. Os comandos abaixo são para bash:
 
@@ -86,7 +100,8 @@ somente no gateway; o navegador não precisa conhecê-las.
 3. `GET /v1/models`: consultar o catálogo real do gateway.
 4. `POST /v1/projects/{id}/tasks`: criar plano, sem gerar resposta ou consumir tokens
    de geração. O gateway deve consultar o catálogo sem chamadas de geração.
-5. `POST /v1/tasks/{id}/execute`: executar o plano. Pode realizar chamadas cobradas.
+5. `POST /v1/tasks/{id}/execute`: executar o plano pelo cliente HTTP de desenvolvimento.
+   Pode consumir cota/cobrança. Esta operação ainda não é exposta pela extensão.
 6. `GET /v1/tasks/{id}`: consultar status e resultados intermediários.
 
 Corpo de criação de tarefa (troque IDs pelos retornados pelas APIs):
@@ -131,7 +146,8 @@ faz uma chamada de IA para decidir o roteamento.
   saída, respeitando o limite do modelo. Usage é registrado quando o gateway retorna.
 - Sem streaming, cancelamento remoto ou reexecução de etapas.
 - Sem credenciais configuradas, `/v1/models` e a criação de planos retornam 503.
-  Não existem respostas fictícias no runtime; o adaptador de teste vive nos testes.
+  Não existem respostas fictícias no fluxo normal. A prévia visual `?demo=1` é
+  explicitamente identificada e não faz inferência.
 
 Antes de publicar: substituir o token único por autenticação e autorização por
 usuário, definir retenção/exclusão dos dados e implantar fila durável e limites de
@@ -141,9 +157,18 @@ custo. Esta base não deve ser exposta publicamente como está.
 
 ```sh
 python -m unittest discover -s tests -v
+cd frontend
+npm ci
+npm test
+npm run build
 ```
 
 Os testes verificam autenticação, isolamento das fontes entre projetos, roteamento,
 passagem de contexto à revisão, limites de entrada, execução única concorrente,
 falhas parciais, respostas truncadas, recuperação após reinício e validação do gateway.
 Não realizam chamadas pagas a provedores.
+
+A validação opcional de UI usa `python scripts/verify_ui.py` após instalar
+`playwright` e executar `python -m playwright install firefox`. Renderiza em Gecko
+com backend real e APIs WebExtensions simuladas; não substitui testar o carregamento
+nativo da extensão. Nenhuma validação automática exige login de IA.

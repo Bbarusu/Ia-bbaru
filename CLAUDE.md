@@ -22,5 +22,8 @@ chamadas cobradas como passo implícito de instalação.
 
 Ao colaborar em sessões simultâneas, usar branches próprias e verificar o remoto
 antes de enviar commits. Não sobrescrever mudanças de outra sessão com force push.
-Claude trabalha em integrations/; Gemini em frontend/ e extension/; Codex mantém
-backend/ e a ponte local. As pastas das novas frentes serão criadas por seus autores.
+Claude trabalha em integrations/; Codex mantém extension/, backend/ e native_host/.
+Após a implementação inicial por Codex, o usuário pediu nova tentativa com Gemini
+na evolução de frontend/. Veja docs/INSTRUCOES_GEMINI.md. Consulte também
+docs/REVISAO_CLAUDE.md, vinculada ao commit revisado da PR #1; ela não substitui
+a validação das alterações e testes posteriores em andamento com o usuário.
