@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link2, Loader2, Plus } from "lucide-react";
 import { Dialog } from "./Dialog";
 import { sourceContent } from "../logic.mjs";
@@ -11,8 +11,14 @@ interface SourceModalProps {
   initialTitle?: string;
   initialContent?: string;
   close: () => void;
-  saveSource: (projectId: string, title: string, content: string) => Promise<void>;
-  discardCapture?: () => Promise<void>;
+  saveSource: (
+    projectId: string,
+    title: string,
+    content: string,
+    sourceUrl?: string,
+    sourceCaptureId?: string
+  ) => Promise<void>;
+  discardCapture?: (captureId?: string) => Promise<void>;
   busy: boolean;
   online: boolean;
   error?: string;
@@ -34,10 +40,29 @@ export function SourceModal({
   const [selectedProjectId, setSelectedProjectId] = useState(
     currentProjectId || (projects[0]?.id ?? "")
   );
-  const [title, setTitle] = useState(capture?.title || initialTitle);
-  const [content, setContent] = useState(capture?.text || initialContent);
+  const [title, setTitle] = useState(capture?.title ?? initialTitle);
+  const [content, setContent] = useState(capture?.text ?? initialContent);
 
-  const formattedContent = sourceContent(title, capture?.url || "", content);
+  // Sync title & content whenever capture changes (e.g. second capture arrives while modal is open)
+  useEffect(() => {
+    if (capture) {
+      setTitle(capture.title);
+      setContent(capture.text);
+    } else {
+      setTitle(initialTitle);
+      setContent(initialContent);
+    }
+  }, [capture?.id, capture?.title, capture?.text, initialTitle, initialContent]);
+
+  // Keep project in sync if currentProjectId changes
+  useEffect(() => {
+    if (currentProjectId) {
+      setSelectedProjectId(currentProjectId);
+    }
+  }, [currentProjectId]);
+
+  const originUrl = capture?.url || "";
+  const formattedContent = sourceContent(title, originUrl, content);
   const charCount = formattedContent.length;
   const isOverLimit = charCount > 40000;
 
@@ -46,7 +71,14 @@ export function SourceModal({
     if (!selectedProjectId || !title.trim() || !content.trim() || isOverLimit || busy || !online) {
       return;
     }
-    await saveSource(selectedProjectId, title.trim(), content);
+    // Always pass the capture's URL and ID to guarantee consistency with the reviewed content
+    await saveSource(
+      selectedProjectId,
+      title.trim(),
+      content,
+      originUrl,
+      capture?.id
+    );
   }
 
   return (
@@ -114,7 +146,7 @@ export function SourceModal({
             <button
               type="button"
               className="subtle"
-              onClick={discardCapture}
+              onClick={() => discardCapture(capture.id)}
               disabled={busy}
             >
               Descartar trecho

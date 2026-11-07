@@ -259,14 +259,16 @@ export default function App() {
   async function handleSaveSource(
     targetProjectId: string,
     title: string,
-    content: string
+    content: string,
+    sourceUrl: string = capture?.url || "",
+    sourceCaptureId?: string
   ) {
     if (!targetProjectId) {
       setError("Crie ou escolha um projeto antes de salvar.");
       return;
     }
 
-    const body = sourceContent(title, capture?.url || "", content);
+    const body = sourceContent(title, sourceUrl, content);
     if (body.length > 40000) {
       setError(
         "O material completo, incluindo a origem, deve ter até 40.000 caracteres."
@@ -294,17 +296,19 @@ export default function App() {
       setModal(null);
       setNotice("Material salvo no projeto.");
 
-      if (capture) {
-        await clearCapture(capture.id);
+      const idToClear = sourceCaptureId || capture?.id;
+      if (idToClear) {
+        await clearCapture(idToClear);
       }
       setCapture(null);
     });
   }
 
-  async function handleDiscardCapture() {
-    if (!capture) return;
+  async function handleDiscardCapture(captureId?: string) {
+    const idToClear = captureId || capture?.id;
+    if (!idToClear) return;
     await act(async () => {
-      await clearCapture(capture.id);
+      await clearCapture(idToClear);
       setCapture(null);
       setModal(null);
     });
@@ -666,6 +670,7 @@ export default function App() {
 
       {modal === "source" && (
         <SourceModal
+          key={capture?.id ?? "source-manual"}
           capture={capture}
           projects={projects}
           currentProjectId={projectId}

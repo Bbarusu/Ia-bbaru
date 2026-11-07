@@ -338,6 +338,9 @@ svg {
 }
 
 .project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
   max-height: 220px;
   display: flex;
@@ -345,6 +348,13 @@ svg {
   gap: 2px;
 }
 
+.project-list > li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.project-list > li > button,
 .project-list > button {
   width: 100%;
   display: flex;
@@ -357,11 +367,13 @@ svg {
   border-radius: var(--radius-sm);
 }
 
+.project-list > li > button:hover:not(:disabled),
 .project-list > button:hover:not(:disabled) {
   color: var(--text);
   background: var(--surface-hover);
 }
 
+.project-list > li > button.chosen,
 .project-list > button.chosen {
   color: var(--text);
   background: var(--surface-raised);

@@ -82,39 +82,41 @@ export function NavigationRail({
         </button>
       </div>
 
-      <div className="project-list" role="list">
-        {projects.length ? (
-          projects.map((p) => (
-            <button
-              type="button"
-              key={p.id}
-              onClick={() => setProjectId(p.id)}
-              className={p.id === projectId ? "chosen" : ""}
-              aria-current={p.id === projectId ? "true" : undefined}
-            >
-              <Folder size={16} />
-              <span>{p.title}</span>
-              {p.id === projectId && <span className="tiny-dot" aria-hidden="true" />}
-            </button>
-          ))
-        ) : (
-          <p className="rail-empty">
-            Um espaço para cada ideia.
-            <br />
-            Crie seu primeiro projeto.
-          </p>
-        )}
-        {projectNext !== null && (
-          <button
-            type="button"
-            className="subtle load-more-rail"
-            onClick={moreProjects}
-            disabled={busy}
-          >
-            Mais projetos
-          </button>
-        )}
-      </div>
+      {projects.length > 0 ? (
+        <ul className="project-list" aria-label="Lista de projetos">
+          {projects.map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => setProjectId(p.id)}
+                className={p.id === projectId ? "chosen" : ""}
+                aria-current={p.id === projectId ? "true" : undefined}
+              >
+                <Folder size={16} aria-hidden="true" />
+                <span>{p.title}</span>
+                {p.id === projectId && <span className="tiny-dot" aria-hidden="true" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="rail-empty">
+          Um espaço para cada ideia.
+          <br />
+          Crie seu primeiro projeto.
+        </p>
+      )}
+
+      {projectNext !== null && (
+        <button
+          type="button"
+          className="subtle load-more-rail"
+          onClick={moreProjects}
+          disabled={busy}
+        >
+          Mais projetos
+        </button>
+      )}
 
       <div className="rail-bottom">
         <div className="private-note">
