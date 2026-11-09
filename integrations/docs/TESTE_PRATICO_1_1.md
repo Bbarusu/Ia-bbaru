@@ -1,5 +1,8 @@
 # Windows: gateway com o navegador Chromium
 
+> Para o **primeiro início** com as três frentes juntas, use
+> [PRIMEIRO_INICIO.md](PRIMEIRO_INICIO.md). Este roteiro detalha os testes por partes.
+
 Base do navegador: `codex/chromium-browser` (Electron). O app **inicia o próprio
 backend** em porta livre, com token interno. Não é preciso subir backend na porta
 8000 nem definir `LAUNCHER_API_TOKEN` para usar o navegador. O gateway continua
@@ -124,7 +127,11 @@ cd W:\Projeto\Ia-bbaru-chromium
 $env:GATEWAY_URL = "http://127.0.0.1:8010"
 $env:GATEWAY_TOKEN = (Get-Content W:\Projeto\ia-teste-local\gateway.token -Raw).Trim()
 $env:GATEWAY_PROTOCOL_VERSION = "1.1"
-.\scripts\start-browser.ps1
+# Primeira abertura desta pasta: instala frontend/desktop aqui (as dependências da
+# parte 1 ficaram em ia-integracao-chromium; cada worktree precisa das suas).
+.\scripts\start-browser.ps1 -Install
+# Aberturas seguintes:
+# .\scripts\start-browser.ps1
 ```
 
 Se o PowerShell bloquear scripts locais, use os comandos equivalentes do guia do

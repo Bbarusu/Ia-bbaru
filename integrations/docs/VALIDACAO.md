@@ -3,7 +3,23 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: navegador Chromium (9/11/2026)
+## Rodada atual: primeiro início com as três frentes (9/11/2026)
+
+Codex `33fc1ea` + Gemini `00e2c8f` + este gateway, juntos numa worktree local.
+Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INICIO.md).
+
+| Verificação (Linux, sem conta real) | Resultado |
+| --- | --- |
+| Merges Gemini e gateway sobre o Codex | ✅ sem conflito |
+| Python 48 / gateway 52 + 1 pulado / frontend 10 / desktop 3 / build | ✅ |
+| `verify_gateway_v11.py`, `test:ui` e `desktop_gateway_smoke.cjs` | ✅ |
+| 900×640 sem rolagem horizontal; painel sem violações do axe | ✅ |
+| Barra do navegador no axe | ⚠️ 3 itens menores (ver revisão) |
+| `integrations/scripts/iniciar-ia-bbaru.ps1` | ⚠️ **não executado** (sem PowerShell no contêiner) |
+
+No Windows: ⏳ pendente, seguindo [PRIMEIRO_INICIO.md](PRIMEIRO_INICIO.md).
+
+## Rodada anterior: navegador Chromium (9/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_CHROMIUM.md` (branch `codex/chromium-browser`).
 
@@ -37,11 +53,11 @@ indisponível (antes, 30 s), para um login feito no terminal aparecer logo.
 
 ### No Windows do usuário
 
-⏳ Pendente. Comandos em [TESTE_PRATICO_1_1.md](TESTE_PRATICO_1_1.md), partes 1 e 2.
+⏳ Pendente; substituído pelo primeiro início (acima). Testes por partes continuam em [TESTE_PRATICO_1_1.md](TESTE_PRATICO_1_1.md).
 A rodada anterior (base Firefox, abaixo) também não chegou a ser executada no
 Windows; foi substituída por esta.
 
-## Rodada anterior: revisão integrada do Codex (9/11/2026)
+## Rodada mais antiga: revisão integrada do Codex (9/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_VALIDACAO.md` (branch `codex/frontend-firefox`).
 Revisão do Codex: `docs/REVISAO_INTEGRADA_2026_11_09.md`, que não exige nova
