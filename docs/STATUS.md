@@ -51,6 +51,16 @@ Guia: [TESTAR_NAVEGADOR_CHROMIUM.md](TESTAR_NAVEGADOR_CHROMIUM.md).
 
 ## Integração do Claude
 
+**Revisão atual:** o gateway `a58e66c` foi conferido com o Chromium/backend `e1ff8b9`.
+Passaram 52 testes do gateway (1 real ignorado), a comparação dos schemas 1.1,
+o teste HTTP e o teste gráfico Electron → backend → gateway com CLI de teste,
+sem geração. Está pronto para a primeira inicialização com catálogo e planejamento.
+O roteiro do Claude precisa usar `start-browser.ps1 -Install` na pasta do navegador
+na primeira abertura, caso as dependências tenham sido instaladas somente na pasta
+de integração. [Revisão e correção](REVISAO_CLAUDE_CHROMIUM.md). Windows ainda pendente.
+
+Histórico da implementação:
+
 A PR [#1](https://github.com/Bbarusu/Ia-bbaru/pull/1) implementa o gateway com Claude
 Code e os endpoints 1.1. O commit `b4b2dcc` corrigiu deduplicação e término sem
 evidência apontados na revisão anterior. A suíte do gateway combinada com este

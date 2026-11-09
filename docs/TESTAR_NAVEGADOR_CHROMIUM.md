@@ -83,6 +83,11 @@ são herdadas somente pelo processo local; o frontend recebe operações limitad
 O app não lê `.env` automaticamente. Não é preciso definir `LAUNCHER_API_TOKEN`:
 ele provisiona seu próprio segredo interno para o backend que iniciou.
 
+Se estiver seguindo o guia do Claude e tiver instalado as dependências npm apenas
+na worktree de integração, use `start-browser.ps1 -Install` na primeira abertura
+da pasta do navegador, mantendo as variáveis do gateway. Cada worktree precisa das
+suas dependências. Veja a [revisão da entrega do Claude](REVISAO_CLAUDE_CHROMIUM.md).
+
 No painel, verifique a conexão, selecione um agente do catálogo e descreva a
 tarefa. Para limites indicativos, o aceite aparece desmarcado; sem ele o plano
 não é enviado. Ao salvar, o backend persiste o aceite e as capacidades. O controle
