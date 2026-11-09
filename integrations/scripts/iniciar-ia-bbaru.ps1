@@ -10,7 +10,7 @@ O que faz:
   1. Na primeira vez, cria .venv (Python 3.12) e instala requirements.txt.
   2. Guarda um token de gateway fora do repositório (%LOCALAPPDATA%\Ia-bbaru-gateway).
   3. Mostra o diagnóstico do Claude Code (sem gerar resposta).
-  4. Abre o gateway numa janela minimizada (porta 8010).
+  4. Abre o gateway sem janela (porta 8010), com log em %LOCALAPPDATA%\Ia-bbaru-gateway.
   5. Abre o navegador com GATEWAY_URL, GATEWAY_TOKEN e GATEWAY_PROTOCOL_VERSION=1.1,
      usando scripts\start-browser.ps1 (com -Install na primeira vez).
   6. Ao fechar o navegador, encerra o gateway.
@@ -86,8 +86,14 @@ try {
 if ($alreadyRunning) {
     throw "Já existe um serviço na porta $Port (talvez um gateway antigo). Feche-o e rode este script de novo."
 }
+# Sem janela: um clique no console do Windows (modo "Selecionar") pausa o processo
+# quando ele escreve no log. O log vai para arquivo (só método, rota e status).
+$logFile = Join-Path $stateDir 'gateway.log'
+$errFile = Join-Path $stateDir 'gateway-erros.log'
+$env:PYTHONUNBUFFERED = '1'  # linhas do log aparecem na hora
 $gateway = Start-Process -FilePath $python -ArgumentList @('-m', 'integrations', 'serve', '--port', "$Port") `
-    -WorkingDirectory $root -WindowStyle Minimized -PassThru
+    -WorkingDirectory $root -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput $logFile -RedirectStandardError $errFile
 $ready = $false
 for ($i = 0; $i -lt 60 -and -not $gateway.HasExited; $i++) {
     try {
@@ -98,9 +104,10 @@ for ($i = 0; $i -lt 60 -and -not $gateway.HasExited; $i++) {
 }
 if (-not $ready) {
     if (-not $gateway.HasExited) { Stop-Process -Id $gateway.Id -Force }
-    throw 'O gateway não iniciou. Rode ".venv\Scripts\python.exe -m integrations serve" para ver o erro.'
+    throw "O gateway não iniciou. Veja $errFile."
 }
-Write-Host "Gateway ativo em $url (janela minimizada)."
+Write-Host "Gateway ativo em $url."
+Write-Host "  Para acompanhar as requisições em outro PowerShell: Get-Content `"$logFile`" -Wait"
 
 # 5. Navegador; 6. encerra o gateway ao sair.
 $env:GATEWAY_URL = $url

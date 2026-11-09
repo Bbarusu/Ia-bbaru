@@ -53,7 +53,9 @@ Windows. O script:
 1. na primeira vez, cria `.venv` e instala as dependências Python;
 2. guarda o token do gateway em `%LOCALAPPDATA%\Ia-bbaru-gateway` (fora do Git);
 3. mostra se o Claude Code está pronto (diagnóstico, sem gerar nada);
-4. abre o gateway numa janela minimizada, na porta 8010;
+4. abre o gateway **sem janela**, na porta 8010, com log em
+   `%LOCALAPPDATA%\Ia-bbaru-gateway\gateway.log` (um console aberto pausaria o
+   gateway se alguém clicasse nele, no modo "Selecionar" do Windows);
 5. abre o navegador com `GATEWAY_URL`, `GATEWAY_TOKEN` e `GATEWAY_PROTOCOL_VERSION=1.1`.
    Na primeira vez usa `start-browser.ps1 -Install` (instala a interface e baixa o
    Electron; pode levar alguns minutos);
@@ -74,8 +76,9 @@ defina `LAUNCHER_API_TOKEN`. Opções: `-Model opus`, `-MaxOutputTokens 256`, `-
 6. Selecione o agente, escreva um pedido e clique em **Criar plano**: aparece o
    pedido de aceite. Marque **Aceito o limite indicativo para esta tarefa** e crie
    o plano. Ele é salvo; **nenhuma resposta é gerada**.
-7. Na janela do gateway devem aparecer apenas `GET /v1.1/models`, nunca
-   `POST /v1.1/generate`.
+7. Para acompanhar o gateway, em outro PowerShell:
+   `Get-Content "$env:LOCALAPPDATA\Ia-bbaru-gateway\gateway.log" -Wait`.
+   Devem aparecer apenas `GET /v1.1/models`, nunca `POST /v1.1/generate`.
 8. Feche e reabra pelo mesmo comando: projeto, materiais e rascunho continuam lá.
 
 Se o agente aparecer indisponível, o motivo vem no cartão e no diagnóstico do

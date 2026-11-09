@@ -23,7 +23,9 @@ def main():
         parser.error("O gateway só escuta em loopback nesta versão.")
     import uvicorn
     from .app import create_app
-    uvicorn.run(create_app(), host=args.host, port=args.port, workers=1, log_level="info")
+    # No ANSI colours: on Windows the log goes to a file (see scripts/iniciar-ia-bbaru.ps1).
+    uvicorn.run(create_app(), host=args.host, port=args.port, workers=1, log_level="info",
+                use_colors=False)
 
 
 if __name__ == "__main__":
