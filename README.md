@@ -7,7 +7,7 @@ Projeto independente com a linguagem visual do KInfo. Esta entrega contém o
 funcionam localmente; a integração real de IA está em revisão na PR #1.
 
 **[Instalar no Firefox](docs/INSTALAR_FIREFOX.md)** ·
-[Estado e pendências](docs/STATUS.md) · [Revisão do Claude](docs/REVISAO_CLAUDE.md)
+[Estado e pendências](docs/STATUS.md) · [Configurar gateway 1.1](docs/TESTAR_GATEWAY_1_1.md)
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru
 
@@ -32,17 +32,18 @@ de manter um navegador independente baseado em Firefox.
 O objetivo é usar as contas que o usuário já possui. A proposta é uma interface web
 local com um componente local para integrar os caminhos oficiais de cada serviço,
 além de transferência assistida de contexto quando a automação não estiver disponível.
-O transporte local está implementado. A integração com assinaturas ainda não foi
-validada com uma conta real e não é ativada pela instalação da extensão.
+O transporte local e o consumidor do contrato 1.1 estão implementados. Claude
+registrou testes de assinatura no Windows do usuário; esta entrega do backend foi
+validada com fixtures. A instalação da extensão não ativa uma conta automaticamente.
 
 - [Contas, assinaturas e arquitetura proposta](docs/ASSINATURAS.md).
 - [Referência visual do KInfo](docs/DESIGN.md).
 - [Estado da implementação e próximos passos](docs/STATUS.md).
 
-O gateway HTTP v1 desta base nasceu para APIs com chave. Ele continua disponível
-como interface inicial, mas **não é compatível automaticamente com todos os fluxos
-de assinatura**. Em especial, o limite obrigatório de tokens de saída precisa ser
-revisto antes de integrar o fluxo documentado de Sign in with ChatGPT.
+O contrato 1 permanece compatível e é o padrão. O contrato **1.1** informa as
+capacidades reais do transporte, exige aceite por tarefa para limites indicativos
+e preserva respostas de conclusão desconhecida sem disparar outro agente.
+Isso não implementa automaticamente conexões com ChatGPT ou Gemini.
 
 ## Divisão atual
 
@@ -56,7 +57,8 @@ revisto antes de integrar o fluxo documentado de Sign in with ChatGPT.
 - Gemini: nova tentativa de evolução do frontend sobre essa base, seguindo
   `docs/INSTRUCOES_GEMINI.md`. O usuário está testando as integrações com Claude.
 - Guia para o Claude: `docs/INSTRUCOES_CLAUDE.md`.
-- Contratos: `docs/openapi-backend.json` e `docs/openapi-gateway.json`.
+- Contratos: `docs/openapi-backend.json`, `docs/openapi-gateway.json` (1) e
+  `docs/openapi-gateway-1.1.json` (1.1).
 
 ## Executar somente o backend para desenvolvimento
 
@@ -83,15 +85,19 @@ As rotas `/v1/*` exigem `Authorization: Bearer <LAUNCHER_API_TOKEN>`.
 `/health`, `/docs` e `/openapi.json` não expõem registros privados.
 O arquivo `.env.example` é referência: não é carregado automaticamente.
 
-Depois de o Claude implementar o gateway, configure no backend:
+Para usar o gateway atualizado da PR #1, configure no backend:
 
 ```sh
 export GATEWAY_URL=http://127.0.0.1:8010
+export GATEWAY_PROTOCOL_VERSION=1.1
 # Configure GATEWAY_TOKEN com o mesmo segredo de serviço usado no gateway.
 ```
 
 Não use o token do launcher como token do gateway. As chaves dos provedores ficam
 somente no gateway; o navegador não precisa conhecê-las.
+
+Veja [configuração e validação do 1.1](docs/TESTAR_GATEWAY_1_1.md), incluindo o
+aceite `allow_unenforced_output_limit` e os comandos para Windows.
 
 ## Fluxo disponível
 
@@ -136,14 +142,15 @@ faz uma chamada de IA para decidir o roteamento.
 - Falha/timeout não é repetido automaticamente: o provedor pode ter cobrado mesmo
   sem a resposta chegar. Repetir `execute` retorna 409. Uma tarefa interrompida
   pelo reinício passa para `interrupted`, preservando resultados já gravados.
-- Respostas cortadas por limite de tokens ficam `incomplete`; não são apresentadas
-  como concluídas nem enviadas automaticamente à revisão.
+- Respostas cortadas ou de conclusão desconhecida ficam `incomplete`; não são
+  apresentadas como concluídas nem enviadas automaticamente à revisão.
 - Até 20 fontes por tarefa e 80.000 caracteres de entrada. A contagem em caracteres
   é uma pré-validação; o gateway ainda precisa validar tokens no provedor.
 - Fontes apenas em texto. Sem extração de PDF, upload binário, importação NotebookLM,
   sincronização de projetos Claude/ChatGPT, busca vetorial ou ferramentas externas.
-- Sem orçamento monetário ou estimativa de preço. Limite por etapa: 4.096 tokens de
-  saída, respeitando o limite do modelo. Usage é registrado quando o gateway retorna.
+- Sem orçamento monetário ou estimativa de preço. Solicitação por etapa: até 4.096
+  tokens de saída. No contrato 1.1 o teto só é garantido para `output_limit: enforced`;
+  outros transportes exigem aceite da limitação. Usage é registrado quando retornado.
 - Sem streaming, cancelamento remoto ou reexecução de etapas.
 - Sem credenciais configuradas, `/v1/models` e a criação de planos retornam 503.
   Não existem respostas fictícias no fluxo normal. A prévia visual `?demo=1` é

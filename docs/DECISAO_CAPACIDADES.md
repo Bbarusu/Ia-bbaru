@@ -8,8 +8,11 @@ A proposta foi conferida no commit `f134092` da branch do Claude e permanece igu
 à versão anteriormente revisada. Os registros de teste com conta real não alteram
 a semântica do contrato nem garantem o teto de saída em todas as chamadas.
 
-**Este documento define a implementação seguinte. Os schemas, endpoints e campos
-1.1 abaixo ainda não estão implementados. O contrato 1 continua em uso.**
+**Implementado no backend da branch `codex/frontend-firefox`, com schemas 1.1
+comparados ao gateway da PR #1 (`b4b2dcc`).** A versão 1 continua sendo o padrão
+de configuração. Veja [configuração e testes](TESTAR_GATEWAY_1_1.md). O frontend
+ainda precisa apresentar as capacidades e o aceite; a execução pela ponte segue
+desativada.
 
 ## 1. Versões explícitas, sem quebrar o consumidor existente
 

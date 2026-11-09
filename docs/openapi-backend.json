@@ -30,7 +30,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ModelCatalog"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ModelCatalogV11"
+                    }
+                  ],
+                  "title": "Response Models V1 Models Get"
+                }
               }
             }
           }
@@ -538,6 +548,264 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ModelCapabilities": {
+        "properties": {
+          "output_limit": {
+            "type": "string",
+            "enum": [
+              "enforced",
+              "best_effort",
+              "none"
+            ],
+            "title": "Output Limit"
+          },
+          "cancellation": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "local_process_only",
+              "none"
+            ],
+            "title": "Cancellation"
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "reported",
+              "inferred"
+            ],
+            "title": "Finish Reason"
+          },
+          "billing": {
+            "type": "string",
+            "enum": [
+              "api_key",
+              "subscription_quota",
+              "unknown"
+            ],
+            "title": "Billing"
+          },
+          "streaming": {
+            "type": "boolean",
+            "title": "Streaming"
+          },
+          "tools": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "restricted"
+            ],
+            "title": "Tools"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "output_limit",
+          "cancellation",
+          "finish_reason",
+          "billing",
+          "streaming",
+          "tools"
+        ],
+        "title": "ModelCapabilities"
+      },
+      "ModelCatalog": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1",
+            "title": "Protocol Version",
+            "default": "1"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfile"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalog"
+      },
+      "ModelCatalogV11": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1.1",
+            "title": "Protocol Version",
+            "default": "1.1"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileV11"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalogV11"
+      },
+      "ModelProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens"
+        ],
+        "title": "ModelProfile"
+      },
+      "ModelProfileV11": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens",
+          "capabilities"
+        ],
+        "title": "ModelProfileV11"
+      },
       "ProjectInput": {
         "properties": {
           "title": {
@@ -644,6 +912,11 @@
               }
             ],
             "title": "Reviewer Model Id"
+          },
+          "allow_unenforced_output_limit": {
+            "type": "boolean",
+            "title": "Allow Unenforced Output Limit",
+            "default": false
           }
         },
         "additionalProperties": false,
