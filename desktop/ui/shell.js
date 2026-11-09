@@ -128,7 +128,7 @@ function renderSubbar(activeTab) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "bookmark-chip";
-    chip.textContent = `★ ${bm.title}`;
+    chip.textContent = bm.title;
     chip.title = bm.url;
     chip.onclick = () => command("navigate", bm.url);
     bookmarksEl.appendChild(chip);
