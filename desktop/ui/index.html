@@ -13,18 +13,40 @@
   <body>
     <header>
       <div class="tabbar">
-        <span class="brand" aria-label="Ia-bbaru">◈</span>
+        <span class="brand" aria-label="Ia-bbaru">
+          <span class="mark" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+        </span>
         <div id="tabs" role="tablist" aria-label="Abas abertas"></div>
-        <button id="new" title="Nova aba" aria-label="Nova aba">＋</button
-        ><span class="edition">IA-BBARU <small>PREVIEW</small></span>
+        <button id="new" type="button" title="Nova aba" aria-label="Nova aba">
+          ＋
+        </button>
+        <span class="edition">IA-BBARU <small>CHROMIUM</small></span>
       </div>
       <div class="toolbar">
-        <button id="back" aria-label="Voltar">←</button
-        ><button id="forward" aria-label="Avançar">→</button
-        ><button id="reload" aria-label="Recarregar">↻</button>
+        <button id="back" type="button" aria-label="Voltar" title="Voltar">
+          ←
+        </button>
+        <button
+          id="forward"
+          type="button"
+          aria-label="Avançar"
+          title="Avançar"
+        >
+          →
+        </button>
+        <button
+          id="reload"
+          type="button"
+          aria-label="Recarregar"
+          title="Recarregar"
+        >
+          ↻
+        </button>
         <form id="navigation">
-          <span class="address-icon" aria-hidden="true">⌕</span
-          ><input
+          <span class="address-icon" aria-hidden="true">⌕</span>
+          <input
             id="address"
             aria-label="Endereço ou pesquisa"
             placeholder="Pesquise ou digite um endereço"
@@ -34,21 +56,31 @@
         </form>
         <button
           id="capture"
+          type="button"
           class="capture"
           title="Adicionar o texto selecionado ao projeto"
         >
           ＋ Capturar
         </button>
-        <button id="panel" class="primary" aria-pressed="true">◈ Agentes</button
-        ><button
+        <button
+          id="panel"
+          type="button"
+          class="primary"
+          aria-pressed="true"
+        >
+          ◈ Agentes
+        </button>
+        <button
           id="expand"
+          type="button"
           aria-label="Ampliar espaço de trabalho"
           title="Ampliar espaço de trabalho"
+          aria-pressed="false"
         >
           ⤢
         </button>
       </div>
-      <div id="message" role="status"></div>
+      <div id="message" role="status" aria-live="polite"></div>
     </header>
     <script src="shell.js"></script>
   </body>

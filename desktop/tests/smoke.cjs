@@ -263,6 +263,12 @@ async function main() {
     assert.equal(task.data.allow_unenforced_output_limit, true);
     assert.equal(task.data.gateway_protocol_version, "1.1");
     assert.equal(task.data.status, "planned");
+    await expect(
+      workspace.getByRole("dialog").getByText("Assinatura (cota da conta)"),
+    ).toBeVisible();
+    await expect(
+      workspace.getByRole("dialog").getByText("Limite indicativo (64 tokens)"),
+    ).toBeVisible();
     await workspace
       .getByRole("dialog")
       .getByRole("button", { name: "Fechar", exact: true })
@@ -299,7 +305,7 @@ async function main() {
       .getByRole("button", { name: "Fechar Nova aba", exact: true })
       .click();
     await expect(shell.getByRole("tab")).toHaveCount(1);
-    // A new capture while manually editing must not erase the draft.
+    // A new capture while manually editing must not erase the draft (Path A: save then review queued).
     await workspace
       .getByRole("button", { name: "Adicionar texto", exact: true })
       .click();
@@ -326,9 +332,81 @@ async function main() {
     await workspace
       .getByRole("button", { name: "Descartar trecho", exact: true })
       .click();
+    // Path B: explicit replacement confirmation inside the modal when a capture arrives during manual drafting.
+    await workspace
+      .getByRole("button", { name: "Adicionar texto", exact: true })
+      .click();
+    await workspace
+      .getByLabel("Título", { exact: true })
+      .fill("Rascunho substituível");
+    await workspace
+      .locator("dialog textarea")
+      .fill("Rascunho que será substituído pelo botão explícito");
+    await shell.locator("#capture").click();
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
+      "Rascunho substituível",
+    );
+    await workspace
+      .getByRole("button", {
+        name: "Substituir pela captura em espera",
+        exact: true,
+      })
+      .click();
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
+      "Aula de teste",
+    );
+    await workspace
+      .getByRole("button", { name: "Descartar trecho", exact: true })
+      .click();
+    // Verify expanded workspace mode and semantic project list.
+    await expect(shell.locator("#panel")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(shell.locator("#expand")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await shell.locator("#expand").click();
+    await expect(shell.locator("#expand")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(
+      workspace.locator('ul.project-list > li > button[aria-current="true"]'),
+    ).toHaveText("Teste Chromium");
+    assert.equal(
+      await workspace.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+      true,
+    );
+    await workspace.screenshot({
+      path: path.join(artifacts, "workspace-expanded.png"),
+    });
+    await shell.locator("#expand").click();
+    await expect(shell.locator("#expand")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await shell.locator("#address").fill("");
     await shell.locator("#address").press("Enter");
     await expect(web).toHaveTitle("Nova aba");
+    // Verify minimum window size 900x640 has no horizontal overflow across views.
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].setSize(900, 640);
+    });
+    for (const view of [shell, workspace, web]) {
+      assert.equal(
+        await view.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+        true,
+      );
+    }
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].setSize(1440, 920);
+    });
     const screenshot = await app.evaluate(async ({ BrowserWindow }) =>
       (await BrowserWindow.getAllWindows()[0].capturePage())
         .toPNG()
@@ -393,10 +471,14 @@ async function main() {
             "remote isolation",
             "selection capture and SQLite source",
             "1.1 acceptance required and persisted",
+            "1.1 capability badges in plan modal",
             "execution denied",
             "file navigation denied",
             "tabs",
-            "manual draft preserved",
+            "manual draft preserved (save then review queued)",
+            "manual draft explicit replacement confirmation",
+            "expanded workspace and semantic project list",
+            "minimum window size 900x640 no overflow",
             "restart persistence",
           ],
           realAccount: false,

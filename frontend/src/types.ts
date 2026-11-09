@@ -1,4 +1,5 @@
 export type Project = { id: string; title: string; created_at: string };
+
 export type Source = {
   id: string;
   title: string;
@@ -6,37 +7,64 @@ export type Source = {
   content?: string;
   char_count?: number;
 };
+
+export type ModelCapabilities = {
+  output_limit: "enforced" | "best_effort" | "none";
+  cancellation: "provider" | "local_process_only" | "none";
+  finish_reason: "reported" | "inferred";
+  billing: "api_key" | "subscription_quota" | "unknown";
+  tools: "disabled" | "restricted";
+  streaming: boolean;
+};
+
 export type Model = {
   id: string;
   provider: string;
   label: string;
   available: boolean;
   task_kinds: string[];
+  context_char_limit?: number;
+  max_output_tokens?: number;
   unavailable_reason?: string | null;
-  capabilities?: {
-    output_limit: "enforced" | "best_effort" | "none";
-    cancellation: "provider" | "local_process_only" | "none";
-    finish_reason: "reported" | "inferred";
-    billing: "api_key" | "subscription_quota" | "unknown";
-    tools: "disabled" | "restricted";
-    streaming: boolean;
-  };
+  capabilities?: ModelCapabilities;
 };
+
+export type PlanStep = {
+  role: string;
+  model_id: string;
+  provider?: string;
+  context_char_limit?: number;
+  max_output_tokens?: number;
+  capabilities?: ModelCapabilities;
+};
+
+export type TaskResult = {
+  model_id: string;
+  output: string;
+  role: string;
+  finish_reason?: "stop" | "length" | "unknown";
+};
+
 export type Task = {
   id: string;
   instruction: string;
   status: string;
   created_at: string;
+  kind?: string;
+  gateway_protocol_version?: string;
+  allow_unenforced_output_limit?: boolean;
   output?: string | null;
   error?: string | null;
-  routing?: { reason: string };
+  routing?: { method?: string; reason: string };
   context?: { id: string; title: string; content: string }[];
-  plan: { role: string; model_id: string }[];
-  results?: { model_id: string; output: string; role: string }[];
+  plan: PlanStep[];
+  results?: TaskResult[];
 };
+
 export type Capture = { id: string; title: string; url: string; text: string };
 export type Page<T> = { items: T[]; next_offset: number | null };
 export type Tab = "workspace" | "library" | "history" | "connections";
+
 declare global {
   interface Window {
     browser?: any;

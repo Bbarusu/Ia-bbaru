@@ -1,9 +1,37 @@
 :root {
   color-scheme: dark;
-  --bg: #090b0f;
-  --surface: #101319;
-  --line: #232832;
-  --text: #e0e5ed;
-  --muted: #818d9f;
-  --blue: #397ff2;
+
+  /* KInfo canonical tokens */
+  --background: #000000;
+  --surface: #0b0c0e;
+  --surface-raised: #12151b;
+  --surface-hover: #171b22;
+  --surface-active: #1b212b;
+  --border: #202226;
+  --border-subtle: #191b1f;
+  --border-focus: #397ff2;
+  --text: #e6e8ec;
+  --text-muted: #a3aab7;
+  --text-subtle: #8c96a8;
+  --accent: #397ff2;
+  --accent-hover: #4e8ff7;
+  --accent-muted: #17243c;
+  --accent-glow: rgba(57, 127, 242, 0.18);
+  --danger: #e24b4b;
+  --danger-bg: #291114;
+  --success: #3ecf8e;
+  --success-bg: #0f241c;
+  --warning: #f59e0b;
+  --warning-bg: #2b1f0c;
+
+  --radius-sm: 6px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 9999px;
+
+  /* Legacy aliases for backward compatibility with existing rules */
+  --bg: var(--background);
+  --line: var(--border);
+  --muted: var(--text-muted);
+  --blue: var(--accent);
 }
