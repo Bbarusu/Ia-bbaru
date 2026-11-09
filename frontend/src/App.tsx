@@ -99,6 +99,8 @@ export default function App() {
   const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
   const [sourceView, setSourceView] = useState<Source | null>(null);
   const [taskView, setTaskView] = useState<Task | null>(null);
+  const [executionEnabled, setExecutionEnabled] = useState(false);
+  const [pollError, setPollError] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [search, setSearch] = useState("");
@@ -116,7 +118,8 @@ export default function App() {
     setError("");
     setConnectionError("");
     try {
-      await request("bridge.info");
+      const info = await request<{ task_execution?: boolean }>("bridge.info");
+      setExecutionEnabled(inDesktop && !demo && info.task_execution === true);
       hostReady = true;
       setHost(true);
 
@@ -155,6 +158,7 @@ export default function App() {
         setModelError((e as Error).message);
       }
     } catch (e) {
+      setExecutionEnabled(false);
       setHost(hostReady);
       setOnline(false);
       setModels([]);
@@ -164,6 +168,36 @@ export default function App() {
       setChecking(false);
     }
   }
+
+  function updateTask(task: Task) {
+    setTasks((old) => old.map((item) => item.id === task.id ? task : item));
+    setTaskView((old) => old?.id === task.id ? task : old);
+  }
+
+  const activeTaskIds = [...new Set([...tasks, ...(taskView ? [taskView] : [])]
+    .filter((task) => ["queued", "running", "waiting"].includes(task.status))
+    .map((task) => task.id))].sort().join(",");
+  useEffect(() => {
+    if (!online || !activeTaskIds) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const updates = await Promise.all(activeTaskIds.split(",").map((id) =>
+          request<Task>("tasks.get", { task_id: id })));
+        if (!stopped) {
+          updates.forEach(updateTask);
+          setPollError("");
+        }
+      } catch {
+        if (!stopped) setPollError("Não foi possível atualizar o andamento. A tarefa não foi reenviada; reconecte o componente local para consultar.");
+      } finally {
+        if (!stopped) timer = setTimeout(poll, 1500);
+      }
+    }
+    poll();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [online, activeTaskIds]);
 
   useEffect(() => {
     connect();
@@ -779,8 +813,12 @@ export default function App() {
 
       {taskView && (
         <TaskViewModal
+          key={taskView.id}
           task={taskView}
           models={models}
+          executionEnabled={executionEnabled}
+          updateTask={updateTask}
+          pollError={pollError}
           close={() => setTaskView(null)}
         />
       )}

@@ -148,9 +148,8 @@ export function ConnectionsSection({
           Abrir guia de instalação <ArrowUpRight size={15} aria-hidden="true" />
         </a>
         <p className="small-note">
-          Nesta versão, você pode organizar materiais e criar planos. Executar
-          uma IA pelo painel será habilitado quando a execução durável estiver
-          pronta.
+          No navegador Chromium, abra um plano e confirme a execução para usar
+          os agentes conectados. O planejamento sozinho não consome geração.
         </p>
       </section>
     </div>

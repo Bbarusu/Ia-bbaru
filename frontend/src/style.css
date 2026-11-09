@@ -2417,3 +2417,24 @@ dialog.kinfo-guide-dialog {
   align-items: center;
   gap: 8px;
 }
+.execution-controls {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.execution-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.execution-consent input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 3px 0 0;
+}
+.execution-consent span {
+  flex: 1;
+  min-width: 0;
+}

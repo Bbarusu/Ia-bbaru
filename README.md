@@ -14,16 +14,18 @@ Repositório: https://github.com/Bbarusu/Ia-bbaru
 ![Navegador Ia-bbaru com Chromium](docs/images/browser-chromium.png)
 
 *Janela real do Electron no teste Linux, com projeto e catálogo de teste.
-Nenhuma conta de IA utilizada; Windows ainda requer validação local.*
+Nenhuma conta de IA utilizada nesse teste. O primeiro início já funcionou no
+Windows; a nova execução durável ainda requer validação local.*
 
 ## Direção aprovada
 
 Construir o navegador Chromium com backend local. A extensão Firefox foi a etapa
 anterior e continua disponível. Navegação, projetos, captura e planejamento já
-podem ser testados pela interface. Geração pelo painel depende da execução durável.
+podem ser testados pela interface. O Chromium também executa planos por uma fila
+durável, com confirmação explícita e acompanhamento. Ver [execução durável](docs/EXECUCAO_DURAVEL.md).
 
-- [Prompt do Claude: gateway no Chromium](docs/PROMPT_CLAUDE_CHROMIUM.md).
-- [Prompt do Gemini: interface do navegador](docs/PROMPT_GEMINI_CHROMIUM.md).
+- [Prompt do Claude: validar execução durável](docs/PROMPT_CLAUDE_EXECUCAO.md).
+- [Prompt do Gemini: interface integrada](docs/PROMPT_GEMINI_EXECUCAO.md).
 - [Arquitetura Chromium e divisão do trabalho](docs/ARQUITETURA.md).
 - [Transporte implementado entre extensão e backend](docs/TRANSPORTE_EXTENSAO.md).
 
@@ -105,8 +107,11 @@ aceite `allow_unenforced_output_limit` e os comandos para Windows.
 3. `GET /v1/models`: consultar o catálogo real do gateway.
 4. `POST /v1/projects/{id}/tasks`: criar plano, sem gerar resposta ou consumir tokens
    de geração. O gateway deve consultar o catálogo sem chamadas de geração.
-5. `POST /v1/tasks/{id}/execute`: executar o plano pelo cliente HTTP de desenvolvimento.
-   Pode consumir cota/cobrança. Esta operação ainda não é exposta pela extensão.
+5. `POST /v1/tasks/{id}/enqueue` com `{"confirmed": true}`: colocar na fila durável.
+   Pode consumir cota/cobrança. Requer worker ativo (automático no navegador;
+   `LAUNCHER_DURABLE_EXECUTION=1` no backend separado). `resume` retoma apenas bloqueios
+   anteriores à geração, após correção e nova confirmação. `/execute` é legado,
+   somente com o worker desativado, e continua fora da ponte.
 6. `GET /v1/tasks/{id}`: consultar status e resultados intermediários.
 
 Corpo de criação de tarefa (troque IDs pelos retornados pelas APIs):
@@ -136,11 +141,12 @@ faz uma chamada de IA para decidir o roteamento.
   Não há login multiusuário, isolamento por conta, OAuth nem aplicação pública.
 - SQLite e **um único processo/worker**. Não executar múltiplas instâncias sobre
   o mesmo banco; a recuperação de tarefas pressupõe uma instância.
-- Execução HTTP síncrona, até 120 segundos por chamada ao gateway. Um futuro
-  deployment precisa de fila durável, worker e consulta de progresso independente.
-- Falha/timeout não é repetido automaticamente: o provedor pode ter cobrado mesmo
-  sem a resposta chegar. Repetir `execute` retorna 409. Uma tarefa interrompida
-  pelo reinício passa para `interrupted`, preservando resultados já gravados.
+- Fila SQLite e worker local, até 120 segundos por chamada ao gateway. Fechar o
+  painel mantém a execução; fechar o aplicativo encerra seu serviço. Na reabertura,
+  tarefas em fila continuam e chamadas interrompidas ficam `uncertain`, sem repetição.
+- Apenas `gateway_busy` e `request_in_progress` são repetidos automaticamente,
+  com o mesmo ID e corpo. Falha de transporte/timeout fica incerta. Cota esgotada,
+  autenticação recusada após início e validação são erros finais para aquela tarefa.
 - Respostas cortadas ou de conclusão desconhecida ficam `incomplete`; não são
   apresentadas como concluídas nem enviadas automaticamente à revisão.
 - Até 20 fontes por tarefa e 80.000 caracteres de entrada. A contagem em caracteres
@@ -156,7 +162,7 @@ faz uma chamada de IA para decidir o roteamento.
   explicitamente identificada e não faz inferência.
 
 Antes de publicar: substituir o token único por autenticação e autorização por
-usuário, definir retenção/exclusão dos dados e implantar fila durável e limites de
+usuário, definir retenção/exclusão dos dados e implantar coordenação distribuída e limites de
 custo. Esta base não deve ser exposta publicamente como está.
 
 ## Validação

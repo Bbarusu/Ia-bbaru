@@ -158,6 +158,7 @@ class DurableTests(unittest.TestCase):
             self.queue(task)
             result = self.step()
             self.assertEqual(result['status'], 'incomplete')
+            self.assertEqual(result['execution']['steps'][0]['state'], 'incomplete')
             self.assertEqual(len(result['results']), 1)
             self.assertEqual(result['output'], result['results'][0]['output'])
             self.assertIsNone(self.store.claim_job(time.time() + 60))
@@ -220,3 +221,28 @@ class DurableTests(unittest.TestCase):
             one.release()
         two.acquire()
         two.release()
+
+    def test_failed_result_write_does_not_dispatch_again(self):
+        task = self.plan()
+        self.queue(task)
+        original = self.store.save_task
+        def save(body):
+            if body['status'] == 'completed':
+                raise OSError('simulated result write failure')
+            original(body)
+        worker = DurableWorker(self.store, self.gateway)
+        with patch.object(self.store, 'save_task', side_effect=save):
+            worker.start()
+            try:
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    result = self.store.task(task['id'])
+                    if result['status'] == 'uncertain':
+                        break
+                    time.sleep(.01)
+                self.assertEqual(result['status'], 'uncertain')
+                self.assertEqual(len(self.gateway.calls), 1)
+            finally:
+                worker.stop()
+        self.store.recover()
+        self.assertIsNone(self.store.claim_job(time.time() + 60))

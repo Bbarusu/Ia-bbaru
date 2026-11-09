@@ -11,6 +11,12 @@ export function taskState(status) {
       failed: "Falhou",
       interrupted: "Interrompida",
       incomplete: "Resposta incompleta",
+      queued: "Na fila",
+      waiting: "Aguardando o gateway",
+      blocked: "Aguardando correção",
+      uncertain: "Resultado incerto",
+      pending: "Pendente",
+      in_flight: "Aguardando resposta",
     }[status] || "Estado desconhecido"
   );
 }
@@ -115,6 +121,20 @@ export function describeTaskError(error) {
         "A cota da conta no provedor foi atingida durante a geração.",
       provider_not_authenticated:
         "A sessão no provedor expirou ou não está autenticada.",
+      provider_not_logged_in: "Faça login no CLI oficial e depois confirme a retomada.",
+      provider_not_subscription_login: "Entre no CLI oficial com sua assinatura antes de retomar.",
+      provider_cli_not_installed: "Instale o CLI oficial antes de retomar.",
+      provider_cli_not_runnable: "O CLI oficial não pode ser iniciado. Corrija sua configuração.",
+      provider_cli_version_unsupported: "Atualize o CLI oficial para uma versão compatível.",
+      provider_auth_status_unknown: "Não foi possível verificar o login no CLI oficial.",
+      invalid_gateway_token: "Confira a credencial local do gateway antes de retomar.",
+      gateway_busy: "O gateway está ocupado. A tarefa aguardará e usará o mesmo pedido.",
+      request_in_progress: "O gateway ainda está processando este pedido. Aguardando confirmação.",
+      provider_timeout: "O provedor excedeu o tempo de resposta. O resultado é incerto e não haverá repetição.",
+      request_outcome_uncertain: "O gateway não pode confirmar o resultado anterior. Não haverá repetição.",
+      process_interrupted_outcome_unknown: "O aplicativo encerrou durante a chamada. O resultado é incerto e não haverá repetição.",
+      gateway_request_failed: "A comunicação com o gateway falhou. Consulte o estado da tarefa antes de qualquer nova ação.",
+      gateway_invalid_response: "O gateway retornou uma resposta inválida. Não haverá repetição.",
     }[error] || `A tarefa não foi concluída: ${error}`
   );
 }

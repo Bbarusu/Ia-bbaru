@@ -80,6 +80,8 @@ class DurableWorker:
                 # Read the committed cursor: a result may exist only in memory
                 # if saving it failed after the provider answered.
                 task = self.store.task(task["id"])
+                if task["status"] != "running":
+                    continue
                 step = task["execution"]["steps"][len(task["results"])]
                 uncertain = step["state"] == "in_flight"
                 step.update(state="uncertain" if uncertain else "failed", error_code="worker_internal_error")
@@ -143,7 +145,7 @@ class DurableWorker:
             request = schema.model_validate(step["request"])
         if self.stop_event.is_set():
             task["status"] = "queued"; self.store.save_task(task); return
-        step.update(state="in_flight", attempts=step["attempts"] + 1, error_code=None, phase="generate")
+        step.update(state="in_flight", attempts=step["attempts"] + 1, error_code=None, http_status=None, phase="generate")
         task["error"] = None
         self.store.save_task(task)  # Write-ahead intent, before any provider side effect.
         try:
@@ -152,10 +154,11 @@ class DurableWorker:
             self.fail(task, step, exc.code, "generate", exc.http_status); return
         task["results"].append({"role": plan["role"], **result.model_dump()})
         task["output"] = result.output
-        step.update(state="completed", finish_reason=result.finish_reason, error_code=None)
+        step.update(state="completed", finish_reason=result.finish_reason, error_code=None, http_status=200)
         # Result, cursor and final/next status commit together.
         if result.finish_reason in {"unknown", "length"}:
             task.update(status="incomplete", error="completion_unconfirmed" if result.finish_reason == "unknown" else "output_token_limit_reached")
+            step.update(state="incomplete", error_code=task["error"])
         elif index + 1 == len(task["plan"]):
             task.update(status="completed", error=None, completed_at=datetime.now(timezone.utc).isoformat())
         else:

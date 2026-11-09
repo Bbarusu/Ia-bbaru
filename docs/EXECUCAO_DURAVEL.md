@@ -35,7 +35,24 @@ persistidos para repetição ficam fora das respostas públicas da API.
 Validação automatizada usa fixtures, sem conta real. Executar:
 `python -m unittest discover -s tests -v`.
 
-Integração visual sobre a entrega Gemini: manter componentes, cores e layout;
-acrescentar confirmação de consumo, acompanhamento e retomada apenas de `blocked`.
-O ajuste ARIA de `#tabs` fica com o Codex na integração, preservando o visual.
-`start-browser.ps1` mantém nome e parâmetros e passa a usar UTF-8 com BOM (C-3).
+No Chromium, o diálogo do plano oferece confirmação de consumo, acompanhamento e
+retomada apenas de `blocked`. O histórico acompanha tarefas ativas. Se uma resposta
+da ponte se perder, o botão exige consultar o estado antes de reenviar. A extensão
+Firefox mantém somente o planejamento. O tema e componentes do Gemini foram preservados.
+
+O Codex corrigiu C-4 usando um grupo de botões com `aria-pressed`: cada botão
+seleciona uma WebContents distinta, sem declarar tabpanels DOM inexistentes.
+Teclado, foco e botões de fechar foram mantidos. `start-browser.ps1` mantém nome
+e parâmetros e usa UTF-8 com BOM (C-3). Os schemas do gateway importam os do backend.
+
+Validação Linux: 60 testes de backend/fila/ponte, 52 do gateway (1 teste real
+ignorado), 11 frontend e 3 políticas desktop; build e testes gráficos Electron.
+`scripts/verify_gateway_v11.py --gateway-checkout .` verifica HTTP real com CLI
+simulado nos modos sucesso, término desconhecido, autenticação, cota e timeout.
+O teste gráfico confirma autorização, fila, painel oculto e saída. Axe conferiu
+estrutura/pais/atributos ARIA no shell. Não se usou conta real. O Electron no
+contêiner requer desativar explicitamente a sandbox para teste; isso não valida
+a sandbox do sistema operacional nem substitui a verificação no Windows.
+
+Evidência visual com dados simulados: [confirmação](images/execution-consent.png)
+e [resultado](images/execution-completed.png).

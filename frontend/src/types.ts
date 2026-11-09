@@ -59,6 +59,10 @@ export type Task = {
   context?: { id: string; title: string; content: string }[];
   plan: PlanStep[];
   results?: TaskResult[];
+  execution?: { mode: "durable"; steps: {
+    request_id: string; state: string; attempts: number;
+    error_code?: string | null; finish_reason?: string;
+  }[] };
 };
 
 export type Capture = { id: string; title: string; url: string; text: string };
