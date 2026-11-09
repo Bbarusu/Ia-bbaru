@@ -17,6 +17,12 @@ Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INIC
 | Barra do navegador no axe | ⚠️ 3 itens menores (ver revisão) |
 | `integrations/scripts/iniciar-ia-bbaru.ps1` | ⚠️ **não executado** (sem PowerShell no contêiner) |
 
+Reverificação com a correção do Gemini `ff5f7d7` (Linux, mesma combinação): Python 48,
+gateway 52 + 1 pulado, frontend 11, desktop 3, build, `test:ui` e
+`desktop_gateway_smoke.cjs` ✅. Motivo `not_logged_in` agora traduzido no painel.
+axe em 900×640: painel sem violações; barra só com `#tabs` (pré-existente, C-4 em
+[PASSAGEM_CODEX.md](PASSAGEM_CODEX.md)).
+
 ### Primeiro início no Windows do usuário (9/11/2026) ✅
 
 Pasta `inicio/local` (Codex `33fc1ea` + Gemini `00e2c8f` + gateway), aberta com

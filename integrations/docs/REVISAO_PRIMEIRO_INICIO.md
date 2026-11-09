@@ -10,6 +10,10 @@ worktrees separadas; **nenhuma branch de outra frente foi alterada**. Sem conta 
 | Gemini | `gemini/chromium-ui` / #5 | `00e2c8f` (sobre `e1ff8b9`) |
 | Claude | `claude/vibrant-meitner-ksbzgf` / #1 | `a58e66c` + esta entrega |
 
+> **Atualização:** o Gemini corrigiu G-A, G-B e G-C em `ff5f7d7` (verificado no Linux).
+> Resta só `#tabs`, que já existia antes. Passagem para o Codex:
+> [PASSAGEM_CODEX.md](PASSAGEM_CODEX.md).
+
 **Parecer:** pode fazer o primeiro início com as três frentes juntas
 ([PRIMEIRO_INICIO.md](PRIMEIRO_INICIO.md)). Não há bloqueio. Ficam correções
 menores para o Gemini e uma observação para o Codex, abaixo.
