@@ -33,15 +33,47 @@
           </svg>
         </span>
         <div>
-          <span class="eyebrow">YUKI · NAVEGADOR DE CONTEXTO</span>
+          <span class="eyebrow">YUKI · NAVEGADOR DE CONTEXTO &amp; AGENTES</span>
         </div>
       </div>
 
       <h1>Explore na neve.<br /><span>Conecte as ideias no Yuki.</span></h1>
       <p class="lead">
-        Abra seus materiais de referência, organize sub-abas e favoritos, selecione
-        apenas o trecho que importa e leve o contexto revisado para o seu espaço local.
+        Navegue com favoritos rápidos, capture <em>textos</em>, <em>prints</em> e
+        <em>imagens</em> de qualquer página e acione seus agentes locais com o
+        contexto certo — inspirado na fluidez do Atlas, mas 100% no seu computador.
       </p>
+
+      <section class="atlas-hub-strip" aria-label="Recursos de captura e agentes">
+        <div class="atlas-pill-card">
+          <span class="atlas-pill-icon" aria-hidden="true">📝</span>
+          <div>
+            <strong>Capturar Texto</strong>
+            <small>Trechos selecionados com origem</small>
+          </div>
+        </div>
+        <div class="atlas-pill-card">
+          <span class="atlas-pill-icon" aria-hidden="true">📸</span>
+          <div>
+            <strong>Capturar Print</strong>
+            <small>Tela visível ou área colada (Ctrl+V)</small>
+          </div>
+        </div>
+        <div class="atlas-pill-card">
+          <span class="atlas-pill-icon" aria-hidden="true">🖼</span>
+          <div>
+            <strong>Capturar Imagem</strong>
+            <small>Figuras, gráficos e diagramas</small>
+          </div>
+        </div>
+        <div class="atlas-pill-card highlight">
+          <span class="atlas-pill-icon" aria-hidden="true">❄</span>
+          <div>
+            <strong>Perguntar ao Yuki</strong>
+            <small>Acione agentes locais estilo Atlas</small>
+          </div>
+        </div>
+      </section>
 
       <nav aria-label="Atalhos">
         <a href="https://notebooklm.google.com/">
@@ -95,22 +127,21 @@
         <div class="guide-step step-1">
           <div class="guide-mesa">
             <div class="mesa-pill">
-              <span class="mesa-chip accent">❄ Abas + Sub-abas</span>
-              <span class="mesa-chip">Favoritos</span>
+              <span class="mesa-chip accent">❄ Navegador Real</span>
+              <span class="mesa-chip">Prints · Imagens · Textos</span>
               <span class="mesa-chip">❄ Agentes + SQLite Local</span>
             </div>
           </div>
           <h2>Oi, esse é o Yuki</h2>
           <p>
-            Um navegador Chromium pensado para estudar, pesquisar e organizar contexto com
-            agentes de IA no seu próprio computador. Tudo o que você cria — projetos, textos
-            e trechos capturados — fica guardado localmente em SQLite, sem servidor externo
-            intermediando seus dados.
+            Um navegador Chromium completo pensado para estudar, pesquisar e acionar
+            agentes de IA direto na barra lateral — inspirado no Atlas da OpenAI, mas
+            guardando seus projetos, prints, imagens e textos localmente em SQLite.
           </p>
           <div class="guide-item-row">
             <div>
               <strong>Seu contexto fica no seu PC</strong>
-              <small>Projetos, biblioteca e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.</small>
+              <small>Projetos, biblioteca multimodal e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.</small>
             </div>
             <span class="guide-tag">SQLite local</span>
           </div>
@@ -119,22 +150,23 @@
         <div class="guide-step step-2">
           <div class="guide-mesa">
             <div class="mesa-pill">
-              <span class="mesa-chip">★ Favoritar</span>
-              <span class="mesa-chip">+ Sub-aba</span>
-              <span class="mesa-chip accent">＋ Capturar trecho</span>
+              <span class="mesa-chip">📝 Texto</span>
+              <span class="mesa-chip">📸 Print</span>
+              <span class="mesa-chip">🖼 Imagem</span>
+              <span class="mesa-chip accent">❄ Perguntar ao Yuki</span>
             </div>
           </div>
-          <h2>Sub-abas, favoritos e captura num clique</h2>
+          <h2>Capture textos, prints e imagens num clique</h2>
           <p>
-            Use a barra de favoritos para abrir suas ferramentas rápidas e crie sub-abas para
-            manter páginas do mesmo assunto juntas. Achou um parágrafo importante? Seleciona o
-            trecho na página e clica em <em>＋ Capturar</em>: você revisa o título e o texto
-            antes de salvar no projeto.
+            Use a barra de favoritos limpa para abrir seus sites rápidos, busque na página
+            (<em>Ctrl+F</em>), ajuste o zoom e capture <em>textos selecionados</em>,
+            <em>prints da tela</em> ou <em>imagens da página</em> direto para o projeto antes
+            de acionar um agente.
           </p>
           <div class="guide-item-row">
             <div>
               <strong>Rascunho protegido contra perda</strong>
-              <small>Se outra captura chegar enquanto você edita um texto, ela entra em espera sem apagar seu trabalho.</small>
+              <small>Se outra captura chegar enquanto você edita um material, ela entra em espera sem apagar seu trabalho.</small>
             </div>
             <span class="guide-tag">Fila segura</span>
           </div>
@@ -197,7 +229,7 @@
           <h2>Abas web isoladas dos agentes locais</h2>
           <p>
             Entrar no Claude, ChatGPT, Gemini ou NotebookLM pelas abas do navegador serve para
-            você usar os sites normalmente e capturar trechos. Por segurança, o Yuki nunca
+            você usar os sites normalmente e capturar materiais. Por segurança, o Yuki nunca
             lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial
             instalado no PC.
           </p>

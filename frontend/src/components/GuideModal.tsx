@@ -7,30 +7,31 @@ interface GuideModalProps {
 const STEPS = [
   {
     chips: [
-      { text: "❄ Abas + Sub-abas", variant: "accent" },
-      { text: "Favoritos", variant: "default" },
+      { text: "❄ Navegador Real", variant: "accent" },
+      { text: "Prints · Imagens · Textos", variant: "default" },
       { text: "❄ Agentes + SQLite Local", variant: "default" },
     ],
     title: "Oi, esse é o Yuki",
     description:
-      "Um navegador Chromium pensado para estudar, pesquisar e organizar contexto com agentes de IA no seu próprio computador. Tudo o que você cria — projetos, textos e trechos capturados — fica guardado localmente em SQLite, sem servidor externo intermediando seus dados.",
+      "Um navegador Chromium completo pensado para estudar, pesquisar e acionar agentes de IA direto na barra lateral — inspirado no Atlas da OpenAI, mas guardando seus projetos, prints, imagens e textos localmente em SQLite.",
     rowTitle: "Seu contexto fica no seu PC",
     rowSub:
-      "Projetos, biblioteca e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.",
+      "Projetos, biblioteca multimodal e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.",
     tag: "SQLite local",
   },
   {
     chips: [
-      { text: "★ Favoritar", variant: "default" },
-      { text: "+ Sub-aba", variant: "default" },
-      { text: "＋ Capturar trecho", variant: "accent" },
+      { text: "📝 Texto", variant: "default" },
+      { text: "📸 Print", variant: "default" },
+      { text: "🖼 Imagem", variant: "default" },
+      { text: "❄ Perguntar ao Yuki", variant: "accent" },
     ],
-    title: "Sub-abas, favoritos e captura num clique",
+    title: "Capture textos, prints e imagens num clique",
     description:
-      "Use a barra de favoritos para abrir suas ferramentas rápidas e crie sub-abas para manter páginas do mesmo assunto juntas. Achou um parágrafo importante? Seleciona o trecho na página e clica em ＋ Capturar: você revisa o título e o texto antes de salvar no projeto.",
+      "Use a barra de favoritos limpa para abrir seus sites rápidos, busque na página (Ctrl+F), ajuste o zoom e capture textos selecionados, prints da tela ou imagens da página direto para o projeto antes de acionar um agente.",
     rowTitle: "Rascunho protegido contra perda",
     rowSub:
-      "Se outra captura chegar enquanto você edita um texto, ela entra em espera sem apagar seu trabalho.",
+      "Se outra captura chegar enquanto você edita um material, ela entra em espera sem apagar seu trabalho.",
     tag: "Fila segura",
   },
   {
