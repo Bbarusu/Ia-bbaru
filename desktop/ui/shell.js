@@ -143,6 +143,7 @@ function renderSubbar(activeTab) {
 
 function render(next) {
   state = next;
+  const focusedTabId = document.activeElement?.dataset.tabId;
   $("tabs").replaceChildren();
   for (const tab of next.tabs) {
     const isActive = tab.id === next.activeId;
@@ -159,8 +160,11 @@ function render(next) {
     const choose = document.createElement("button");
     choose.type = "button";
     choose.className = "choose";
-    choose.role = "tab";
-    choose.setAttribute("aria-selected", String(isActive));
+    // These controls switch separate WebContents, not DOM tabpanels.
+    // A labelled group of toggle buttons also keeps close buttons accessible.
+    choose.dataset.tabId = tab.id;
+    choose.tabIndex = isActive ? 0 : -1;
+    choose.setAttribute("aria-pressed", String(isActive));
     choose.textContent = (tab.loading ? "◌ " : "") + tab.title;
     choose.title = tab.url ? `${tab.title} — ${tab.url}` : tab.title;
     choose.onclick = () => command("activate", tab.id);
@@ -178,6 +182,9 @@ function render(next) {
 
     item.append(choose, close);
     $("tabs").append(item);
+  }
+  if (focusedTabId) {
+    [...$("tabs").querySelectorAll(".choose")].find((button) => button.dataset.tabId === focusedTabId)?.focus();
   }
 
   const tab = next.tabs.find((t) => t.id === next.activeId);
@@ -252,7 +259,7 @@ $("address").addEventListener("keydown", (event) => {
 });
 
 $("tabs").addEventListener("keydown", (event) => {
-  const tabButtons = Array.from($("tabs").querySelectorAll('[role="tab"]'));
+  const tabButtons = Array.from($("tabs").querySelectorAll('.choose'));
   const index = tabButtons.indexOf(document.activeElement);
   if (index === -1 || !tabButtons.length) return;
   let nextIndex = -1;

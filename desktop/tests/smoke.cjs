@@ -15,7 +15,22 @@ async function main() {
   );
   const artifacts = path.resolve(__dirname, "../../artifacts/chromium");
   fs.mkdirSync(artifacts, { recursive: true });
+  const generations = [];
   const server = http.createServer((req, res) => {
+    if (req.url === "/v1.1/generate" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        const request = JSON.parse(body);
+        generations.push(request);
+        setTimeout(() => {
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ protocol_version: "1.1", request_id: request.request_id,
+            model_id: request.model_id, output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
+        }, 800);
+      });
+      return;
+    }
     if (req.url === "/v1.1/models") {
       res.setHeader("Content-Type", "application/json");
       res.end(
@@ -263,6 +278,7 @@ async function main() {
     assert.equal(task.data.allow_unenforced_output_limit, true);
     assert.equal(task.data.gateway_protocol_version, "1.1");
     assert.equal(task.data.status, "planned");
+    assert.equal(generations.length, 0);
     await expect(
       workspace.getByRole("dialog").getByText("Assinatura (cota da conta)"),
     ).toBeVisible();
@@ -274,6 +290,21 @@ async function main() {
         .getByRole("dialog")
         .getByText(/Término informado pelo provedor/),
     ).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Executar tarefa", exact: true })).toBeDisabled();
+    assert.equal(await workspace.locator("dialog").evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth), true);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-consent.png") });
+    await workspace.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
+    await workspace.getByRole("button", { name: "Executar tarefa", exact: true }).click();
+    // The worker continues while the panel is hidden.
+    await shell.locator("#panel").click();
+    await expect.poll(() => generations.length).toBe(1);
+    await shell.locator("#panel").click();
+    await expect(workspace.getByRole("dialog").getByRole("heading", { name: "Concluída", exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(workspace.getByRole("dialog").getByText("Resposta simulada da fila durável.", { exact: true })).toBeVisible();
+    assert.equal(generations[0].request_id, `${task.data.id}:0`);
+    assert.equal(generations[0].allow_unenforced_output_limit, true);
+    assert.equal(generations.length, 1);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
     await workspace
       .getByRole("dialog")
       .getByRole("button", { name: "Fechar", exact: true })
@@ -305,11 +336,22 @@ async function main() {
     await expect(shell.locator("#message")).toContainText("HTTP ou HTTPS");
     await expect(web).toHaveURL(url + "/");
     await shell.getByRole("button", { name: "Nova aba", exact: true }).click();
-    await expect(shell.getByRole("tab")).toHaveCount(2);
+    await expect(shell.locator("#tabs .choose")).toHaveCount(2);
+    await shell.locator("#tabs .choose").last().focus();
+    await shell.locator("#tabs .choose").last().press("ArrowLeft");
+    await expect(shell.locator("#tabs .choose").first()).toHaveAttribute("aria-pressed", "true");
+    await expect(shell.locator("#tabs .choose").first()).toBeFocused();
+    if (process.env.AXE_CORE_PATH) {
+      await shell.evaluate(fs.readFileSync(process.env.AXE_CORE_PATH, "utf8"));
+      const violations = await shell.evaluate(async () => (await axe.run(document, {
+        runOnly: { type: "rule", values: ["aria-required-children", "aria-required-parent", "aria-allowed-attr", "aria-prohibited-attr"] },
+      })).violations);
+      assert.deepEqual(violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })), []);
+    }
     await shell
       .getByRole("button", { name: "Fechar Nova aba", exact: true })
       .click();
-    await expect(shell.getByRole("tab")).toHaveCount(1);
+    await expect(shell.locator("#tabs .choose")).toHaveCount(1);
     // A new capture while manually editing must not erase the draft (Path A: save then review queued).
     await workspace
       .getByRole("button", { name: "Adicionar texto", exact: true })

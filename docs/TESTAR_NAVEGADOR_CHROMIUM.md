@@ -1,6 +1,6 @@
 # Testar o navegador Ia-bbaru (Chromium)
 
-Base: branch `codex/chromium-browser` em https://github.com/Bbarusu/Ia-bbaru.
+Base integrada: branch `main` em https://github.com/Bbarusu/Ia-bbaru.
 É uma aplicação desktop Electron com Chromium incorporado. O Firefox não é
 necessário para este caminho. Esta é uma versão de desenvolvimento executada
 a partir do código; instalador assinado e atualização automática ainda não existem.
@@ -12,7 +12,7 @@ esta branch, preservando as sessões do Claude e do Gemini. Na raiz de um clone:
 
 ```powershell
 git fetch origin
-git worktree add -b teste/chromium ..\Ia-bbaru-chromium origin/codex/chromium-browser
+git worktree add -b teste/chromium ..\Ia-bbaru-chromium origin/main
 cd ..\Ia-bbaru-chromium
 .\scripts\start-browser.ps1 -Install
 ```
@@ -68,7 +68,8 @@ automaticamente nem usa sessões web como credenciais do gateway.
 
 ## Catálogo e planejamento com o gateway 1.1
 
-Inicie o gateway atualizado da PR #1 no checkout do Claude. No terminal de onde
+O gateway da PR #1 já está na `main`. Para o início conjunto, use
+`integrations/scripts/iniciar-ia-bbaru.ps1`. Para iniciá-lo separadamente, no terminal de onde
 iniciará o navegador, mantenha `GATEWAY_TOKEN` igual ao segredo configurado nesse
 gateway e configure:
 
@@ -93,10 +94,13 @@ tarefa. Para limites indicativos, o aceite aparece desmarcado; sem ele o plano
 não é enviado. Ao salvar, o backend persiste o aceite e as capacidades. O controle
 volta a desmarcado após a criação do plano. Isso não dispara geração.
 
-**A execução de IA pela interface ainda está bloqueada.** A ponte mantém apenas
-operações curtas. O próximo passo do Codex é a execução durável com acompanhamento
-de estado. A execução HTTP de desenvolvimento existente está documentada em
-`TESTAR_GATEWAY_1_1.md`; não foi transformada em um botão síncrono no navegador.
+**Executar é uma ação separada do planejamento.** No diálogo do plano, marque
+“Autorizo executar esta tarefa com minha conta” e clique em “Executar tarefa”.
+Isso pode consumir cota real. O diálogo e o histórico acompanham o estado. O
+painel pode ser fechado; mantenha o aplicativo aberto durante a chamada.
+Login/configuração anterior à geração permite “Retomar após corrigir”, com nova
+confirmação. Timeout/resultado incerto não permite repetição. `unknown` conserva a
+saída incompleta e não inicia revisão. Detalhes: [EXECUCAO_DURAVEL.md](EXECUCAO_DURAVEL.md).
 
 ## Verificações automatizadas
 

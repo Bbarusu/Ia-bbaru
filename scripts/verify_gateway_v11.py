@@ -53,7 +53,7 @@ def main():
         "FAKE_CLAUDE_RECORD": str(Path(directory) / "record.json"),
     }):
         settings = ClaudeCodeSettings(command=[sys.executable, str(fixture)], models=["sonnet", "opus"],
-                                      max_output_tokens=128, accept_unenforced_output_limit=False)
+                                      max_output_tokens=128, timeout_s=5, accept_unenforced_output_limit=False)
         adapter = ClaudeCodeAdapter(settings, runner=runner)
         application = gateway_app(Settings(gateway_token, Path(directory) / "gateway.sqlite3", settings), adapter)
         # Bind once and pass the socket to uvicorn to avoid port allocation races.
@@ -69,7 +69,7 @@ def main():
                     time.sleep(0.01)
                 assert server.started, "Gateway did not start"
                 gateway = HttpGateway(f"http://127.0.0.1:{port}", gateway_token, "1.1")
-                with TestClient(backend_app(Path(directory) / "backend.sqlite3", backend_token, gateway),
+                with TestClient(backend_app(Path(directory) / "backend.sqlite3", backend_token, gateway, durable_execution=True),
                                 headers={"Authorization": f"Bearer {backend_token}"}) as client:
                     catalog_response = client.get("/v1/models")
                     assert catalog_response.status_code == 200, catalog_response.text
@@ -86,21 +86,40 @@ def main():
                     assert denied.status_code == 422 and denied.json()["detail"] == "output_limit_not_accepted"
                     assert not generations
                     request["allow_unenforced_output_limit"] = True
-                    for mode, status, count in (("no_stop_reason", "incomplete", 1), ("success", "completed", 2)):
+                    for mode, status, count, code in (
+                        ("no_stop_reason", "incomplete", 1, "completion_unconfirmed"),
+                        ("success", "completed", 2, None),
+                        ("auth_error", "failed", 1, "provider_not_authenticated"),
+                        ("usage_limit", "failed", 1, "provider_quota_exceeded"),
+                        ("sleep", "uncertain", 1, "provider_timeout"),
+                    ):
                         with patch.dict("os.environ", {"FAKE_CLAUDE_MODE": mode}):
                             response = client.post(endpoint, json=request)
                             assert response.status_code == 201, response.text
                             task = response.json()
                             assert task["allow_unenforced_output_limit"] is True
                             before = len(generations)
-                            result = client.post(f"/v1/tasks/{task['id']}/execute").json()
+                            queued = client.post(f"/v1/tasks/{task['id']}/enqueue", json={"confirmed": True})
+                            assert queued.status_code == 202, queued.text
+                            deadline = time.monotonic() + 15
+                            while time.monotonic() < deadline:
+                                result = client.get(f"/v1/tasks/{task['id']}").json()
+                                if result["status"] not in {"queued", "running", "waiting"}:
+                                    break
+                                time.sleep(.05)
                             assert result["status"] == status, result
+                            assert result["error"] == code, result
                             assert len(generations) - before == count
-                            assert result["output"] == "Resposta do dublê de teste"
+                            if status in {"completed", "incomplete"}:
+                                assert result["output"] == "Resposta do dublê de teste"
+                            else:
+                                assert not result["results"]
+                                assert result["execution"]["steps"][0]["error_code"] == code
                             if status == "incomplete":
                                 assert result["error"] == "completion_unconfirmed"
                                 assert result["results"][0]["finish_reason"] == "unknown"
-                            assert client.post(f"/v1/tasks/{task['id']}/execute").status_code == 409
+                            assert client.post(f"/v1/tasks/{task['id']}/enqueue", json={"confirmed": True}).status_code == 409
+                            assert client.post(f"/v1/tasks/{task['id']}/resume", json={"confirmed": True}).status_code == 409
                             assert len(generations) - before == count
                             assert client.get(f"/v1/tasks/{task['id']}").json() == result
                             assert "Conteúdo com acentuação" in generations[before]
@@ -110,7 +129,7 @@ def main():
                 server.should_exit = True
                 thread.join(timeout=10)
                 assert not thread.is_alive(), "Gateway did not stop"
-    print("Gateway 1.1 verified over HTTP with fake CLI: acceptance, preserved unknown output, review, no repeat.")
+    print("Durable gateway 1.1 verified over HTTP with fake CLI: acceptance, unknown, review, auth, quota, timeout; no repeat.")
 
 
 if __name__ == "__main__":

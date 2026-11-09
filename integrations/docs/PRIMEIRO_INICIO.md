@@ -3,9 +3,9 @@
 Navegador Chromium do Codex + interface do Gemini + gateway do Claude Code.
 Nenhum passo deste guia gera resposta de IA nem consome cota de geração.
 
-As três frentes ainda estão em PRs separadas (#4 Codex, #5 Gemini, #1 Claude).
-Até o merge, o primeiro início usa uma **branch local** que junta as três, sem
-alterar as branches dos autores. Combinação verificada (Linux, 9/11/2026):
+As três frentes foram integradas na `main`, na ordem #4 Codex → #5 Gemini → #1
+Claude. O primeiro início já funcionou no Windows do usuário, sem geração.
+Para a pasta local existente, use “Atualizar depois” abaixo. Referência histórica:
 
 | Frente | Branch | SHA |
 | --- | --- | --- |
@@ -30,15 +30,12 @@ O merge entra sem conflito e passa em todas as suítes (ver [VALIDACAO.md](VALID
 cd W:\Projeto\Ia-bbaru
 git status                    # precisa estar limpo
 git fetch origin
-git worktree add -b inicio/local W:\Projeto\Ia-bbaru-inicio origin/codex/chromium-browser
+git worktree add -b inicio/local W:\Projeto\Ia-bbaru-inicio origin/main
 cd W:\Projeto\Ia-bbaru-inicio
-git merge --no-edit origin/gemini/chromium-ui
-git merge --no-edit origin/claude/vibrant-meitner-ksbzgf
 git log --oneline -3
 ```
 
-Os dois merges devem terminar sem conflito. A branch `inicio/local` existe só no
-seu PC: **não faça `git push`** dela.
+A branch `inicio/local` existe só no seu PC; não é necessário enviá-la ao GitHub.
 
 ## 2. Iniciar
 
@@ -85,11 +82,11 @@ Se o agente aparecer indisponível, o motivo vem no cartão e no diagnóstico do
 passo 3 do script. Os mais comuns: `not_logged_in` (rode `claude` e faça `/login`)
 e `not_subscription_login` (o login ativo é por chave de API).
 
-## O que ainda não funciona
+## Execução e limites
 
-- **Executar a tarefa pelo painel.** Depende da fila/worker durável do Codex; a
-  ponte recusa `tasks.execute` de propósito. Geração real só pelo fluxo HTTP de
-  desenvolvimento, em etapa separada e com sua autorização.
+- A execução agora usa fila durável. No plano, uma confirmação separada e o botão
+  “Executar tarefa” podem consumir cota real. Não clique para seguir este roteiro
+  sem geração. Consulte [EXECUCAO_DURAVEL.md](../../docs/EXECUCAO_DURAVEL.md).
 - Abas logadas no Claude, ChatGPT, Gemini ou NotebookLM não conectam agentes.
 - Sem importação automática do NotebookLM, instalador ou atualização automática.
 
@@ -97,13 +94,14 @@ e `not_subscription_login` (o login ativo é por chave de API).
 
 ```powershell
 cd W:\Projeto\Ia-bbaru-inicio
+git status
 git fetch origin
-git merge --no-edit origin/codex/chromium-browser
-git merge --no-edit origin/gemini/chromium-ui
-git merge --no-edit origin/claude/vibrant-meitner-ksbzgf
+git merge --no-edit origin/main
+.\integrations\scripts\iniciar-ia-bbaru.ps1
 ```
 
-Se alguma dependência mudar, rode uma vez `.\scripts\start-browser.ps1 -Install`
+Atualize com o aplicativo fechado e o trabalho local salvo/commitado; não descarte
+alterações se o Git apontar conflitos. Se alguma dependência mudar, rode uma vez `.\scripts\start-browser.ps1 -Install`
 com as variáveis do gateway, ou apague `desktop\node_modules` antes de usar o
 inicializador (ele refaz a instalação).
 

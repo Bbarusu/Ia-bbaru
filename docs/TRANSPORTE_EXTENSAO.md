@@ -65,14 +65,18 @@ de uma criação, consultar o estado antes de repetir para evitar duplicação.
 | tasks.list | {project_id,offset?} | GET /v1/projects/{id}/tasks?summary=true&limit=20&offset=… |
 | tasks.plan | {project_id,task} | POST /v1/projects/{id}/tasks; task segue TaskInput |
 | tasks.get | {task_id} | GET /v1/tasks/{id} |
+| tasks.enqueue | {task_id,confirmed:true} | POST /v1/tasks/{id}/enqueue; Chromium |
+| tasks.resume | {task_id,confirmed:true} | POST /v1/tasks/{id}/resume; Chromium |
 
-O host informa em `bridge.info` as operações suportadas e `task_execution: false`.
+O host informa em `bridge.info` as operações suportadas e `task_execution`, obtido
+do backend. Sem conexão confirmada, a capacidade fica `false`. A extensão Firefox
+mantém o planejamento; os controles de fila estão disponíveis no Chromium.
 Listagens retornam `items` e `next_offset` (null no fim). Fontes resumidas contêm
 `preview` e `char_count`; tarefas resumidas omitem contexto e resultados extensos.
-`tasks.execute` não faz parte desta versão: requer coordenação durável para
-que fechar a sidebar não mate uma geração nem cause repetição de uso. Enquanto
-isso, a execução síncrona atual continua disponível apenas ao cliente HTTP de
-desenvolvimento, sem ser representada como execução suportada pela extensão.
+`tasks.execute` continua recusado. `tasks.enqueue` retorna após gravar a fila,
+sem esperar o provedor; `tasks.get` acompanha progresso. Depois de perder uma
+confirmação, consultar o estado antes de tentar novamente. O ID da etapa é
+estável no backend, diferente do UUID de correlação da mensagem da ponte.
 
 ## Garantias e limites implementados
 
