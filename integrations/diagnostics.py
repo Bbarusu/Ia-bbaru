@@ -31,13 +31,19 @@ def _version(binary: str) -> str | None:
 
 
 def report(claude_settings: ClaudeCodeSettings | None = None) -> dict:
-    claude = ClaudeCodeAdapter(claude_settings or ClaudeCodeSettings.from_env()).status(refresh=True)
+    adapter = ClaudeCodeAdapter(claude_settings or ClaudeCodeSettings.from_env())
+    claude = adapter.status(refresh=True)
+    legacy = adapter.v1_gate()
     codex_version = _version("codex")
     gemini_version = _version("gemini")
     return {
         "claude_code": {
             **claude.as_dict(),
             "path": "Claude Code oficial com login do próprio usuário (adaptador implementado)",
+            # `ready` = transport ready. Per contract: 1.1 still needs the task's
+            # acceptance; contract 1 stays blocked unless the legacy flag is set.
+            "contract_1_1": {"available": claude.ready, "requires_task_acceptance": True},
+            "contract_1": {"available": legacy.ready, "reason": legacy.reason},
         },
         "chatgpt_codex": {
             "installed": codex_version is not None, "version": codex_version,

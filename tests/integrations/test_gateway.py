@@ -399,6 +399,19 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue({"code", "message"} <= set(body["error"]))
 
 
+class DiagnosticsTests(GatewayTestCase):
+    accept_unenforced = False
+
+    def test_report_separates_contract_versions(self):
+        from integrations.diagnostics import report
+        data = report(self.settings.claude_code)["claude_code"]
+        self.assertTrue(data["ready"])
+        self.assertEqual(data["contract_1_1"], {"available": True, "requires_task_acceptance": True})
+        self.assertEqual(data["contract_1"], {"available": False, "reason": "output_limit_not_enforced"})
+        self.assertEqual(self.runner.generations, 0)
+        self.assertFalse(self.record.exists())
+
+
 class ContractSchemaTests(unittest.TestCase):
     def test_openapi_matches_published_gateway_contract(self):
         published = json.loads((ROOT / "docs" / "openapi-gateway.json").read_text(encoding="utf-8"))

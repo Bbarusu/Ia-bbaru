@@ -17,7 +17,9 @@ Esses testes reais usaram o contrato 1, **antes** das correções da revisão do
 (`docs/REVISAO_CLAUDE.md`) e do contrato 1.1. Depois das correções, o teste real pelo contrato 1.1 passou no Windows do usuário (Claude Code 2.1.307, `sonnet`, teto 64): resposta `laranja`, `usage` 913/5 e `finish_reason: stop`. Como a contagem de tokens não é mais usada, esse `stop` prova que o CLI informou `stop_reason` (`end_turn` ou `stop_sequence`).
 O fluxo backend → gateway ainda precisa ser repetido depois que o backend adotar o 1.1.
 Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
-Ver [docs/CONEXOES.md](docs/CONEXOES.md).
+Ver [docs/CONEXOES.md](docs/CONEXOES.md), o registro em
+[docs/VALIDACAO.md](docs/VALIDACAO.md) e os comandos do teste prático em
+[docs/TESTE_PRATICO_1_1.md](docs/TESTE_PRATICO_1_1.md).
 
 ## O que já existe
 

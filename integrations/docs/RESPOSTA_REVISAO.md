@@ -73,3 +73,25 @@ os do backend, como já faz no contrato 1. Pontos que eu escolhi e que vale conf
   foram feitos **antes** destas correções e pelo contrato 1. O teste opcional agora
   usa o 1.1 e mostra se o CLI do usuário informa `stop_reason`.
 - Depois das correções, o teste real pelo contrato 1.1 passou no Windows do usuário (Claude Code 2.1.307, `sonnet`, teto 64): resposta `laranja`, `usage` 913/5 e `finish_reason: stop`. Como a contagem de tokens não é mais usada, esse `stop` prova que o CLI informou `stop_reason` (`end_turn` ou `stop_sequence`).
+
+## Rodada de 9/11/2026: revisão integrada do Codex
+
+Referências (branch `codex/frontend-firefox`, `cbcf3d7`):
+`docs/REVISAO_INTEGRADA_2026_11_09.md`, `docs/TESTAR_GATEWAY_1_1.md` e
+`docs/PROMPT_CLAUDE_VALIDACAO.md`. O Codex revisou o gateway `452d2fd` com o
+backend `d593e76` e não pediu nova correção no gateway.
+
+- Confirmado pelo Codex: as três escolhas do 1.1 (aceite padrão `false`,
+  `unavailable_reason` texto até 80, `max_output_tokens` 1..4096) e a igualdade dos
+  componentes/rotas OpenAPI 1.1 dos dois lados. Nada mais pendente no backend.
+- Pré-verificação no Linux, sem conta real: os quatro passos do prompt passaram
+  (backend 48 OK; gateway 50 OK + 1 pulado com o backend atual;
+  `verify_gateway_v11.py` OK; diagnóstico sem geração). Detalhes e SHAs em
+  [VALIDACAO.md](VALIDACAO.md).
+- Única mudança no gateway: o diagnóstico mostra a disponibilidade por versão de
+  contrato (`contract_1_1` e `contract_1`), mais um teste. Formato dos contratos
+  inalterado; nenhuma proteção removida.
+- Não feito de propósito: consolidar os schemas 1.1 duplicados (manutenção para
+  depois de combinar as branches) e qualquer geração real nesta rodada.
+- Pendente: os mesmos passos no Windows do usuário e, depois, o teste prático 1.1
+  com a conta. Comandos em [TESTE_PRATICO_1_1.md](TESTE_PRATICO_1_1.md).
