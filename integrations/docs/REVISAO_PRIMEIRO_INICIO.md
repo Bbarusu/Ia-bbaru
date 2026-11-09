@@ -76,6 +76,12 @@ O painel ficou sem violações do axe e sem rolagem em 900×640.
   (axe `aria-prohibited-attr`) e contraste insuficiente no botão `#panel`.
   São novos em relação à base do Codex.
 
+- G-C (P3, visto no primeiro início no Windows) — no plano, a capacidade
+  `finish_reason: reported` aparece como "Término confirmado". Antes da execução
+  nada foi confirmado; o valor só diz que o provedor **informa** o motivo de parada.
+  Sugestão: "Término informado pelo provedor". Reservar "confirmado/não confirmado"
+  para o resultado (`stop` × `unknown`/`completion_unconfirmed`).
+
 Mensagem pronta para o Gemini:
 
 > Revisão de `00e2c8f` (PR #5) junto com `codex/chromium-browser` e o gateway:
@@ -86,4 +92,6 @@ Mensagem pronta para o Gemini:
 > `not_subscription_login`. Mantenha o texto genérico para códigos desconhecidos
 > e não apresente cota como motivo do catálogo. (2) Na barra do navegador, remova
 > o `aria-label` do `<span class="brand">` (ou dê um papel adequado) e ajuste o
-> contraste do botão `#panel`. Inclua testes de comportamento.
+> contraste do botão `#panel`. (3) No plano, troque "Término confirmado"
+> (capacidade `finish_reason: reported`) por "Término informado pelo provedor";
+> "confirmado" só vale para o resultado `stop`. Inclua testes de comportamento.

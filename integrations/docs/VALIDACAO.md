@@ -17,7 +17,25 @@ Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INIC
 | Barra do navegador no axe | ⚠️ 3 itens menores (ver revisão) |
 | `integrations/scripts/iniciar-ia-bbaru.ps1` | ⚠️ **não executado** (sem PowerShell no contêiner) |
 
-No Windows: ⏳ pendente, seguindo [PRIMEIRO_INICIO.md](PRIMEIRO_INICIO.md).
+### Primeiro início no Windows do usuário (9/11/2026) ✅
+
+Pasta `inicio/local` (Codex `33fc1ea` + Gemini `00e2c8f` + gateway), aberta com
+`integrations/scripts/iniciar-ia-bbaru.ps1`. Conta real do usuário, **sem geração**.
+
+| Etapa | Resultado |
+| --- | --- |
+| Primeira execução: `.venv`, `npm ci`, build e download do Electron | ✅ |
+| Gateway em `127.0.0.1:8010` (`/health` 200) | ✅ |
+| Navegador: abas, navegação real (site externo), captura com prévia | ✅ |
+| Catálogo real: **Claude Code (sonnet) - assinatura** disponível no painel | ✅ |
+| Plano criado pelo painel: contrato 1.1, "Limite indicativo aceito para esta tarefa", capacidades copiadas (assinatura, limite indicativo de 128 tokens, cancelamento apenas local) | ✅ |
+| "Plano salvo. Esta versão ainda não inicia execuções pelo painel." | ✅ nenhuma geração pelo painel |
+
+Achado no Windows, corrigido em `e6819d3`: a janela do gateway entrou no modo
+"Selecionar" do console (que pausa o processo ao escrever no log) e mostrava
+códigos de cor crus. O inicializador passou a rodar o gateway sem janela, com log
+em arquivo. A captura de tela do plano não mostra se essa versão já estava em uso.
+
 
 ## Rodada anterior: navegador Chromium (9/11/2026)
 
