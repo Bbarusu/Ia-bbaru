@@ -205,7 +205,7 @@ caminho local é devolvido.
 | --- | --- |
 | 401 | `invalid_gateway_token` |
 | 422 | `invalid_request`, `unknown_model`, `context_too_large`, `max_output_tokens_above_profile`, `missing_previous_output`, `output_limit_not_accepted` (1.1) |
-| 409 | `request_id_conflict`, `request_in_progress`, `request_outcome_uncertain` |
+| 409 | `request_id_conflict`, `request_in_progress`, `request_outcome_uncertain` (também na primeira resposta quando o gateway falha de forma inesperada depois de iniciar o CLI) |
 | 429 | `gateway_busy` (já há uma geração em curso), `provider_quota_exceeded` |
 | 502 | `provider_error`, `provider_invalid_output`, `provider_empty_output`, `provider_model_mismatch`, `output_limit_not_honored` (1), `completion_unconfirmed` (1) |
 | 503 | `provider_cli_not_installed`, `provider_not_logged_in`, `provider_not_subscription_login`, `provider_output_limit_not_enforced`, `provider_not_authenticated`, ... |

@@ -252,6 +252,20 @@ class GenerateTests(GatewayTestCase):
         self.assertEqual(again.status_code, 409)
         self.assertEqual(again.json()["error"]["code"], "request_outcome_uncertain")
 
+    def test_unexpected_error_after_start_is_uncertain_from_first_answer(self):
+        def exploding(args, stdin, timeout_s, env, cwd):
+            if "--print" in args:
+                raise RuntimeError("falha inesperada depois de iniciar")
+            return run_process(args, stdin, timeout_s, env, cwd)
+
+        self.make_client(runner=exploding)
+        first = self.client.post("/v1/generate", json=request_body())
+        self.assertEqual(first.status_code, 409)
+        self.assertEqual(first.json()["error"]["code"], "request_outcome_uncertain")
+        self.assertNotIn("falha inesperada", first.text)
+        again = self.client.post("/v1/generate", json=request_body())
+        self.assertEqual(again.json()["error"]["code"], "request_outcome_uncertain")
+
     def test_crash_while_running_becomes_uncertain(self):
         store = DedupStore(self.settings.db_path)
         from integrations.dedup import payload_hash

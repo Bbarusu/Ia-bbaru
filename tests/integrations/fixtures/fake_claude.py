@@ -7,6 +7,7 @@ Its output imitates the documented shape of `claude -p --output-format json`
   | max_tokens | no_stop_reason | null_stop_reason | refusal
 FAKE_CLAUDE_LOGIN: claude.ai (default) | api_key | none
 FAKE_CLAUDE_RECORD: file that receives argv, stdin and selected env vars.
+FAKE_CLAUDE_DELAY: seconds to wait before answering a generation (default 0).
 """
 import json
 import os
@@ -43,6 +44,7 @@ def main():
                     "ANTHROPIC_API_KEY", "GATEWAY_TOKEN", "CLAUDE_CODE_MAX_OUTPUT_TOKENS")
             }}, fh)
     mode = os.environ.get("FAKE_CLAUDE_MODE", "success")
+    time.sleep(float(os.environ.get("FAKE_CLAUDE_DELAY", "0")))
     if mode == "sleep":
         time.sleep(30)
     if mode == "garbage":

@@ -134,8 +134,11 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
                     store.complete(body.request_id, exc.status, exc.body())
                 raise
             except Exception:
-                store.mark_uncertain(body.request_id, 502, errors.provider_error().body())
-                raise errors.provider_error("gateway_internal_error")
+                # The provider may already have run: report the outcome as
+                # uncertain from the first answer, as every repeat will (409).
+                uncertain = errors.request_outcome_uncertain()
+                store.mark_uncertain(body.request_id, uncertain.status, uncertain.body())
+                raise uncertain
             store.complete(body.request_id, 200, result.model_dump(mode="json"))
             return result
         finally:

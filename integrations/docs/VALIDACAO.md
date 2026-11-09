@@ -3,7 +3,56 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: primeiro início com as três frentes (9/11/2026)
+## Rodada atual: fila durável integrada no `main` (10/11/2026)
+
+Prompt: `docs/PROMPT_CLAUDE_EXECUCAO.md`. Base `main` `1c72ffa` (merges #4 → #5 → #1 e
+#6 do Codex: C-1 códigos do gateway, C-2 fila/worker). Esta branch recomeçou do `main`.
+
+### Linux (contêiner do Claude), dublê do CLI, sem conta real
+
+| Comando | Resultado |
+| --- | --- |
+| `python -m unittest discover -s tests -v` | ✅ 60 OK; também com `-X dev -W error::ResourceWarning` (nenhuma conexão SQLite ou arquivo esquecido aberto) |
+| `python -m unittest discover -s tests/integrations -v` | ✅ 56 executados: 55 OK + 1 pulado (o real) |
+| `python scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ `no_stop_reason` → incompleta; `success` → concluída com revisão (2 chamadas); `auth_error` → `provider_not_authenticated` final; `usage_limit` → `provider_quota_exceeded` final; `sleep` → `provider_timeout` incerta; sempre 1 chamada por etapa, sem repetição |
+| `npm --prefix frontend test` / `npm --prefix desktop test` / build | ✅ 11 / 3 / ✅ |
+| `npm --prefix desktop run test:ui` (Electron, Xvfb, sem sandbox do SO) | ✅ |
+| `node tests/integrations/desktop_gateway_smoke.cjs` | ✅ |
+| **Novo:** `tests/integrations/test_durable_gateway.py` (fila do backend + este gateway por HTTP real) | ✅ `gateway_busy` real → `waiting` → repetição com o **mesmo** `request_id` e o **mesmo corpo** (reenviar o corpo gravado devolve a resposta guardada sem nova geração); timeout → `uncertain`, `resume`/`enqueue` → 409, 1 chamada |
+
+Mudança no gateway: uma falha inesperada depois de iniciar o CLI agora responde
+409 `request_outcome_uncertain` já na primeira resposta (antes, 502
+`gateway_internal_error`, que a fila tratava como erro final). O gateway já
+gravava esse caso como incerto; agora a primeira resposta e as repetições dizem
+o mesmo. Ambos os códigos estão na lista do backend; nenhum schema mudou.
+
+Não coberto no Linux: a trava do worker no Windows (`msvcrt.locking`), que só
+roda lá; `test_worker_lock_excludes_second_consumer` a exercita no Windows.
+
+### No Windows do usuário
+
+⏳ Pendente. Na pasta `W:\Projeto\Ia-bbaru-inicio`, com o app fechado:
+
+```powershell
+git status
+git fetch origin
+git merge --no-edit origin/main
+git log --oneline -1
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/integrations -v
+.\.venv\Scripts\python.exe scripts/verify_gateway_v11.py --gateway-checkout .
+$env:IA_BBARU_PYTHON = (Resolve-Path .venv\Scripts\python.exe).Path
+npm.cmd --prefix frontend ci
+npm.cmd --prefix desktop ci
+npm.cmd --prefix desktop run build
+npm.cmd --prefix desktop run test:ui
+node tests/integrations/desktop_gateway_smoke.cjs
+```
+
+Esperado: 60 OK; 56 com 1 pulado; as 5 linhas do script; `Chromium UI passed`;
+`Gateway + Chromium verificados`. Nenhum comando usa a conta.
+
+## Rodada anterior: primeiro início com as três frentes (9/11/2026)
 
 Codex `33fc1ea` + Gemini `00e2c8f` + este gateway, juntos numa worktree local.
 Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INICIO.md).
@@ -43,7 +92,7 @@ códigos de cor crus. O inicializador passou a rodar o gateway sem janela, com l
 em arquivo. A captura de tela do plano não mostra se essa versão já estava em uso.
 
 
-## Rodada anterior: navegador Chromium (9/11/2026)
+## Rodada: navegador Chromium (9/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_CHROMIUM.md` (branch `codex/chromium-browser`).
 
