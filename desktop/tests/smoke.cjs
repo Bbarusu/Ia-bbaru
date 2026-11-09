@@ -269,6 +269,11 @@ async function main() {
     await expect(
       workspace.getByRole("dialog").getByText("Limite indicativo (64 tokens)"),
     ).toBeVisible();
+    await expect(
+      workspace
+        .getByRole("dialog")
+        .getByText(/Término informado pelo provedor/),
+    ).toBeVisible();
     await workspace
       .getByRole("dialog")
       .getByRole("button", { name: "Fechar", exact: true })
@@ -358,6 +363,32 @@ async function main() {
     await workspace
       .getByRole("button", { name: "Descartar trecho", exact: true })
       .click();
+    // Verify shell accessibility (.brand has no prohibited aria-label, #panel contrast >= 4.5:1)
+    const shellA11y = await shell.evaluate(() => {
+      const brand = document.querySelector(".brand");
+      const panel = document.getElementById("panel");
+      const style = window.getComputedStyle(panel);
+      const parseRgb = (str) => str.match(/\d+/g).map(Number);
+      const lum = ([r, g, b]) => {
+        const a = [r, g, b].map((v) => {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+      };
+      const l1 = lum(parseRgb(style.color));
+      const l2 = lum(parseRgb(style.backgroundColor));
+      const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      return {
+        brandAriaLabel: brand ? brand.getAttribute("aria-label") : null,
+        panelContrast: ratio,
+      };
+    });
+    assert.equal(shellA11y.brandAriaLabel, null);
+    assert.ok(
+      shellA11y.panelContrast >= 4.5,
+      `Expected #panel contrast >= 4.5, got ${shellA11y.panelContrast}`,
+    );
     // Verify expanded workspace mode and semantic project list.
     await expect(shell.locator("#panel")).toHaveAttribute(
       "aria-pressed",
@@ -471,12 +502,13 @@ async function main() {
             "remote isolation",
             "selection capture and SQLite source",
             "1.1 acceptance required and persisted",
-            "1.1 capability badges in plan modal",
+            "1.1 capability badges in plan modal (Término informado pelo provedor)",
             "execution denied",
             "file navigation denied",
             "tabs",
             "manual draft preserved (save then review queued)",
             "manual draft explicit replacement confirmation",
+            "shell brand aria-label removed and #panel contrast >= 4.5",
             "expanded workspace and semantic project list",
             "minimum window size 900x640 no overflow",
             "restart persistence",

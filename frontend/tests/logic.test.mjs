@@ -74,12 +74,48 @@ test("1.1 capability helpers translate billing, output limits, cancellation and 
   );
   assert.equal(formatCancellation("none"), "Sem cancelamento");
 
-  assert.equal(formatFinishReason("reported"), "Término confirmado");
+  // Capability finish_reason: "reported" means the provider reports stop reason (not confirmed before execution)
+  assert.equal(
+    formatFinishReason("reported"),
+    "Término informado pelo provedor",
+  );
+  assert.doesNotMatch(formatFinishReason("reported"), /confirmad/i);
   assert.equal(formatFinishReason("inferred"), "Término inferido");
-  assert.equal(formatFinishReason("unknown"), "Conclusão não confirmada");
 
-  assert.match(formatUnavailableReason("api_key_missing"), /Chave de API/);
-  assert.match(formatUnavailableReason("cli_not_installed"), /CLI/);
+  // Result finish_reason: "stop" vs "unknown"
+  assert.equal(formatFinishReason("stop"), "Conclusão confirmada");
+  assert.equal(formatFinishReason("length"), "Limite de saída atingido");
+  assert.equal(formatFinishReason("unknown"), "Conclusão não confirmada");
+});
+
+test("formatUnavailableReason translates real gateway catalog codes and never presents quota as catalog reason", () => {
+  const realCodes = {
+    cli_not_installed: /CLI oficial não instalado/i,
+    cli_not_runnable: /não pôde ser executado/i,
+    cli_version_unsupported: /versão do CLI oficial incompatível/i,
+    auth_status_unknown: /verificar o login no CLI/i,
+    not_logged_in: /faça login no CLI oficial/i,
+    not_subscription_login: /login por assinatura no CLI oficial/i,
+  };
+
+  for (const [code, pattern] of Object.entries(realCodes)) {
+    const label = formatUnavailableReason(code);
+    assert.match(label, /^Indisponível:/);
+    assert.match(label, pattern);
+    assert.doesNotMatch(label, new RegExp(code));
+    assert.doesNotMatch(label, /cota|limite de uso/i);
+  }
+
+  // Unknown or missing codes fall back to generic text without inventing quota reasons
+  assert.equal(formatUnavailableReason(null), "Indisponível neste computador");
+  assert.equal(
+    formatUnavailableReason("future_code"),
+    "Indisponível (future_code)",
+  );
+  assert.equal(
+    formatUnavailableReason("rate_limited"),
+    "Indisponível (rate_limited)",
+  );
 });
 
 test("requiresLimitAcceptance identifies selected models without enforced output limit", () => {

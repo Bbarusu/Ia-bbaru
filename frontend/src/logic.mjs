@@ -59,7 +59,7 @@ export function formatCancellation(cancellation) {
 export function formatFinishReason(finishReason) {
   return (
     {
-      reported: "Término confirmado",
+      reported: "Término informado pelo provedor",
       inferred: "Término inferido",
       stop: "Conclusão confirmada",
       length: "Limite de saída atingido",
@@ -72,14 +72,15 @@ export function formatUnavailableReason(reason) {
   if (!reason) return "Indisponível neste computador";
   return (
     {
-      cli_not_installed: "CLI oficial não instalado neste computador",
-      not_authenticated: "Sessão não autenticada no CLI oficial",
-      subscription_required: "Requer assinatura elegível ativa",
-      api_key_missing: "Chave de API não configurada",
-      rate_limited: "Limite de uso atingido temporariamente",
-      model_tools_not_supported:
-        "Requer ferramentas não autorizadas nesta versão",
-      provider_unavailable: "Provedor indisponível no momento",
+      cli_not_installed: "Indisponível: CLI oficial não instalado",
+      cli_not_runnable: "Indisponível: CLI oficial não pôde ser executado",
+      cli_version_unsupported:
+        "Indisponível: versão do CLI oficial incompatível",
+      auth_status_unknown:
+        "Indisponível: não foi possível verificar o login no CLI",
+      not_logged_in: "Indisponível: faça login no CLI oficial",
+      not_subscription_login:
+        "Indisponível: requer login por assinatura no CLI oficial",
     }[reason] || `Indisponível (${reason})`
   );
 }
@@ -110,6 +111,10 @@ export function describeTaskError(error) {
         "O agente exige uso de ferramentas não autorizado nesta versão.",
       review_context_too_large:
         "O material somado à resposta principal ultrapassa o limite de contexto do revisor.",
+      provider_quota_exceeded:
+        "A cota da conta no provedor foi atingida durante a geração.",
+      provider_not_authenticated:
+        "A sessão no provedor expirou ou não está autenticada.",
     }[error] || `A tarefa não foi concluída: ${error}`
   );
 }

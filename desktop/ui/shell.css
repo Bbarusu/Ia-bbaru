@@ -8,6 +8,8 @@
   --text: #e6e8ec;
   --text-muted: #a3aab7;
   --accent: #397ff2;
+  --accent-strong: #1f5cc2;
+  --accent-strong-hover: #2567d4;
   --accent-hover: #4e8ff7;
   --accent-muted: #17243c;
   --danger-text: #ff9b9b;
@@ -293,9 +295,15 @@ input:focus-visible {
 
 .primary[aria-pressed="true"],
 #expand[aria-pressed="true"] {
-  background: var(--accent);
+  background: var(--accent-strong);
   color: #ffffff;
-  border-color: #5494ff;
+  border-color: var(--accent);
+}
+
+.primary[aria-pressed="true"]:hover:not(:disabled),
+#expand[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-strong-hover);
+  color: #ffffff;
 }
 
 #expand {
