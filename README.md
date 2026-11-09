@@ -2,53 +2,68 @@
 
 Just a school project.
 
-Projeto independente. O KInfo é a referência visual para a futura interface.
-Esta entrega contém **o backend e os briefings de implementação**. A interface e
-as conexões reais com os provedores ainda não foram implementadas.
+Projeto independente com a linguagem visual do KInfo. A direção atual é um
+**navegador desktop Chromium, via Electron**, com abas reais, captura de trechos,
+painel React e backend local. Base: branch `codex/chromium-browser`.
+
+**[Abrir e testar o navegador Chromium](docs/TESTAR_NAVEGADOR_CHROMIUM.md)** ·
+[Estado e pendências](docs/STATUS.md) · [Configurar gateway 1.1](docs/TESTAR_GATEWAY_1_1.md)
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru
 
-## Primeira etapa aprovada
+![Navegador Ia-bbaru com Chromium](docs/images/browser-chromium.png)
 
-Construir uma extensão para Firefox, aproveitando Gecko, com painel lateral e
-backend local. Validar o fluxo de projeto, contexto selecionado e agentes antes
-de manter um navegador independente baseado em Firefox.
+*Janela real do Electron no teste Linux, com projeto e catálogo de teste.
+Nenhuma conta de IA utilizada; Windows ainda requer validação local.*
 
-- [Briefing do Claude: integrações](docs/INSTRUCOES_CLAUDE.md).
-- [Briefing do Gemini: frontend e extensão Firefox](docs/INSTRUCOES_GEMINI.md).
-- [Arquitetura Firefox/Gecko e divisão do trabalho](docs/ARQUITETURA.md).
-- [Transporte entre extensão e backend: proposta](docs/TRANSPORTE_EXTENSAO.md).
+## Direção aprovada
+
+Construir o navegador Chromium com backend local. A extensão Firefox foi a etapa
+anterior e continua disponível. Navegação, projetos, captura e planejamento já
+podem ser testados pela interface. Geração pelo painel depende da execução durável.
+
+- [Prompt do Claude: gateway no Chromium](docs/PROMPT_CLAUDE_CHROMIUM.md).
+- [Prompt do Gemini: interface do navegador](docs/PROMPT_GEMINI_CHROMIUM.md).
+- [Arquitetura Chromium e divisão do trabalho](docs/ARQUITETURA.md).
+- [Transporte implementado entre extensão e backend](docs/TRANSPORTE_EXTENSAO.md).
 
 ## Direção atual: aproveitar contas e assinaturas
 
 O objetivo é usar as contas que o usuário já possui. A proposta é uma interface web
 local com um componente local para integrar os caminhos oficiais de cada serviço,
 além de transferência assistida de contexto quando a automação não estiver disponível.
-Isso ainda é um desenho de integração, não uma conexão já implementada.
+O transporte local e o consumidor do contrato 1.1 estão implementados. Claude
+registrou testes de assinatura no Windows do usuário; esta entrega do backend foi
+validada com fixtures. A instalação da extensão não ativa uma conta automaticamente.
 
 - [Contas, assinaturas e arquitetura proposta](docs/ASSINATURAS.md).
 - [Referência visual do KInfo](docs/DESIGN.md).
 - [Estado da implementação e próximos passos](docs/STATUS.md).
 
-O gateway HTTP v1 desta base nasceu para APIs com chave. Ele continua disponível
-como interface inicial, mas **não é compatível automaticamente com todos os fluxos
-de assinatura**. Em especial, o limite obrigatório de tokens de saída precisa ser
-revisto antes de integrar o fluxo documentado de Sign in with ChatGPT.
+O contrato 1 permanece compatível e é o padrão. O contrato **1.1** informa as
+capacidades reais do transporte, exige aceite por tarefa para limites indicativos
+e preserva respostas de conclusão desconhecida sem disparar outro agente.
+Isso não implementa automaticamente conexões com ChatGPT ou Gemini.
 
-## Divisão proposta
+## Divisão atual
 
 - Backend deste repositório: projetos, fontes de texto, tarefas, plano de execução,
   seleção de modelos, execução em até duas etapas e histórico persistido.
 - Serviço de integrações feito com Claude: verificar elegibilidade das contas,
   integrar os caminhos oficiais disponíveis e informar capacidades reais de cada
   conexão. API com chave fica opcional; não contratar cobrança por padrão.
-- Frontend feito com Gemini: interface React/TypeScript e extensão Firefox,
-  preservando o estilo do KInfo e consumindo os contratos do backend.
-- Codex: backend principal, persistência, coordenação, ponte local e integração.
-- Guia para o Claude: `docs/INSTRUCOES_CLAUDE.md`.
-- Contratos: `docs/openapi-backend.json` e `docs/openapi-gateway.json`.
+- Codex: runtime Chromium, IPC, captura, backend, persistência e execução durável.
+- Gemini: `frontend/` e `desktop/ui/`, conforme `docs/PROMPT_GEMINI_CHROMIUM.md`.
+- Claude: gateway e testes locais, conforme `docs/PROMPT_CLAUDE_CHROMIUM.md`.
+- Contratos: `docs/openapi-backend.json`, `docs/openapi-gateway.json` (1) e
+  `docs/openapi-gateway-1.1.json` (1.1).
 
-## Executar localmente
+## Executar somente o backend para desenvolvimento
+
+Para testar o navegador, siga [Abrir o Chromium](docs/TESTAR_NAVEGADOR_CHROMIUM.md):
+ele inicia o backend automaticamente. Os comandos abaixo servem para desenvolver
+o backend separadamente. O caminho anterior de [extensão Firefox](docs/INSTALAR_FIREFOX.md)
+também continua disponível.
 
 Requer Python 3.12. Os comandos abaixo são para bash:
 
@@ -69,15 +84,19 @@ As rotas `/v1/*` exigem `Authorization: Bearer <LAUNCHER_API_TOKEN>`.
 `/health`, `/docs` e `/openapi.json` não expõem registros privados.
 O arquivo `.env.example` é referência: não é carregado automaticamente.
 
-Depois de o Claude implementar o gateway, configure no backend:
+Para usar o gateway atualizado da PR #1, configure no backend:
 
 ```sh
 export GATEWAY_URL=http://127.0.0.1:8010
+export GATEWAY_PROTOCOL_VERSION=1.1
 # Configure GATEWAY_TOKEN com o mesmo segredo de serviço usado no gateway.
 ```
 
 Não use o token do launcher como token do gateway. As chaves dos provedores ficam
 somente no gateway; o navegador não precisa conhecê-las.
+
+Veja [configuração e validação do 1.1](docs/TESTAR_GATEWAY_1_1.md), incluindo o
+aceite `allow_unenforced_output_limit` e os comandos para Windows.
 
 ## Fluxo disponível
 
@@ -86,7 +105,8 @@ somente no gateway; o navegador não precisa conhecê-las.
 3. `GET /v1/models`: consultar o catálogo real do gateway.
 4. `POST /v1/projects/{id}/tasks`: criar plano, sem gerar resposta ou consumir tokens
    de geração. O gateway deve consultar o catálogo sem chamadas de geração.
-5. `POST /v1/tasks/{id}/execute`: executar o plano. Pode realizar chamadas cobradas.
+5. `POST /v1/tasks/{id}/execute`: executar o plano pelo cliente HTTP de desenvolvimento.
+   Pode consumir cota/cobrança. Esta operação ainda não é exposta pela extensão.
 6. `GET /v1/tasks/{id}`: consultar status e resultados intermediários.
 
 Corpo de criação de tarefa (troque IDs pelos retornados pelas APIs):
@@ -121,17 +141,19 @@ faz uma chamada de IA para decidir o roteamento.
 - Falha/timeout não é repetido automaticamente: o provedor pode ter cobrado mesmo
   sem a resposta chegar. Repetir `execute` retorna 409. Uma tarefa interrompida
   pelo reinício passa para `interrupted`, preservando resultados já gravados.
-- Respostas cortadas por limite de tokens ficam `incomplete`; não são apresentadas
-  como concluídas nem enviadas automaticamente à revisão.
+- Respostas cortadas ou de conclusão desconhecida ficam `incomplete`; não são
+  apresentadas como concluídas nem enviadas automaticamente à revisão.
 - Até 20 fontes por tarefa e 80.000 caracteres de entrada. A contagem em caracteres
   é uma pré-validação; o gateway ainda precisa validar tokens no provedor.
 - Fontes apenas em texto. Sem extração de PDF, upload binário, importação NotebookLM,
   sincronização de projetos Claude/ChatGPT, busca vetorial ou ferramentas externas.
-- Sem orçamento monetário ou estimativa de preço. Limite por etapa: 4.096 tokens de
-  saída, respeitando o limite do modelo. Usage é registrado quando o gateway retorna.
+- Sem orçamento monetário ou estimativa de preço. Solicitação por etapa: até 4.096
+  tokens de saída. No contrato 1.1 o teto só é garantido para `output_limit: enforced`;
+  outros transportes exigem aceite da limitação. Usage é registrado quando retornado.
 - Sem streaming, cancelamento remoto ou reexecução de etapas.
 - Sem credenciais configuradas, `/v1/models` e a criação de planos retornam 503.
-  Não existem respostas fictícias no runtime; o adaptador de teste vive nos testes.
+  Não existem respostas fictícias no fluxo normal. A prévia visual `?demo=1` é
+  explicitamente identificada e não faz inferência.
 
 Antes de publicar: substituir o token único por autenticação e autorização por
 usuário, definir retenção/exclusão dos dados e implantar fila durável e limites de
@@ -141,9 +163,18 @@ custo. Esta base não deve ser exposta publicamente como está.
 
 ```sh
 python -m unittest discover -s tests -v
+cd frontend
+npm ci
+npm test
+npm run build
 ```
 
 Os testes verificam autenticação, isolamento das fontes entre projetos, roteamento,
 passagem de contexto à revisão, limites de entrada, execução única concorrente,
 falhas parciais, respostas truncadas, recuperação após reinício e validação do gateway.
 Não realizam chamadas pagas a provedores.
+
+A validação opcional de UI usa `python scripts/verify_ui.py` após instalar
+`playwright` e executar `python -m playwright install firefox`. Renderiza em Gecko
+com backend real e APIs WebExtensions simuladas; não substitui testar o carregamento
+nativo da extensão. Nenhuma validação automática exige login de IA.

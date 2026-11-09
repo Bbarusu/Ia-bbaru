@@ -1,0 +1,277 @@
+{
+  "date": "2026-11-09",
+  "commits": {
+    "claude": "452d2fd50437b382a3d7a91f01f0733a7dbe4ae5",
+    "gemini": "9814424727d824fc77bc4ce57eef56aadd831047",
+    "backend": "d593e76dee419b44c649bf3f1c1ab88b371ce506"
+  },
+  "environment": "Linux; Firefox/Gecko headless; WebExtension APIs simulated; temporary SQLite; no real AI account",
+  "gateway": {
+    "passed": 50,
+    "skipped_real_account": 1,
+    "openapi_components_equal": true,
+    "openapi_paths_equal": true,
+    "http_fake_cli": [
+      {
+        "fixture_mode": "no_stop_reason",
+        "status": "incomplete",
+        "error": "completion_unconfirmed",
+        "generation_calls": 1
+      },
+      {
+        "fixture_mode": "success",
+        "status": "completed",
+        "error": null,
+        "generation_calls": 2
+      }
+    ]
+  },
+  "frontend": {
+    "unit_tests_passed": 11,
+    "build": "passed",
+    "delivered_firefox_suite": "passed"
+  },
+  "independent_ui_checks": {
+    "capture_replacement": {
+      "title": "Fonte B",
+      "text": "Texto exclusivo B",
+      "origin": "https://example.org/b"
+    },
+    "saved_capture": {
+      "id": "06af8f8a-a629-435d-b26e-836dcc3a925d",
+      "project_id": "7505a016-e18c-4d04-af6a-091a6354b3fd",
+      "title": "Fonte B",
+      "content": "Fonte B\nOrigem: https://example.org/b\n\nTexto exclusivo B",
+      "created_at": "2026-11-09T12:24:48.535067+00:00"
+    },
+    "project_focus_restored": true,
+    "source_focus_restored": true,
+    "project_close_button_focus": true,
+    "source_close_button_focus": true,
+    "layout_review": [
+      {
+        "width": 320,
+        "tab": "Área de trabalho",
+        "viewport": 320,
+        "scroll": 320,
+        "overflow": []
+      },
+      {
+        "width": 320,
+        "tab": "Biblioteca",
+        "viewport": 320,
+        "scroll": 320,
+        "overflow": []
+      },
+      {
+        "width": 320,
+        "tab": "Atividade",
+        "viewport": 320,
+        "scroll": 320,
+        "overflow": []
+      },
+      {
+        "width": 320,
+        "tab": "Conexões",
+        "viewport": 320,
+        "scroll": 320,
+        "overflow": []
+      },
+      {
+        "width": 360,
+        "tab": "Área de trabalho",
+        "viewport": 360,
+        "scroll": 360,
+        "overflow": []
+      },
+      {
+        "width": 360,
+        "tab": "Biblioteca",
+        "viewport": 360,
+        "scroll": 360,
+        "overflow": []
+      },
+      {
+        "width": 360,
+        "tab": "Atividade",
+        "viewport": 360,
+        "scroll": 360,
+        "overflow": []
+      },
+      {
+        "width": 360,
+        "tab": "Conexões",
+        "viewport": 360,
+        "scroll": 360,
+        "overflow": []
+      },
+      {
+        "width": 480,
+        "tab": "Área de trabalho",
+        "viewport": 480,
+        "scroll": 480,
+        "overflow": []
+      },
+      {
+        "width": 480,
+        "tab": "Biblioteca",
+        "viewport": 480,
+        "scroll": 480,
+        "overflow": []
+      },
+      {
+        "width": 480,
+        "tab": "Atividade",
+        "viewport": 480,
+        "scroll": 480,
+        "overflow": []
+      },
+      {
+        "width": 480,
+        "tab": "Conexões",
+        "viewport": 480,
+        "scroll": 480,
+        "overflow": []
+      },
+      {
+        "width": 768,
+        "tab": "Área de trabalho",
+        "viewport": 768,
+        "scroll": 768,
+        "overflow": []
+      },
+      {
+        "width": 768,
+        "tab": "Biblioteca",
+        "viewport": 768,
+        "scroll": 768,
+        "overflow": []
+      },
+      {
+        "width": 768,
+        "tab": "Atividade",
+        "viewport": 768,
+        "scroll": 768,
+        "overflow": []
+      },
+      {
+        "width": 768,
+        "tab": "Conexões",
+        "viewport": 768,
+        "scroll": 768,
+        "overflow": []
+      },
+      {
+        "width": 1024,
+        "tab": "Área de trabalho",
+        "viewport": 1024,
+        "scroll": 1024,
+        "overflow": []
+      },
+      {
+        "width": 1024,
+        "tab": "Biblioteca",
+        "viewport": 1024,
+        "scroll": 1024,
+        "overflow": []
+      },
+      {
+        "width": 1024,
+        "tab": "Atividade",
+        "viewport": 1024,
+        "scroll": 1024,
+        "overflow": []
+      },
+      {
+        "width": 1024,
+        "tab": "Conexões",
+        "viewport": 1024,
+        "scroll": 1024,
+        "overflow": []
+      },
+      {
+        "width": 1440,
+        "tab": "Área de trabalho",
+        "viewport": 1440,
+        "scroll": 1440,
+        "overflow": []
+      },
+      {
+        "width": 1440,
+        "tab": "Biblioteca",
+        "viewport": 1440,
+        "scroll": 1440,
+        "overflow": []
+      },
+      {
+        "width": 1440,
+        "tab": "Atividade",
+        "viewport": 1440,
+        "scroll": 1440,
+        "overflow": []
+      },
+      {
+        "width": 1440,
+        "tab": "Conexões",
+        "viewport": 1440,
+        "scroll": 1440,
+        "overflow": []
+      }
+    ],
+    "accessibility_review": []
+  },
+  "current_backend_ui_probes": {
+    "planning_v11": [
+      {
+        "request": {
+          "instruction": "Explique a fonte em uma frase.",
+          "kind": "study",
+          "source_ids": [],
+          "allowed_model_ids": [
+            "claude-code:sonnet"
+          ],
+          "mode": "single"
+        },
+        "response": {
+          "protocol_version": "0",
+          "request_id": "25549228-ac44-4091-8241-5774a2c6c937",
+          "ok": false,
+          "error": {
+            "code": "http_422",
+            "message": "Confira os campos e os limites de contexto."
+          }
+        }
+      }
+    ],
+    "accepted_control": {
+      "http_status": 201,
+      "acceptance": true
+    },
+    "manual_draft_replacement": {
+      "title_after": "Fonte nova",
+      "text_after": "Texto capturado",
+      "draft_text_visible": false,
+      "dialog_text": "Revisar trecho selecionado\nhttps://example.org/nova\nProjeto\nTítulo\nConteúdo\n\n60 / 40.000 caracteres · Revise antes de salvar.\n\nDescartar trecho\nSalvar no projeto"
+    },
+    "capture_during_save": {
+      "saved_sources": [
+        {
+          "title": "Fonte A",
+          "content": "Fonte A\nOrigem: https://example.org/a\n\nTexto A"
+        }
+      ],
+      "pending_capture": {
+        "id": "cap-b",
+        "title": "Fonte B",
+        "url": "https://example.org/b",
+        "text": "Texto B"
+      },
+      "clear_ids": [
+        "cap-edit",
+        "cap-a"
+      ],
+      "dialog_visible": false,
+      "new_capture_title_visible": false
+    }
+  }
+}

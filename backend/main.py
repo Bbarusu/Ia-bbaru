@@ -6,13 +6,17 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import Field, field_validator
 
-from .contracts import ContextItem, GenerateRequest, StrictModel, TaskKind
+from .contracts import ContextItem, GenerateRequest, ModelCatalog, StrictModel, TaskKind
+from .contracts_v1_1 import GenerateRequestV11, ModelCatalogV11
+from .capabilities import plan_step, policy_error, preflight_error
 from .gateway import GatewayUnavailable, HttpGateway
+from .gateway_errors import ERROR_STATUS
 from .store import Store
+from .worker import DurableWorker
 
 
 def now():
@@ -43,6 +47,7 @@ class TaskInput(StrictModel):
     # Omit to recommend using configured task tags and the user's preference order.
     preferred_model_id: str | None = None
     reviewer_model_id: str | None = None
+    allow_unenforced_output_limit: bool = Field(default=False, strict=True)
 
     @field_validator("instruction")
     @classmethod
@@ -59,20 +64,31 @@ class TaskInput(StrictModel):
         return value
 
 
-def create_app(db_path=None, api_token=None, gateway=None):
+def create_app(db_path=None, api_token=None, gateway=None, durable_execution=None):
     token = api_token if api_token is not None else os.environ.get("LAUNCHER_API_TOKEN", "")
-    gateway = gateway or HttpGateway(os.environ.get("GATEWAY_URL"), os.environ.get("GATEWAY_TOKEN"))
+    gateway = gateway or HttpGateway(os.environ.get("GATEWAY_URL"), os.environ.get("GATEWAY_TOKEN"),
+                                     os.environ.get("GATEWAY_PROTOCOL_VERSION", "1"))
     store = Store(db_path or os.environ.get("LAUNCHER_DB_PATH", "data/launcher.sqlite3"))
+    enabled = durable_execution if durable_execution is not None else os.environ.get("LAUNCHER_DURABLE_EXECUTION") == "1"
+    worker = DurableWorker(store, gateway) if enabled else None
 
     @asynccontextmanager
     async def lifespan(app):
         if len(token) < 32:
             raise RuntimeError("Set LAUNCHER_API_TOKEN to a random token with at least 32 characters")
-        store.recover()
-        yield
+        if worker:
+            worker.start()
+        else:
+            store.recover()
+        try:
+            yield
+        finally:
+            if worker:
+                worker.stop()
 
     app = FastAPI(title="AI Launcher backend", version="0.1.0", lifespan=lifespan)
     app.state.store = store
+    app.state.worker = worker
     security = HTTPBearer(auto_error=False)
 
     def authorize(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
@@ -96,14 +112,14 @@ def create_app(db_path=None, api_token=None, gateway=None):
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "version": "0.1.0"}
+        return {"status": "ok", "version": "0.2.0", "task_execution": bool(worker)}
 
-    @app.get("/v1/models", dependencies=protected)
+    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11, dependencies=protected)
     def models():
         try:
             return gateway.catalog()
-        except GatewayUnavailable:
-            raise HTTPException(503, "gateway_unavailable")
+        except GatewayUnavailable as exc:
+            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
 
     @app.post("/v1/projects", status_code=201, dependencies=protected)
     def create_project(data: ProjectInput):
@@ -113,9 +129,10 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return project
 
     @app.get("/v1/projects", dependencies=protected)
-    def list_projects():
+    def list_projects(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
         with store.connect() as conn:
-            return {"items": [dict(r) for r in conn.execute("SELECT * FROM projects ORDER BY created_at DESC")]}
+            rows = conn.execute("SELECT * FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?", (limit + 1, offset)).fetchall()
+            return {"items": [dict(r) for r in rows[:limit]], "next_offset": offset + limit if len(rows) > limit else None}
 
     @app.post("/v1/projects/{project_id}/sources", status_code=201, dependencies=protected)
     def add_source(project_id: str, data: SourceInput):
@@ -127,11 +144,27 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return source
 
     @app.get("/v1/projects/{project_id}/sources", dependencies=protected)
-    def list_sources(project_id: str):
+    def list_sources(project_id: str, limit: int = Query(20, ge=1, le=100),
+                     offset: int = Query(0, ge=0), summary: bool = False):
         project_exists(project_id)
         with store.connect() as conn:
-            return {"items": [dict(r) for r in conn.execute(
-                "SELECT * FROM sources WHERE project_id=? ORDER BY created_at", (project_id,))]}
+            rows = conn.execute("SELECT * FROM sources WHERE project_id=? ORDER BY created_at, id LIMIT ? OFFSET ?",
+                                (project_id, limit + 1, offset)).fetchall()
+            items = [dict(r) for r in rows[:limit]]
+            if summary:
+                for item in items:
+                    content = item.pop("content")
+                    item.update(preview=content[:160], char_count=len(content))
+            return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
+
+    @app.get("/v1/projects/{project_id}/sources/{source_id}", dependencies=protected)
+    def get_source(project_id: str, source_id: str):
+        project_exists(project_id)
+        with store.connect() as conn:
+            row = conn.execute("SELECT * FROM sources WHERE id=? AND project_id=?", (source_id, project_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "source_not_found")
+        return dict(row)
 
     @app.post("/v1/projects/{project_id}/tasks", status_code=201, dependencies=protected)
     def create_task(project_id: str, data: TaskInput):
@@ -151,24 +184,29 @@ def create_app(db_path=None, api_token=None, gateway=None):
             raise HTTPException(422, "context_too_large")
         try:
             catalog = gateway.catalog()
-        except GatewayUnavailable:
-            raise HTTPException(503, "gateway_unavailable")
+        except GatewayUnavailable as exc:
+            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
         available = {m.id: m for m in catalog.models if m.available}
         if any(mid not in available for mid in data.allowed_model_ids):
             raise HTTPException(422, "model_unknown_or_unavailable")
+        policy_errors = {mid: policy_error(available[mid], data.allow_unenforced_output_limit)
+                         for mid in data.allowed_model_ids}
+        for explicit in (data.preferred_model_id, data.reviewer_model_id):
+            if policy_errors.get(explicit):
+                raise HTTPException(422, policy_errors[explicit])
         candidates = [available[mid] for mid in data.allowed_model_ids
-                      if available[mid].context_char_limit >= chars]
+                      if not policy_errors[mid] and available[mid].context_char_limit >= chars]
         # Stable sorting preserves the order explicitly supplied by the user.
         candidates.sort(key=lambda model: data.kind not in model.task_kinds)
         if not candidates:
+            if all(policy_errors.values()):
+                raise HTTPException(422, next(iter(policy_errors.values())))
             raise HTTPException(422, "no_model_fits_context")
         candidate_ids = {m.id for m in candidates}
         if data.preferred_model_id and data.preferred_model_id not in candidate_ids:
             raise HTTPException(422, "preferred_model_not_eligible")
         writer = available[data.preferred_model_id] if data.preferred_model_id else candidates[0]
-        plan = [{"role": "answer", "model_id": writer.id,
-                 "context_char_limit": writer.context_char_limit,
-                 "max_output_tokens": min(4096, writer.max_output_tokens)}]
+        plan = [plan_step("answer", writer)]
         if data.mode == "review":
             # Review receives the answer too. Recheck its actual size at execution.
             reviewers = [m for m in candidates if m.id != writer.id]
@@ -177,12 +215,12 @@ def create_app(db_path=None, api_token=None, gateway=None):
             if not reviewers:
                 raise HTTPException(422, "review_requires_second_eligible_model")
             reviewer = reviewers[0]
-            plan.append({"role": "review", "model_id": reviewer.id,
-                         "context_char_limit": reviewer.context_char_limit,
-                         "max_output_tokens": min(4096, reviewer.max_output_tokens)})
+            plan.append(plan_step("review", reviewer))
         task = {
             "id": str(uuid4()), "project_id": project_id, "created_at": now(),
             "status": "planned", "instruction": data.instruction, "kind": data.kind,
+            "gateway_protocol_version": catalog.protocol_version,
+            "allow_unenforced_output_limit": data.allow_unenforced_output_limit,
             "allowed_model_ids": data.allowed_model_ids, "context": context, "plan": plan,
             "routing": {"method": "configured_tags_and_user_preference",
                         "reason": "Escolha explícita" if data.preferred_model_id else
@@ -195,24 +233,71 @@ def create_app(db_path=None, api_token=None, gateway=None):
         return task
 
     @app.get("/v1/projects/{project_id}/tasks", dependencies=protected)
-    def list_tasks(project_id: str):
+    def list_tasks(project_id: str, limit: int = Query(20, ge=1, le=100),
+                   offset: int = Query(0, ge=0), summary: bool = False):
         project_exists(project_id)
         with store.connect() as conn:
-            rows = conn.execute("SELECT body FROM tasks WHERE project_id=? ORDER BY rowid DESC", (project_id,))
-            return {"items": [json.loads(r["body"]) for r in rows]}
+            rows = conn.execute("SELECT body FROM tasks WHERE project_id=? ORDER BY rowid DESC LIMIT ? OFFSET ?",
+                                (project_id, limit + 1, offset)).fetchall()
+            items = [public_task(json.loads(r["body"])) for r in rows[:limit]]
+            if summary:
+                items = [{k: t[k] for k in ("id", "project_id", "created_at", "status", "instruction", "kind", "plan", "error")} for t in items]
+            return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
 
     @app.get("/v1/tasks/{task_id}", dependencies=protected)
     def get_task(task_id: str):
-        return load_task(task_id)
+        return public_task(load_task(task_id))
+
+    def public_task(task):
+        # Persisted retry payloads are internal; the UI already receives selected context.
+        if "execution" in task:
+            task = {**task, "execution": {**task["execution"], "steps": [
+                {k: v for k, v in s.items() if k != "request"} for s in task["execution"]["steps"]]}}
+        return task
+
+    class QueueInput(StrictModel):
+        confirmed: bool = Field(strict=True)
+
+    def queue(task_id, data, resume=False):
+        if not worker:
+            raise HTTPException(503, "durable_execution_unavailable")
+        if not data.confirmed:
+            raise HTTPException(422, "execution_confirmation_required")
+        load_task(task_id)
+        task = store.enqueue(task_id, resume=resume)
+        if task is None:
+            raise HTTPException(409, "task_not_resumable" if resume else "task_already_executed_or_running")
+        worker.wake.set()
+        return public_task(task)
+
+    @app.post("/v1/tasks/{task_id}/enqueue", status_code=202, dependencies=protected)
+    def enqueue_task(task_id: str, data: QueueInput):
+        return queue(task_id, data)
+
+    @app.post("/v1/tasks/{task_id}/resume", status_code=202, dependencies=protected)
+    def resume_task(task_id: str, data: QueueInput):
+        return queue(task_id, data, resume=True)
 
     @app.post("/v1/tasks/{task_id}/execute", dependencies=protected)
     def execute_task(task_id: str):
+        if worker:
+            raise HTTPException(409, "use_durable_queue")
         load_task(task_id)
         task = store.claim(task_id)
         if task is None:
             raise HTTPException(409, "task_already_executed_or_running")
         previous = None
         for index, step in enumerate(task["plan"]):
+            # Check every remaining model before the first call, then refresh
+            # before review. No generation is repeated on any preflight failure.
+            try:
+                error = preflight_error(task, gateway.catalog(), task["plan"][index:])
+            except GatewayUnavailable as exc:
+                error = exc.code if exc.code in ERROR_STATUS else "gateway_preflight_failed"
+            if error:
+                task.update(status="failed", error=error, output=previous)
+                store.save_task(task)
+                return task
             input_chars = len(task["instruction"]) + sum(
                 len(s["content"]) + len(s["title"]) for s in task["context"]
             ) + len(previous or "")
@@ -220,22 +305,33 @@ def create_app(db_path=None, api_token=None, gateway=None):
                 task.update(status="failed", error="review_context_too_large")
                 store.save_task(task)
                 return task
-            request = GenerateRequest(
+            request_fields = dict(
                 request_id=f"{task_id}:{index}", model_id=step["model_id"], role=step["role"],
                 instruction=task["instruction"], context=[ContextItem(**s) for s in task["context"]],
                 previous_output=previous, max_output_tokens=step["max_output_tokens"],
             )
+            if task.get("gateway_protocol_version", "1") == "1.1":
+                request = GenerateRequestV11(
+                    **request_fields, protocol_version="1.1",
+                    allow_unenforced_output_limit=task.get("allow_unenforced_output_limit", False))
+            else:
+                request = GenerateRequest(**request_fields)
             try:
                 result = gateway.generate(request)
-            except GatewayUnavailable:
-                task.update(status="failed", error="gateway_failed_outcome_may_be_unknown")
+            except GatewayUnavailable as exc:
+                code = exc.code if exc.code in ERROR_STATUS else "gateway_failed_outcome_may_be_unknown"
+                task.setdefault("step_errors", []).append({"index": index, "request_id": request.request_id,
+                    "code": code, "http_status": exc.http_status})
+                task.update(status="failed", error=code)
                 store.save_task(task)
                 return task
             task["results"].append({"role": step["role"], **result.model_dump()})
             previous = result.output
             store.save_task(task)
-            if result.finish_reason == "length":
-                task.update(status="incomplete", error="output_token_limit_reached", output=previous)
+            if result.finish_reason in {"length", "unknown"}:
+                task.update(status="incomplete", output=previous,
+                            error="completion_unconfirmed" if result.finish_reason == "unknown"
+                            else "output_token_limit_reached")
                 store.save_task(task)
                 return task
         task.update(status="completed", output=previous, completed_at=now())

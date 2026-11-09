@@ -1,5 +1,9 @@
 # Briefing para o Claude — integrações de IA do Ia-bbaru
 
+> Atualização de 9/11/2026: a direção agora é Chromium/Electron. Use o
+> [prompt atual](PROMPT_CLAUDE_CHROMIUM.md) e a base `codex/chromium-browser`.
+> O briefing abaixo registra a etapa anterior.
+
 ## Repositório e ponto de partida
 
 Trabalhe no repositório **https://github.com/Bbarusu/Ia-bbaru**.
@@ -19,8 +23,12 @@ Firefox instalado. Não criar um navegador completo ou fork do Firefox nesta eta
 - **Claude:** conexões com os provedores, autenticação oficial, catálogo real de
   capacidades, execução e normalização de respostas/erros. Trabalhar em
   `integrations/` e documentar configuração e limitações.
-- **Gemini:** frontend e extensão Firefox em `frontend/` e `extension/`.
-- **Codex:** `backend/`, banco, tarefas, contexto, coordenação e ponte local.
+- **Codex:** backend, banco, tarefas, contexto, coordenação, `native_host/` e
+  transporte/empacotamento em `extension/`. Implementou a base inicial de frontend.
+- **Gemini:** nova tentativa de evolução de UI/UX em `frontend/`, conforme
+  `INSTRUCOES_GEMINI.md`, a partir da base já implementada por Codex.
+- Veja `REVISAO_CLAUDE.md` para os ajustes identificados no commit revisado da PR #1.
+  O usuário está executando testes com Claude; preservar essa frente separada.
 
 Não duplicar os serviços de projetos/histórico ou editar o frontend. Propor
 alterações do contrato em documento e PR; não quebrar os consumidores existentes.

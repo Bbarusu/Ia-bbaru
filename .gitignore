@@ -16,3 +16,12 @@ credentials*.json
 *token*.json
 *.pem
 *.key
+node_modules/
+frontend/dist/
+extension/app/
+artifacts/
+playwright-report/
+test-results/
+
+.local-state/
+desktop/releases/

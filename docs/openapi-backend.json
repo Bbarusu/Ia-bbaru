@@ -30,7 +30,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ModelCatalog"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ModelCatalogV11"
+                    }
+                  ],
+                  "title": "Response Models V1 Models Get"
+                }
               }
             }
           }
@@ -43,37 +53,23 @@
       }
     },
     "/v1/projects": {
-      "get": {
-        "summary": "List Projects",
-        "operationId": "list_projects_v1_projects_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
+      "post": {
+        "summary": "Create Project",
+        "operationId": "create_project_v1_projects_post",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
-      },
-      "post": {
-        "summary": "Create Project",
-        "operationId": "create_project_v1_projects_post",
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProjectInput"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -94,12 +90,61 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "summary": "List Projects",
+        "operationId": "list_projects_v1_projects_get",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/projects/{project_id}/sources": {
@@ -169,6 +214,90 @@
             "schema": {
               "type": "string",
               "title": "Project Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Summary"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}": {
+      "get": {
+        "summary": "Get Source",
+        "operationId": "get_source_v1_projects__project_id__sources__source_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
             }
           }
         ],
@@ -262,6 +391,39 @@
               "type": "string",
               "title": "Project Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Summary"
+            }
           }
         ],
         "responses": {
@@ -308,6 +470,110 @@
         ],
         "responses": {
           "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/enqueue": {
+      "post": {
+        "summary": "Enqueue Task",
+        "operationId": "enqueue_task_v1_tasks__task_id__enqueue_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/resume": {
+      "post": {
+        "summary": "Resume Task",
+        "operationId": "resume_task_v1_tasks__task_id__resume_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -386,6 +652,264 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ModelCapabilities": {
+        "properties": {
+          "output_limit": {
+            "type": "string",
+            "enum": [
+              "enforced",
+              "best_effort",
+              "none"
+            ],
+            "title": "Output Limit"
+          },
+          "cancellation": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "local_process_only",
+              "none"
+            ],
+            "title": "Cancellation"
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "reported",
+              "inferred"
+            ],
+            "title": "Finish Reason"
+          },
+          "billing": {
+            "type": "string",
+            "enum": [
+              "api_key",
+              "subscription_quota",
+              "unknown"
+            ],
+            "title": "Billing"
+          },
+          "streaming": {
+            "type": "boolean",
+            "title": "Streaming"
+          },
+          "tools": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "restricted"
+            ],
+            "title": "Tools"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "output_limit",
+          "cancellation",
+          "finish_reason",
+          "billing",
+          "streaming",
+          "tools"
+        ],
+        "title": "ModelCapabilities"
+      },
+      "ModelCatalog": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1",
+            "title": "Protocol Version",
+            "default": "1"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfile"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalog"
+      },
+      "ModelCatalogV11": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1.1",
+            "title": "Protocol Version",
+            "default": "1.1"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileV11"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalogV11"
+      },
+      "ModelProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens"
+        ],
+        "title": "ModelProfile"
+      },
+      "ModelProfileV11": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens",
+          "capabilities"
+        ],
+        "title": "ModelProfileV11"
+      },
       "ProjectInput": {
         "properties": {
           "title": {
@@ -401,6 +925,20 @@
           "title"
         ],
         "title": "ProjectInput"
+      },
+      "QueueInput": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmed"
+        ],
+        "title": "QueueInput"
       },
       "SourceInput": {
         "properties": {
@@ -492,6 +1030,11 @@
               }
             ],
             "title": "Reviewer Model Id"
+          },
+          "allow_unenforced_output_limit": {
+            "type": "boolean",
+            "title": "Allow Unenforced Output Limit",
+            "default": false
           }
         },
         "additionalProperties": false,

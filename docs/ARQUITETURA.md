@@ -1,68 +1,88 @@
-# Ia-bbaru: Firefox/Gecko, extensão e backend local
+# Ia-bbaru: navegador Chromium e backend local
 
-Decisão de primeira etapa: validar o produto como uma extensão para Firefox,
-aproveitando Gecko, com backend local. Depois avaliar um navegador independente.
+Em 9/11/2026, o usuário escolheu **Chromium** para iniciar o navegador independente.
+A implementação está em `codex/chromium-browser`, baseada na entrega `cbcf3d7`.
+Usamos Electron, com Chromium incorporado e interface própria. Não é um fork do
+código do Chrome. A extensão Firefox permanece como alternativa de desenvolvimento;
+Gecko deixou de ser a direção do navegador.
 
-## Gecko e as alternativas
-
-Gecko é o motor do Firefox. Para a experiência desktop pretendida, usar o Firefox
-instalado com WebExtensions é o caminho inicial proposto. Um navegador próprio
-poderá partir da base do Firefox, com manutenção das atualizações e da distribuição.
-Isso é uma recomendação de arquitetura, não uma afirmação de que toda forma de
-embedding desktop é impossível.
-
-GeckoView é a solução documentada pela Mozilla para embedding em Android. Não é
-um substituto desktop de Electron/WebView2. Criar uma janela Electron não atende
-à escolha de Gecko, porque esse caminho utiliza Chromium.
-
-## Divisão entre as frentes
-
-| Frente | Responsável | Área |
-| --- | --- | --- |
-| Frontend, captura explícita e extensão Firefox | Gemini | frontend/, extension/ |
-| Provedores de IA e autenticação compatível | Claude | integrations/ |
-| Projetos, dados, tarefas, coordenação e host local | Codex | backend/, native_host/ |
-
-As pastas não existentes serão criadas pela frente responsável. A fonte de verdade
-dos contratos atuais é `backend/contracts.py` e os OpenAPI em `docs/`. Mudanças
-entre serviços devem explicitar compatibilidade antes de serem consumidas.
+## Componentes
 
 ```mermaid
 flowchart LR
-    W[Página aberta no Firefox] -->|Trecho escolhido pelo usuário| E[Extensão e painel Ia-bbaru]
-    E -->|Mensagens permitidas| N[Host local Native Messaging]
-    N --> B[Backend FastAPI]
-    B --> D[SQLite: projetos, fontes e tarefas]
-    B --> I[Integrações oficiais de IA]
+    W[Páginas web em abas Chromium] -->|Seleção explícita| M[Processo principal Electron]
+    S[Barra de abas e endereço] -->|Comandos limitados| M
+    P[Painel React local] -->|Preload e IPC validado por origem| M
+    M -->|Mensagens protocolo 0| N[Ponte Python]
+    N -->|HTTP loopback com token interno| B[Backend FastAPI]
+    B --> D[SQLite do perfil]
+    B -->|Contrato 1 ou 1.1| G[Gateway separado]
+    G --> C[CLI oficial e assinatura elegível]
 ```
 
-Somente o backend HTTP/SQLite e o cliente de gateway existem hoje. Os demais
-componentes do desenho são o trabalho planejado. Login no navegador não implica
-que o backend possa extrair conversas ou consumir assinaturas por qualquer rota.
+- `desktop/main.cjs`: janela, abas WebContentsView, navegação, captura, perfil,
+  IPC restrito e ciclo de vida do backend/ponte.
+- `desktop/ui/`: abas, endereço, controles, atalhos e página inicial do navegador.
+- `frontend/`: projetos, materiais, rascunhos, modelos, planos e histórico. O
+  adaptador usa `window.iaDesktop` no app ou `browser` na extensão Firefox.
+- `desktop/local-service.cjs`: provisiona segredo/porta local e inicia Python.
+  O gateway é configurado separadamente; não é iniciado nem autenticado pelo app.
+- `backend/` e `native_host/`: contratos, persistência e operações locais existentes.
 
-## Marcos
-
-1. Interface Firefox: projeto → trecho selecionado → prévia → fonte persistida.
-2. Host local: instalar, diagnosticar e transportar operações curtas com autenticação.
-3. Uma integração real e contrato por capacidades, preservando a preferência por
-   assinaturas. Sem fallback automático para cobrança de API.
-4. Execução durável desacoplada da vida do painel, com resposta e revisão por outro
-   agente. O endpoint síncrono atual não atende sozinho esse requisito.
-5. Importação de materiais e avaliação de navegador próprio após validar o uso.
+O perfil contém os dados do navegador, um banco próprio e os rascunhos. Sessões web
+persistem em uma partição separada das páginas internas. Dados anteriores da
+extensão não são migrados automaticamente. O app adquire um bloqueio de instância
+única por perfil.
 
 ## Limites de confiança
 
-Página web, conteúdo capturado e saída de IA são dados não confiáveis. Somente
-componentes internos da extensão podem falar com o host; não expor ponte genérica
-via postMessage. O host mantém o token de backend fora do conteúdo das páginas e
-faz validação de operações, identificadores e tamanho. A instalação do host é
-separada da instalação da extensão. Dados de uso e credenciais não vão para Git.
+Páginas web usam sandbox, isolamento de contexto, Node desativado e nenhum preload
+do aplicativo. Não recebem token, IPC do painel ou sessões do CLI. Páginas locais
+usam CSP e preloads mínimos. Cada handler confere webContents, frame principal e
+URL exata do documento interno antes de executar uma operação.
 
-## Referências oficiais
+A barra aceita HTTP/HTTPS e pesquisas. Protocolos privilegiados, URLs com credenciais,
+navegação de documentos internos e anexação de webviews são bloqueados. Janelas web
+novas são direcionadas para abas sem privilégios do processo principal. Downloads e
+permissões de dispositivos estão desativados nesta primeira versão.
 
-- GeckoView (Android): https://firefox-source-docs.mozilla.org/mobile/android/geckoview/index.html
-- Painéis laterais Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/user_interface/Sidebars
-- Ponte local: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_messaging
-- Código e distribuição Firefox: https://www.mozilla.org/en-US/about/legal/firefox/
+A captura lê somente a seleção após uma ação do usuário, inclui URL/título e exige
+revisão antes de salvar. Há uma captura pendente por vez no desktop. Receber uma
+seleção durante edição manual não substitui o rascunho. Páginas e respostas de IA
+continuam como dados não confiáveis, renderizados como texto.
 
-Pesquisa consultada em 6 de novembro de 2026. Não há fork do Firefox nesta base.
+Abrir ou fazer login em NotebookLM, ChatGPT, Claude ou Gemini não concede ao gateway
+uma API de assinatura. Não há extração de cookies, importação automática de cadernos
+ou uso de endpoints privados. Cada adaptador oficial verifica sua elegibilidade.
+
+## Planejamento e execução
+
+O backend 1.1 persiste aceite/capacidades, revalida planos e trata `unknown` como
+incompleto sem chamar o revisor. O painel envia o aceite e o exige para limites
+indicativos. Criar plano não gera uma resposta.
+
+**Execução pelo painel ainda depende de coordenação durável.** A ponte desktop
+preserva a allowlist do host e recusa `tasks.execute`. O endpoint HTTP síncrono de
+desenvolvimento não deve ser exposto diretamente no renderer. Codex fará a fila/
+worker e acompanhamento de tarefas no próximo marco.
+
+## Responsabilidades
+
+| Frente | Responsável | Área |
+| --- | --- | --- |
+| Runtime Chromium, IPC e captura | Codex | `desktop/*.cjs`, `extension/` |
+| Dados, tarefas e execução durável | Codex | `backend/`, `native_host/` |
+| Interface do navegador e painel | Gemini, sobre a base Codex | `desktop/ui/`, `frontend/` |
+| Integrações e autenticação elegível | Claude | `integrations/`, `tests/integrations/` |
+
+Usar a nova base, preservar transporte/aceite e não sobrescrever branches de outras
+frentes. Prompts atuais: [Gemini](PROMPT_GEMINI_CHROMIUM.md) e
+[Claude](PROMPT_CLAUDE_CHROMIUM.md).
+
+## Teste e distribuição
+
+O [roteiro gráfico](TESTAR_NAVEGADOR_CHROMIUM.md) traz instalação de desenvolvimento
+no Windows e testes. O Python continua externo e Electron é obtido via npm.
+Instalador assinado, backend empacotado, autoatualização e validação de logins web
+são etapas posteriores. Atualizações do Chromium devem acompanhar as versões do
+Electron, com testes de regressão.

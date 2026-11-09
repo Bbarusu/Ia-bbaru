@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'"
+    />
+    <title>Ia-bbaru</title>
+    <link rel="stylesheet" href="shell.css" />
+  </head>
+  <body>
+    <header>
+      <div class="tabbar">
+        <span class="brand" aria-label="Ia-bbaru">◈</span>
+        <div id="tabs" role="tablist" aria-label="Abas abertas"></div>
+        <button id="new" title="Nova aba" aria-label="Nova aba">＋</button
+        ><span class="edition">IA-BBARU <small>PREVIEW</small></span>
+      </div>
+      <div class="toolbar">
+        <button id="back" aria-label="Voltar">←</button
+        ><button id="forward" aria-label="Avançar">→</button
+        ><button id="reload" aria-label="Recarregar">↻</button>
+        <form id="navigation">
+          <span class="address-icon" aria-hidden="true">⌕</span
+          ><input
+            id="address"
+            aria-label="Endereço ou pesquisa"
+            placeholder="Pesquise ou digite um endereço"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </form>
+        <button
+          id="capture"
+          class="capture"
+          title="Adicionar o texto selecionado ao projeto"
+        >
+          ＋ Capturar
+        </button>
+        <button id="panel" class="primary" aria-pressed="true">◈ Agentes</button
+        ><button
+          id="expand"
+          aria-label="Ampliar espaço de trabalho"
+          title="Ampliar espaço de trabalho"
+        >
+          ⤢
+        </button>
+      </div>
+      <div id="message" role="status"></div>
+    </header>
+    <script src="shell.js"></script>
+  </body>
+</html>

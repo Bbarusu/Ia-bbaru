@@ -1,0 +1,491 @@
+{
+  "reviewed_commit": "a0f852453dde65e34136227e79e2098c9abaa1c1",
+  "base_commit": "f9216515c7a6ac22a3c033a7958f10787ac18b43",
+  "environment": "Firefox/Gecko headless Linux; WebExtension APIs simulated; real local backend and Python bridge; temporary test data only",
+  "results": {
+    "gemini": {
+      "capture_replacement": {
+        "title": "Fonte A",
+        "text": "Texto exclusivo A",
+        "origin": "https://example.org/b"
+      },
+      "saved_capture": {
+        "title": "Fonte A",
+        "content": "Fonte A\nOrigem: https://example.org/b\n\nTexto exclusivo A"
+      },
+      "project_focus_restored": "True BUTTON",
+      "source_focus_restored": "True",
+      "project_close_button_focus": "True BUTTON",
+      "source_close_button_focus": "True",
+      "layout_review": [
+        {
+          "width": 320,
+          "tab": "Área de trabalho",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Biblioteca",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Atividade",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Conexões",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Área de trabalho",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Biblioteca",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Atividade",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Conexões",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Área de trabalho",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Biblioteca",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Atividade",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Conexões",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Área de trabalho",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Biblioteca",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Atividade",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Conexões",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Área de trabalho",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Biblioteca",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Atividade",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Conexões",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Área de trabalho",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Biblioteca",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Atividade",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Conexões",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        }
+      ],
+      "accessibility_review": [
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "description": "Ensure elements with an ARIA role that require child roles contain them",
+          "nodes": [
+            {
+              "target": [
+                ".project-list"
+              ],
+              "summary": "Fix any of the following:\n  Element has children which are not allowed: button[aria-current]"
+            }
+          ]
+        }
+      ]
+    },
+    "baseline": {
+      "capture_replacement": {
+        "title": "Fonte B",
+        "text": "Texto exclusivo B",
+        "origin": "https://example.org/b"
+      },
+      "saved_capture": {
+        "title": "Fonte B",
+        "content": "Fonte B\nOrigem: https://example.org/b\n\nTexto exclusivo B"
+      },
+      "project_focus_restored": "True BUTTON",
+      "source_focus_restored": "True",
+      "project_close_button_focus": "False BODY",
+      "source_close_button_focus": "False",
+      "layout_review": [
+        {
+          "width": 320,
+          "tab": "Área de trabalho",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Biblioteca",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Atividade",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 320,
+          "tab": "Conexões",
+          "viewport": 320,
+          "scroll": 320,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Área de trabalho",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Biblioteca",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Atividade",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 360,
+          "tab": "Conexões",
+          "viewport": 360,
+          "scroll": 360,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Área de trabalho",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Biblioteca",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Atividade",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 480,
+          "tab": "Conexões",
+          "viewport": 480,
+          "scroll": 480,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Área de trabalho",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Biblioteca",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Atividade",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "tab": "Conexões",
+          "viewport": 768,
+          "scroll": 768,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Área de trabalho",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Biblioteca",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Atividade",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "tab": "Conexões",
+          "viewport": 1024,
+          "scroll": 1024,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Área de trabalho",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Biblioteca",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Atividade",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "tab": "Conexões",
+          "viewport": 1440,
+          "scroll": 1440,
+          "overflow": []
+        }
+      ],
+      "accessibility_review": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "nodes": [
+            {
+              "target": [
+                ".rail-label"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.39 (foreground color: #6f7888, background color: #0b0c0f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "div > small"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.63 (foreground color: #626b7a, background color: #0b0c0f, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".micro-badge"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.7 (foreground color: #647083, background color: #101319, font size: 5.3pt (7px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".draft-label"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.09 (foreground color: #586476, background color: #101319, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".composer-foot"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.19 (foreground color: #6a778b, background color: #0d1015, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "div:nth-child(1) > p > small"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.1 (foreground color: #6c7789, background color: #101319, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "div:nth-child(2) > p > small"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.1 (foreground color: #6c7789, background color: #101319, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "div:nth-child(3) > p > small"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.1 (foreground color: #6c7789, background color: #101319, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".agents-meta > span"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.41 (foreground color: #6d788a, background color: #090b0f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "article:nth-child(1) > .source-bottom > span"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.25 (foreground color: #687a94, background color: #101319, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".selected:nth-child(2) > .source-bottom > span"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.03 (foreground color: #687a94, background color: #101926, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".selected:nth-child(3) > .source-bottom > span"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.03 (foreground color: #687a94, background color: #101926, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "footer > span:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.42 (foreground color: #59677c, background color: #090b0f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "footer > span:nth-child(2)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.42 (foreground color: #59677c, background color: #090b0f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".version"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.42 (foreground color: #59677c, background color: #090b0f, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

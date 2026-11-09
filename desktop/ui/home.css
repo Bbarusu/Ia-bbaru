@@ -1,0 +1,135 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", sans-serif;
+  background: #08090b;
+  color: #eef1f7;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 20% 0%, #101b30 0, transparent 50%);
+  min-height: 100vh;
+}
+main {
+  max-width: 880px;
+  padding: 55px 50px;
+  margin: auto;
+}
+.badge {
+  font-size: 33px;
+  color: #4e8fff;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 62px;
+}
+.badge span {
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: #d1d9e8;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #88a3cb;
+}
+h1 {
+  font-size: clamp(32px, 4.6vw, 57px);
+  line-height: 1.13;
+  letter-spacing: -2px;
+  font-weight: 500;
+  margin: 20px 0;
+}
+main > p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #9ca8bb;
+  max-width: 440px;
+}
+nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 35px 0;
+}
+a {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  background: #101216;
+  border: 1px solid #252a33;
+  border-radius: 16px;
+  padding: 21px;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 5px 9px;
+}
+a:hover {
+  border-color: #457ed1;
+  background: #131d2d;
+}
+a:focus-visible {
+  outline: 2px solid #4e8fff;
+}
+.symbol {
+  grid-row: span 2;
+  font-size: 25px;
+  color: #87b3fa;
+}
+strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+small {
+  font-size: 11px;
+  color: #9ca8bb;
+}
+b {
+  position: absolute;
+  right: 16px;
+  top: 17px;
+  color: #6c7b91;
+  font-weight: 400;
+}
+.tip {
+  border-top: 1px solid #222831;
+  padding: 23px 0;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.tip > span {
+  font-size: 24px;
+  color: #4c658b;
+}
+.tip p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #94a1b6;
+}
+.tip strong {
+  color: #c8d3e4;
+}
+em {
+  font-style: normal;
+  color: #86b4ff;
+}
+footer {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #8492a8;
+  max-width: 420px;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 30px 24px;
+  }
+  .badge {
+    margin-bottom: 35px;
+  }
+  nav {
+    grid-template-columns: 1fr;
+  }
+}
