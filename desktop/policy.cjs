@@ -53,6 +53,8 @@ const operations = new Set([
   "tasks.list",
   "tasks.plan",
   "tasks.get",
+  "tasks.enqueue",
+  "tasks.resume",
 ]);
 function validateEnvelope(raw) {
   if (

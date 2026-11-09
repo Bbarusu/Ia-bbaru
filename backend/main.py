@@ -14,7 +14,9 @@ from .contracts import ContextItem, GenerateRequest, ModelCatalog, StrictModel, 
 from .contracts_v1_1 import GenerateRequestV11, ModelCatalogV11
 from .capabilities import plan_step, policy_error, preflight_error
 from .gateway import GatewayUnavailable, HttpGateway
+from .gateway_errors import ERROR_STATUS
 from .store import Store
+from .worker import DurableWorker
 
 
 def now():
@@ -62,21 +64,31 @@ class TaskInput(StrictModel):
         return value
 
 
-def create_app(db_path=None, api_token=None, gateway=None):
+def create_app(db_path=None, api_token=None, gateway=None, durable_execution=None):
     token = api_token if api_token is not None else os.environ.get("LAUNCHER_API_TOKEN", "")
     gateway = gateway or HttpGateway(os.environ.get("GATEWAY_URL"), os.environ.get("GATEWAY_TOKEN"),
                                      os.environ.get("GATEWAY_PROTOCOL_VERSION", "1"))
     store = Store(db_path or os.environ.get("LAUNCHER_DB_PATH", "data/launcher.sqlite3"))
+    enabled = durable_execution if durable_execution is not None else os.environ.get("LAUNCHER_DURABLE_EXECUTION") == "1"
+    worker = DurableWorker(store, gateway) if enabled else None
 
     @asynccontextmanager
     async def lifespan(app):
         if len(token) < 32:
             raise RuntimeError("Set LAUNCHER_API_TOKEN to a random token with at least 32 characters")
-        store.recover()
-        yield
+        if worker:
+            worker.start()
+        else:
+            store.recover()
+        try:
+            yield
+        finally:
+            if worker:
+                worker.stop()
 
     app = FastAPI(title="AI Launcher backend", version="0.1.0", lifespan=lifespan)
     app.state.store = store
+    app.state.worker = worker
     security = HTTPBearer(auto_error=False)
 
     def authorize(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
@@ -100,14 +112,14 @@ def create_app(db_path=None, api_token=None, gateway=None):
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "version": "0.1.0"}
+        return {"status": "ok", "version": "0.2.0", "task_execution": bool(worker)}
 
     @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11, dependencies=protected)
     def models():
         try:
             return gateway.catalog()
-        except GatewayUnavailable:
-            raise HTTPException(503, "gateway_unavailable")
+        except GatewayUnavailable as exc:
+            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
 
     @app.post("/v1/projects", status_code=201, dependencies=protected)
     def create_project(data: ProjectInput):
@@ -172,8 +184,8 @@ def create_app(db_path=None, api_token=None, gateway=None):
             raise HTTPException(422, "context_too_large")
         try:
             catalog = gateway.catalog()
-        except GatewayUnavailable:
-            raise HTTPException(503, "gateway_unavailable")
+        except GatewayUnavailable as exc:
+            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
         available = {m.id: m for m in catalog.models if m.available}
         if any(mid not in available for mid in data.allowed_model_ids):
             raise HTTPException(422, "model_unknown_or_unavailable")
@@ -227,17 +239,49 @@ def create_app(db_path=None, api_token=None, gateway=None):
         with store.connect() as conn:
             rows = conn.execute("SELECT body FROM tasks WHERE project_id=? ORDER BY rowid DESC LIMIT ? OFFSET ?",
                                 (project_id, limit + 1, offset)).fetchall()
-            items = [json.loads(r["body"]) for r in rows[:limit]]
+            items = [public_task(json.loads(r["body"])) for r in rows[:limit]]
             if summary:
                 items = [{k: t[k] for k in ("id", "project_id", "created_at", "status", "instruction", "kind", "plan", "error")} for t in items]
             return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
 
     @app.get("/v1/tasks/{task_id}", dependencies=protected)
     def get_task(task_id: str):
-        return load_task(task_id)
+        return public_task(load_task(task_id))
+
+    def public_task(task):
+        # Persisted retry payloads are internal; the UI already receives selected context.
+        if "execution" in task:
+            task = {**task, "execution": {**task["execution"], "steps": [
+                {k: v for k, v in s.items() if k != "request"} for s in task["execution"]["steps"]]}}
+        return task
+
+    class QueueInput(StrictModel):
+        confirmed: bool = Field(strict=True)
+
+    def queue(task_id, data, resume=False):
+        if not worker:
+            raise HTTPException(503, "durable_execution_unavailable")
+        if not data.confirmed:
+            raise HTTPException(422, "execution_confirmation_required")
+        load_task(task_id)
+        task = store.enqueue(task_id, resume=resume)
+        if task is None:
+            raise HTTPException(409, "task_not_resumable" if resume else "task_already_executed_or_running")
+        worker.wake.set()
+        return public_task(task)
+
+    @app.post("/v1/tasks/{task_id}/enqueue", status_code=202, dependencies=protected)
+    def enqueue_task(task_id: str, data: QueueInput):
+        return queue(task_id, data)
+
+    @app.post("/v1/tasks/{task_id}/resume", status_code=202, dependencies=protected)
+    def resume_task(task_id: str, data: QueueInput):
+        return queue(task_id, data, resume=True)
 
     @app.post("/v1/tasks/{task_id}/execute", dependencies=protected)
     def execute_task(task_id: str):
+        if worker:
+            raise HTTPException(409, "use_durable_queue")
         load_task(task_id)
         task = store.claim(task_id)
         if task is None:
@@ -248,8 +292,8 @@ def create_app(db_path=None, api_token=None, gateway=None):
             # before review. No generation is repeated on any preflight failure.
             try:
                 error = preflight_error(task, gateway.catalog(), task["plan"][index:])
-            except GatewayUnavailable:
-                error = "gateway_preflight_failed"
+            except GatewayUnavailable as exc:
+                error = exc.code if exc.code in ERROR_STATUS else "gateway_preflight_failed"
             if error:
                 task.update(status="failed", error=error, output=previous)
                 store.save_task(task)
@@ -274,8 +318,11 @@ def create_app(db_path=None, api_token=None, gateway=None):
                 request = GenerateRequest(**request_fields)
             try:
                 result = gateway.generate(request)
-            except GatewayUnavailable:
-                task.update(status="failed", error="gateway_failed_outcome_may_be_unknown")
+            except GatewayUnavailable as exc:
+                code = exc.code if exc.code in ERROR_STATUS else "gateway_failed_outcome_may_be_unknown"
+                task.setdefault("step_errors", []).append({"index": index, "request_id": request.request_id,
+                    "code": code, "http_status": exc.http_status})
+                task.update(status="failed", error=code)
                 store.save_task(task)
                 return task
             task["results"].append({"role": step["role"], **result.model_dump()})

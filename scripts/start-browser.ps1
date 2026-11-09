@@ -1,4 +1,4 @@
-param([switch]$Install)
+﻿param([switch]$Install)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 function Run-Checked([string]$Executable, [string[]]$Arguments) {

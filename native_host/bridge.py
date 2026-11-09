@@ -8,13 +8,14 @@ from pydantic import Field, ValidationError
 
 from backend.contracts import StrictModel
 from backend.main import ProjectInput, SourceInput, TaskInput
+from backend.gateway_errors import ERROR_STATUS, error_message
 
 HOST_NAME = "ia_bbaru.bridge"
 EXTENSION_ID = "ia-bbaru@bbarusu.local"
 MAX_BYTES = 900_000
 OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
               "sources.list", "sources.create", "sources.get", "models.list",
-              "tasks.list", "tasks.plan", "tasks.get")
+              "tasks.list", "tasks.plan", "tasks.get", "tasks.enqueue", "tasks.resume")
 
 
 class Envelope(StrictModel):
@@ -54,6 +55,10 @@ class TaskRef(StrictModel):
     task_id: UUID
 
 
+class QueueTask(TaskRef):
+    confirmed: bool = Field(strict=True)
+
+
 class Bridge:
     def __init__(self, client):
         self.client = client
@@ -72,10 +77,22 @@ class Bridge:
                 return reply(False, {"code": "unsupported_operation", "message": "Operação não disponível nesta versão."})
             if op == "bridge.info":
                 Empty.model_validate(params)
-                return reply(True, {"version": "0.1.0", "operations": list(OPERATIONS), "task_execution": False})
+                enabled = False
+                try:
+                    response = self.client.get("/health")
+                    enabled = response.is_success and response.json().get("task_execution") is True
+                except (httpx.HTTPError, ValueError, AttributeError):
+                    pass
+                return reply(True, {"version": "0.2.0", "operations": list(OPERATIONS), "task_execution": enabled})
             method, path, body, query = self.route(op, params)
             response = self.client.request(method, path, json=body, params=query)
             if not response.is_success:
+                try:
+                    code = response.json().get("detail")
+                except (ValueError, AttributeError):
+                    code = None
+                if isinstance(code, str) and code in ERROR_STATUS:
+                    return reply(False, {"code": code, "message": error_message(code)})
                 messages = {401: "Autorização local inválida. Confira a instalação do componente local.",
                             404: "Item não encontrado.", 409: "A tarefa já foi iniciada.",
                             422: "Confira os campos e os limites de contexto.",
@@ -91,6 +108,9 @@ class Bridge:
 
     @staticmethod
     def route(op, params):
+        if op in ("tasks.enqueue", "tasks.resume"):
+            data = QueueTask.model_validate(params)
+            return "POST", f"/v1/tasks/{data.task_id}/{op.split('.')[1]}", {"confirmed": data.confirmed}, None
         if op in ("health.get", "models.list"):
             Empty.model_validate(params)
             return "GET", "/health" if op == "health.get" else "/v1/models", None, None

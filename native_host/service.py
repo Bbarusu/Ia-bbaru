@@ -13,7 +13,7 @@ def main():
     args = parser.parse_args()
     config = load_config(args.config)
     url = urlparse(config["backend_url"])
-    app = create_app(db_path=config["db_path"], api_token=config["token"])
+    app = create_app(db_path=config["db_path"], api_token=config["token"], durable_execution=True)
     uvicorn.run(app, host=url.hostname, port=url.port or 80, workers=1)
 
 

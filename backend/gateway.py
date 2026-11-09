@@ -1,11 +1,15 @@
 import httpx
+from .gateway_errors import ERROR_STATUS
 
 from .contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 
 
 class GatewayUnavailable(Exception):
-    pass
+    def __init__(self, code="gateway_request_failed", http_status=None):
+        super().__init__(code)
+        self.code = code
+        self.http_status = http_status
 
 
 class HttpGateway:
@@ -26,7 +30,18 @@ class HttpGateway:
                     method, self.url + path, json=body,
                     headers={"Authorization": f"Bearer {self.token}"},
                 )
-                response.raise_for_status()
+                if not response.is_success:
+                    code = "gateway_request_failed"
+                    # Limit input before parsing. Free-form message/next_action are ignored.
+                    if len(response.content) <= 16384:
+                        try:
+                            raw = response.json()
+                            candidate = raw.get("error", {}).get("code")
+                            if isinstance(candidate, str) and ERROR_STATUS.get(candidate) == response.status_code:
+                                code = candidate
+                        except (ValueError, AttributeError, TypeError):
+                            pass
+                    raise GatewayUnavailable(code, response.status_code)
                 return response.json()
         except (httpx.HTTPError, ValueError) as exc:
             # Do not expose upstream bodies, URLs with credentials, or prompts.
