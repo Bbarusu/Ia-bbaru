@@ -1,0 +1,150 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", sans-serif;
+  background: #08090b;
+  color: #e8eaf0;
+  font-size: 13px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  height: 106px;
+  border-bottom: 1px solid #25272b;
+  background: #0c0d0f;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #aeb5c3;
+  min-height: 32px;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+button:hover {
+  background: #202329;
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #438aff;
+  outline-offset: 2px;
+}
+.tabbar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+}
+.brand {
+  font-size: 26px;
+  color: #438aff;
+  padding: 0 7px;
+}
+#tabs {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 75%;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  border-radius: 9px;
+  background: #14161a;
+  min-width: 100px;
+  max-width: 210px;
+  border: 1px solid #202329;
+}
+.tab.active {
+  background: #202631;
+  border-color: #34415a;
+}
+.tab .choose {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  font-size: 12px;
+}
+.tab .close {
+  padding: 3px 8px;
+}
+.edition {
+  margin-left: auto;
+  letter-spacing: 2px;
+  font-size: 10px;
+  color: #8993a6;
+  white-space: nowrap;
+}
+.edition small {
+  margin-left: 8px;
+  color: #679eff;
+  letter-spacing: 1px;
+  font-size: 8px;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 45px;
+  padding: 4px 15px;
+}
+#navigation {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 120px;
+  border: 1px solid #292d34;
+  background: #15171b;
+  border-radius: 11px;
+  height: 34px;
+}
+.address-icon {
+  padding: 0 10px;
+  color: #8190a6;
+}
+#address {
+  border: 0;
+  background: transparent;
+  color: #e8eaf0;
+  outline: none;
+  width: 100%;
+  padding: 5px 10px 5px 0;
+  font-size: 12px;
+}
+.primary {
+  background: #245ba4;
+  color: #d8e7ff;
+  border-color: #357add;
+}
+.capture {
+  border-color: #292d34;
+  font-size: 12px;
+}
+#message {
+  font-size: 10px;
+  color: #b8c5dc;
+  height: 20px;
+  padding: 0 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

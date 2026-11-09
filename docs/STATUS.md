@@ -1,8 +1,36 @@
 # Estado do Ia-bbaru
 
-Atualizado em 9 de novembro de 2026 (horário de Brasília). Entrega na branch `codex/frontend-firefox`.
+Atualizado em 9 de novembro de 2026 (horário de Brasília). Entrega do navegador na branch `codex/chromium-browser`.
 
-## Implementado
+## Navegador Chromium — versão inicial executável
+
+- Electron 45.2.3 / Chromium 156.0.8078.80, com abas reais, endereço/pesquisa,
+  voltar/avançar/recarregar, atalhos e painel React lateral ou ampliado.
+- Páginas remotas isoladas, sem Node ou preload da aplicação. IPC local limitado
+  por origem/frame/operação; token permanece fora dos renderers.
+- Backend e ponte Python iniciados automaticamente; perfil próprio com SQLite,
+  rascunhos e sessão web persistente. Captura explícita com prévia e origem.
+- Aceite 1.1 no painel, desmarcado por padrão e persistido no plano; rascunho manual
+  preservado quando chega uma captura. Captura pendente não é sobrescrita no desktop.
+- Roteiro Windows e inicializador em `scripts/start-browser.ps1`.
+
+Validação nesta entrega: 48 testes Python, 6 testes do frontend, 3 testes de política
+Electron, build e teste gráfico no Electron real. O teste gráfico usou backend/ponte
+reais e página/catálogo sintéticos; confirmou navegação, captura com acentos, aceite
+1.1, isolamento, proteção de rascunhos e persistência após reiniciar. O teste gráfico
+Firefox existente também passou após a adaptação de transporte. Nenhuma conta
+real utilizada. Evidência: [JSON](reviews/chromium-smoke.json) e
+[captura da janela](images/browser-chromium.png). Windows/PowerShell ainda precisam
+ser validados no computador do usuário.
+
+O contêiner Linux não tem o helper SUID configurado para a sandbox Chromium. O
+teste gráfico usou explicitamente `IA_BBARU_TEST_NO_SANDBOX=1`, com perfil temporário
+e páginas locais. Validou Node desativado, separação de preloads e operações IPC;
+não valida a sandbox do sistema operacional. O app normal mantém sandbox habilitada.
+
+Guia: [TESTAR_NAVEGADOR_CHROMIUM.md](TESTAR_NAVEGADOR_CHROMIUM.md).
+
+## Base reaproveitada
 
 - Backend local Python/FastAPI com SQLite, token para uso pessoal, projetos,
   fontes de texto e tarefas com cópia do contexto selecionado.
@@ -42,33 +70,32 @@ Codex usou somente fixtures. O novo backend ainda precisa de validação no Wind
 ## Ainda pendente
 
 - Validação do novo backend 1.1 no Windows e no fluxo real com a conta do usuário.
-- Apresentação das capacidades/aceite na interface pelo Gemini.
-- Preservação de edições e de capturas recebidas durante salvamento/descarte no
-  frontend da PR #3. A captura dupla e a lista ARIA anteriores já foram corrigidas.
+- Refinamento da apresentação de capacidades e motivos de indisponibilidade pelo
+  Gemini. O aceite necessário ao planejamento já está integrado nesta base.
+- Portar seletivamente as melhorias visuais da PR #3 para a nova base, preservando
+  transporte desktop e a proteção de capturas/rascunhos implementados aqui.
 - Fila/worker durável, progresso e execução pelo painel. O host recusa `tasks.execute`.
 - Importação automática NotebookLM, projetos Claude/ChatGPT ou arquivos binários.
-- Instalação Windows e fluxo completo de menu nativo→host no computador de uso.
-- Extensão assinada/distribuída e navegador próprio baseado em Firefox.
+- Validar a instalação Windows, logins nos sites oficiais e compatibilidade de páginas.
+- Instalador do navegador, Python empacotado, assinatura de código e autoatualização.
+- Gestão de downloads/permissões, restauração de abas e favoritos.
 - Login multiusuário e deploy público. A aplicação continua exclusivamente local.
 
 ## Responsabilidades e próximo marco
 
-Revisão atual das duas frentes: [REVISAO_INTEGRADA_2026_11_09.md](REVISAO_INTEGRADA_2026_11_09.md).
-Prompts para encaminhamento: [Gemini](PROMPT_GEMINI_PENDENCIAS.md) e
-[Claude](PROMPT_CLAUDE_VALIDACAO.md).
+- **Codex:** runtime Chromium, navegação, IPC, backend, persistência e execução durável.
+- **Gemini:** `desktop/ui/` e `frontend/`, nova branch `gemini/chromium-ui` sobre
+  `codex/chromium-browser`. [Prompt atual](PROMPT_GEMINI_CHROMIUM.md).
+- **Claude:** `integrations/` e validação Windows do gateway com o navegador.
+  [Prompt atual](PROMPT_CLAUDE_CHROMIUM.md).
 
-- **Codex:** implementou a primeira interface e mantém extensão, backend,
-  persistência e ponte local.
-- **Gemini:** a pedido do usuário, nova tentativa de evolução do frontend existente;
-  base `codex/frontend-firefox`, branch `gemini/frontend-v2`. Ver o novo briefing.
-- **Claude:** integrações oficiais em `integrations/`, correções da revisão e
-  proposta coordenada de evolução do contrato. O usuário está testando com Claude;
-  a revisão documentada se limita ao commit nela identificado.
+Próximo marco: testar a versão gráfica no computador do usuário e implementar
+execução durável antes de habilitar geração no painel. Navegação já usa Chromium
+incorporado ao Electron; a extensão Firefox continua como alternativa anterior.
 
-Próximo marco: validar o backend 1.1 no computador do usuário, conectar o frontend
-às capacidades e implementar execução durável antes de habilitar geração no painel.
-Gecko é usado pelo Firefox instalado; ainda não há fork de navegador.
+Revisão histórica das frentes: [REVISAO_INTEGRADA_2026_11_09.md](REVISAO_INTEGRADA_2026_11_09.md).
+O gateway permanece em uma PR separada. A mudança de motor não altera sua API.
 
 Repositório público por configuração do usuário: https://github.com/Bbarusu/Ia-bbaru.
-Código, contratos e decisões ficam no GitHub; bancos, sessões, segredos e materiais
-pessoais ficam fora do versionamento.
+Código e decisões ficam no GitHub; bancos, sessões, segredos e materiais pessoais
+ficam fora do versionamento.

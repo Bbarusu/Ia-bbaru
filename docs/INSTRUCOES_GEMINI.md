@@ -1,5 +1,9 @@
 # Briefing para o Gemini — evolução do frontend do Ia-bbaru
 
+> Atualização de 9/11/2026: a direção agora é Chromium/Electron. Use o
+> [prompt atual](PROMPT_GEMINI_CHROMIUM.md) e a base `codex/chromium-browser`.
+> O briefing abaixo registra a etapa anterior.
+
 ## Pedido e repositório
 
 Você assumirá a evolução do **frontend existente** do Ia-bbaru. O usuário quer

@@ -1,5 +1,9 @@
 # Briefing para o Claude — integrações de IA do Ia-bbaru
 
+> Atualização de 9/11/2026: a direção agora é Chromium/Electron. Use o
+> [prompt atual](PROMPT_CLAUDE_CHROMIUM.md) e a base `codex/chromium-browser`.
+> O briefing abaixo registra a etapa anterior.
+
 ## Repositório e ponto de partida
 
 Trabalhe no repositório **https://github.com/Bbarusu/Ia-bbaru**.

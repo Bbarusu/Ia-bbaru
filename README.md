@@ -2,29 +2,29 @@
 
 Just a school project.
 
-Projeto independente com a linguagem visual do KInfo. Esta entrega contém o
-**painel React, extensão Firefox, ponte local e backend**. Projetos e materiais
-funcionam localmente; a integração real de IA está em revisão na PR #1.
+Projeto independente com a linguagem visual do KInfo. A direção atual é um
+**navegador desktop Chromium, via Electron**, com abas reais, captura de trechos,
+painel React e backend local. Base: branch `codex/chromium-browser`.
 
-**[Instalar no Firefox](docs/INSTALAR_FIREFOX.md)** ·
+**[Abrir e testar o navegador Chromium](docs/TESTAR_NAVEGADOR_CHROMIUM.md)** ·
 [Estado e pendências](docs/STATUS.md) · [Configurar gateway 1.1](docs/TESTAR_GATEWAY_1_1.md)
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru
 
-![Prévia do painel Ia-bbaru](docs/images/painel-demonstracao.png)
+![Navegador Ia-bbaru com Chromium](docs/images/browser-chromium.png)
 
-*Prévia capturada em Firefox. Modo de demonstração identificado, com dados fictícios;
-nenhuma conta de IA conectada.*
+*Janela real do Electron no teste Linux, com projeto e catálogo de teste.
+Nenhuma conta de IA utilizada; Windows ainda requer validação local.*
 
-## Primeira etapa aprovada
+## Direção aprovada
 
-Construir uma extensão para Firefox, aproveitando Gecko, com painel lateral e
-backend local. Validar o fluxo de projeto, contexto selecionado e agentes antes
-de manter um navegador independente baseado em Firefox.
+Construir o navegador Chromium com backend local. A extensão Firefox foi a etapa
+anterior e continua disponível. Navegação, projetos, captura e planejamento já
+podem ser testados pela interface. Geração pelo painel depende da execução durável.
 
-- [Briefing do Claude: integrações](docs/INSTRUCOES_CLAUDE.md).
-- [Novo briefing do Gemini: evolução do frontend existente](docs/INSTRUCOES_GEMINI.md).
-- [Arquitetura Firefox/Gecko e divisão do trabalho](docs/ARQUITETURA.md).
+- [Prompt do Claude: gateway no Chromium](docs/PROMPT_CLAUDE_CHROMIUM.md).
+- [Prompt do Gemini: interface do navegador](docs/PROMPT_GEMINI_CHROMIUM.md).
+- [Arquitetura Chromium e divisão do trabalho](docs/ARQUITETURA.md).
 - [Transporte implementado entre extensão e backend](docs/TRANSPORTE_EXTENSAO.md).
 
 ## Direção atual: aproveitar contas e assinaturas
@@ -52,19 +52,18 @@ Isso não implementa automaticamente conexões com ChatGPT ou Gemini.
 - Serviço de integrações feito com Claude: verificar elegibilidade das contas,
   integrar os caminhos oficiais disponíveis e informar capacidades reais de cada
   conexão. API com chave fica opcional; não contratar cobrança por padrão.
-- Codex: implementação inicial de frontend, extensão Firefox, backend principal,
-  persistência, coordenação e ponte local.
-- Gemini: nova tentativa de evolução do frontend sobre essa base, seguindo
-  `docs/INSTRUCOES_GEMINI.md`. O usuário está testando as integrações com Claude.
-- Guia para o Claude: `docs/INSTRUCOES_CLAUDE.md`.
+- Codex: runtime Chromium, IPC, captura, backend, persistência e execução durável.
+- Gemini: `frontend/` e `desktop/ui/`, conforme `docs/PROMPT_GEMINI_CHROMIUM.md`.
+- Claude: gateway e testes locais, conforme `docs/PROMPT_CLAUDE_CHROMIUM.md`.
 - Contratos: `docs/openapi-backend.json`, `docs/openapi-gateway.json` (1) e
   `docs/openapi-gateway-1.1.json` (1.1).
 
 ## Executar somente o backend para desenvolvimento
 
-Para usar o aplicativo completo, siga [Instalar no Firefox](docs/INSTALAR_FIREFOX.md).
-O instalador provisiona o mesmo token para a ponte e o serviço; não misture esse
-fluxo com um token aleatório de outro terminal.
+Para testar o navegador, siga [Abrir o Chromium](docs/TESTAR_NAVEGADOR_CHROMIUM.md):
+ele inicia o backend automaticamente. Os comandos abaixo servem para desenvolver
+o backend separadamente. O caminho anterior de [extensão Firefox](docs/INSTALAR_FIREFOX.md)
+também continua disponível.
 
 Requer Python 3.12. Os comandos abaixo são para bash:
 

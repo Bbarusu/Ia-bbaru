@@ -12,6 +12,15 @@ export type Model = {
   label: string;
   available: boolean;
   task_kinds: string[];
+  unavailable_reason?: string | null;
+  capabilities?: {
+    output_limit: "enforced" | "best_effort" | "none";
+    cancellation: "provider" | "local_process_only" | "none";
+    finish_reason: "reported" | "inferred";
+    billing: "api_key" | "subscription_quota" | "unknown";
+    tools: "disabled" | "restricted";
+    streaming: boolean;
+  };
 };
 export type Task = {
   id: string;
@@ -31,5 +40,6 @@ export type Tab = "workspace" | "library" | "history" | "connections";
 declare global {
   interface Window {
     browser?: any;
+    iaDesktop?: any;
   }
 }

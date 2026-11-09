@@ -1,0 +1,425 @@
+// Real Electron, real Python backend and real native bridge. No provider account.
+const { _electron: electron } = require("playwright");
+const { expect } = require("@playwright/test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const http = require("node:http");
+const { randomUUID } = require("node:crypto");
+const { spawn, spawnSync } = require("node:child_process");
+
+async function main() {
+  const profile = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ia-bbaru-browser-test-"),
+  );
+  const artifacts = path.resolve(__dirname, "../../artifacts/chromium");
+  fs.mkdirSync(artifacts, { recursive: true });
+  const server = http.createServer((req, res) => {
+    if (req.url === "/v1.1/models") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          protocol_version: "1.1",
+          models: [
+            {
+              id: "fixture:study",
+              provider: "fixture",
+              label: "Agente de teste local",
+              available: true,
+              task_kinds: ["study"],
+              context_char_limit: 80000,
+              max_output_tokens: 64,
+              capabilities: {
+                output_limit: "best_effort",
+                cancellation: "local_process_only",
+                finish_reason: "reported",
+                billing: "subscription_quota",
+                streaming: false,
+                tools: "disabled",
+              },
+              unavailable_reason: null,
+            },
+          ],
+        }),
+      );
+      return;
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(
+      '<!doctype html><html lang="pt-BR"><head><title>Aula de teste</title></head><body style="background:#f4f4f7;color:#222;padding:45px;font:20px sans-serif"><h1>Material da faculdade</h1><p id="source">A fotossíntese transforma energia luminosa em energia química.</p><a href="/segunda">Segunda página</a><button onclick="window.open(\'/popup\')">Abrir outra aba</button></body></html>',
+    );
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  let app;
+  const env = { ...process.env, IA_BBARU_PROFILE_DIR: profile };
+  env.GATEWAY_URL = url;
+  env.GATEWAY_TOKEN = "fixture-only-not-a-secret-0123456789";
+  env.GATEWAY_PROTOCOL_VERSION = "1.1";
+  delete env.IA_BBARU_REAL_TEST;
+  const launch = () =>
+    electron.launch({
+      args: [
+        path.resolve(__dirname, ".."),
+        ...(process.env.IA_BBARU_TEST_NO_SANDBOX === "1"
+          ? ["--no-sandbox"]
+          : []),
+      ],
+      chromiumSandbox: process.env.IA_BBARU_TEST_NO_SANDBOX !== "1",
+      env,
+      timeout: 60000,
+    });
+  async function workspacePage() {
+    await expect
+      .poll(
+        () =>
+          app
+            .windows()
+            .find((p) => p.url().includes("/frontend/dist/index.html")),
+        { timeout: 30000 },
+      )
+      .toBeTruthy();
+    return app
+      .windows()
+      .find((p) => p.url().includes("/frontend/dist/index.html"));
+  }
+  try {
+    app = await launch();
+    const shell = await app.firstWindow();
+    const workspace = await workspacePage();
+    await expect(
+      workspace.getByText("Backend local ativo", { exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    const secondCode = await new Promise((resolve, reject) => {
+      const args = [
+        path.resolve(__dirname, ".."),
+        ...(process.env.IA_BBARU_TEST_NO_SANDBOX === "1"
+          ? ["--no-sandbox"]
+          : []),
+      ];
+      const child = spawn(require("electron"), args, {
+        env,
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      let diagnostic = "";
+      child.stderr.on("data", (data) => {
+        diagnostic = (diagnostic + data.toString()).slice(-2000);
+      });
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error("Second instance did not exit"));
+      }, 10000);
+      child.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.once("exit", (code, signal) => {
+        clearTimeout(timer);
+        if (code !== 0)
+          reject(
+            new Error(
+              `Second instance exited ${code}/${signal}: ${diagnostic}`,
+            ),
+          );
+        else resolve(code);
+      });
+    });
+    assert.equal(secondCode, 0);
+    await workspace
+      .getByRole("button", { name: "Novo projeto", exact: true })
+      .first()
+      .click();
+    await workspace.getByLabel("Nome do projeto").fill("Teste Chromium");
+    await workspace
+      .getByRole("dialog")
+      .getByRole("button", { name: "Criar projeto", exact: true })
+      .click();
+    await expect(workspace.locator("#project")).not.toHaveValue("");
+    await shell.locator("#address").fill(url);
+    await shell.locator("#address").press("Enter");
+    await expect
+      .poll(() => app.windows().find((p) => p.url().startsWith(url)))
+      .toBeTruthy();
+    const web = app.windows().find((p) => p.url().startsWith(url));
+    await expect(web.locator("h1")).toHaveText("Material da faculdade");
+    assert.deepEqual(
+      await web.evaluate(() => ({
+        node: typeof process,
+        require: typeof require,
+        bridge: typeof window.iaDesktop,
+        shell: typeof window.navigatorApp,
+      })),
+      {
+        node: "undefined",
+        require: "undefined",
+        bridge: "undefined",
+        shell: "undefined",
+      },
+    );
+    await web.locator("a").click();
+    await expect(web).toHaveURL(url + "/segunda");
+    await shell.getByRole("button", { name: "Voltar", exact: true }).click();
+    await expect(web).toHaveURL(url + "/");
+    await web.evaluate(() => {
+      const range = document.createRange();
+      range.selectNodeContents(document.querySelector("#source"));
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(range);
+    });
+    await shell.locator("#capture").click();
+    await expect(workspace.getByRole("dialog")).toBeVisible();
+    await expect(workspace.locator("dialog textarea")).toHaveValue(
+      /fotossíntese/,
+    );
+    await workspace
+      .getByRole("button", { name: "Salvar no projeto", exact: true })
+      .click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    const saved = await workspace.evaluate(async () => {
+      const req = (operation, params = {}) =>
+        window.iaDesktop.runtime.sendMessage({
+          type: "bridge.request",
+          request: {
+            protocol_version: "0",
+            request_id: crypto.randomUUID(),
+            operation,
+            params,
+          },
+        });
+      const p = await req("projects.list");
+      const s = await req("sources.list", { project_id: p.data.items[0].id });
+      return { projects: p.data.items, sources: s.data.items };
+    });
+    assert.equal(saved.projects[0].title, "Teste Chromium");
+    assert.equal(saved.sources.length, 1);
+    const sourceId = saved.sources[0].id;
+    const detail = await workspace.evaluate(
+      async ({ project, source }) =>
+        window.iaDesktop.runtime.sendMessage({
+          type: "bridge.request",
+          request: {
+            protocol_version: "0",
+            request_id: crypto.randomUUID(),
+            operation: "sources.get",
+            params: { project_id: project, source_id: source },
+          },
+        }),
+      { project: saved.projects[0].id, source: sourceId },
+    );
+    assert.match(detail.data.content, /fotossíntese/);
+    assert.ok(detail.data.content.includes(url));
+    await workspace
+      .getByRole("button", { name: "Agente de teste local", exact: false })
+      .click();
+    await workspace
+      .locator("#instruction")
+      .fill("Explique este material em uma frase.");
+    await workspace
+      .getByRole("button", { name: "Criar plano", exact: true })
+      .click();
+    await expect(
+      workspace.getByText(
+        "Aceite o limite indicativo antes de criar este plano.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await workspace
+      .getByRole("checkbox", {
+        name: "Aceito o limite indicativo para esta tarefa",
+      })
+      .check();
+    await workspace
+      .getByRole("button", { name: "Criar plano", exact: true })
+      .click();
+    await expect(workspace.getByRole("dialog")).toBeVisible();
+    const tasks = await workspace.evaluate(
+      (project) =>
+        window.iaDesktop.runtime.sendMessage({
+          type: "bridge.request",
+          request: {
+            protocol_version: "0",
+            request_id: crypto.randomUUID(),
+            operation: "tasks.list",
+            params: { project_id: project },
+          },
+        }),
+      saved.projects[0].id,
+    );
+    const task = await workspace.evaluate(
+      (id) =>
+        window.iaDesktop.runtime.sendMessage({
+          type: "bridge.request",
+          request: {
+            protocol_version: "0",
+            request_id: crypto.randomUUID(),
+            operation: "tasks.get",
+            params: { task_id: id },
+          },
+        }),
+      tasks.data.items[0].id,
+    );
+    assert.equal(task.data.allow_unenforced_output_limit, true);
+    assert.equal(task.data.gateway_protocol_version, "1.1");
+    assert.equal(task.data.status, "planned");
+    await workspace
+      .getByRole("dialog")
+      .getByRole("button", { name: "Fechar", exact: true })
+      .click();
+    await expect(
+      workspace.getByRole("checkbox", {
+        name: "Aceito o limite indicativo para esta tarefa",
+      }),
+    ).not.toBeChecked();
+    const rejected = await workspace.evaluate(async () => {
+      try {
+        await window.iaDesktop.runtime.sendMessage({
+          type: "bridge.request",
+          request: {
+            protocol_version: "0",
+            request_id: crypto.randomUUID(),
+            operation: "tasks.execute",
+            params: {},
+          },
+        });
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    assert.equal(rejected, true);
+    await shell.locator("#address").fill("file:///etc/passwd");
+    await shell.locator("#address").press("Enter");
+    await expect(shell.locator("#message")).toContainText("HTTP ou HTTPS");
+    await expect(web).toHaveURL(url + "/");
+    await shell.getByRole("button", { name: "Nova aba", exact: true }).click();
+    await expect(shell.getByRole("tab")).toHaveCount(2);
+    await shell
+      .getByRole("button", { name: "Fechar Nova aba", exact: true })
+      .click();
+    await expect(shell.getByRole("tab")).toHaveCount(1);
+    // A new capture while manually editing must not erase the draft.
+    await workspace
+      .getByRole("button", { name: "Adicionar texto", exact: true })
+      .click();
+    await workspace.getByLabel("Título", { exact: true }).fill("Meu rascunho");
+    await workspace.locator("dialog textarea").fill("Texto manual preservado");
+    await shell.locator("#capture").click();
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
+      "Meu rascunho",
+    );
+    await expect(
+      workspace.getByText(
+        "Uma nova captura está aguardando. Conclua o material atual.",
+      ),
+    ).toBeVisible();
+    await workspace
+      .getByRole("button", { name: "Salvar no projeto", exact: true })
+      .click();
+    await workspace
+      .getByRole("button", { name: "Revisar nova captura", exact: true })
+      .click();
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
+      "Aula de teste",
+    );
+    await workspace
+      .getByRole("button", { name: "Descartar trecho", exact: true })
+      .click();
+    await shell.locator("#address").fill("");
+    await shell.locator("#address").press("Enter");
+    await expect(web).toHaveTitle("Nova aba");
+    const screenshot = await app.evaluate(async ({ BrowserWindow }) =>
+      (await BrowserWindow.getAllWindows()[0].capturePage())
+        .toPNG()
+        .toString("base64"),
+    );
+    fs.writeFileSync(
+      path.join(artifacts, "shell.png"),
+      Buffer.from(screenshot, "base64"),
+    );
+    // capturePage covers the shell surface; capture each child view separately.
+    await workspace.screenshot({ path: path.join(artifacts, "workspace.png") });
+    await web.screenshot({ path: path.join(artifacts, "new-tab.png") });
+    // Optional OS capture includes the native child views in one image (Linux/X11).
+    if (process.platform === "linux" && process.env.DISPLAY) {
+      const id = await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0]
+          .getNativeWindowHandle()
+          .readUInt32LE(0),
+      );
+      const shot = spawnSync(
+        "import",
+        ["-window", String(id), path.join(artifacts, "browser-native.png")],
+        { timeout: 10000 },
+      );
+      if (shot.error || shot.status !== 0)
+        console.log(
+          "Native screenshot unavailable; individual view screenshots saved.",
+        );
+    }
+    const versions = await app.evaluate(() => process.versions);
+    await app.close();
+    app = null;
+    app = await launch();
+    const reopened = await workspacePage();
+    await expect(
+      reopened.getByText("Backend local ativo", { exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    const persisted = await reopened.evaluate(() =>
+      window.iaDesktop.runtime.sendMessage({
+        type: "bridge.request",
+        request: {
+          protocol_version: "0",
+          request_id: crypto.randomUUID(),
+          operation: "projects.list",
+          params: {},
+        },
+      }),
+    );
+    assert.equal(persisted.data.items[0].title, "Teste Chromium");
+    fs.writeFileSync(
+      path.join(artifacts, "smoke.json"),
+      JSON.stringify(
+        {
+          electron: versions.electron,
+          chromium: versions.chrome,
+          chromiumSandbox: process.env.IA_BBARU_TEST_NO_SANDBOX !== "1",
+          checks: [
+            "native backend startup",
+            "single instance per profile",
+            "project creation",
+            "web navigation and back",
+            "remote isolation",
+            "selection capture and SQLite source",
+            "1.1 acceptance required and persisted",
+            "execution denied",
+            "file navigation denied",
+            "tabs",
+            "manual draft preserved",
+            "restart persistence",
+          ],
+          realAccount: false,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(
+      "Chromium UI passed: navigation, isolation, real backend, capture, draft preservation and restart persistence.",
+    );
+  } finally {
+    if (app) await app.close();
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(profile, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 200,
+    });
+  }
+}
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

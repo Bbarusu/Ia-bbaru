@@ -2,8 +2,9 @@
 
 Leia primeiro README.md, docs/STATUS.md e docs/ASSINATURAS.md.
 Repositório: https://github.com/Bbarusu/Ia-bbaru.
-Direção aprovada: extensão Firefox com backend local, seguida de avaliação de um
-navegador próprio baseado em Firefox/Gecko. Leia docs/ARQUITETURA.md.
+Direção atual (9/11/2026): navegador Chromium via Electron com backend local.
+Base: `codex/chromium-browser`. Leia `docs/ARQUITETURA.md` e o novo prompt
+`docs/PROMPT_CLAUDE_CHROMIUM.md`. O briefing Firefox anterior é histórico.
 O briefing de integração está em docs/INSTRUCOES_CLAUDE.md; o contrato HTTP atual
 está em backend/contracts.py (1) e backend/contracts_v1_1.py (1.1), com OpenAPI
 publicados em docs/. O backend já implementa docs/DECISAO_CAPACIDADES.md.

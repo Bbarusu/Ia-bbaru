@@ -2,6 +2,8 @@ import type { Capture } from "./types";
 
 export const demo = new URLSearchParams(location.search).get("demo") === "1";
 export const inFirefox = !!window.browser?.runtime?.sendMessage;
+export const inDesktop = !!window.iaDesktop;
+export const localBridge = window.iaDesktop || window.browser;
 export async function request<T>(
   operation: string,
   params: object = {},
@@ -10,11 +12,11 @@ export async function request<T>(
     const { demoRequest } = await import("./demo");
     return demoRequest(operation, params) as T;
   }
-  if (!inFirefox)
+  if (!localBridge)
     throw new Error(
-      "Abra a extensão no Firefox para conectar ao componente local.",
+      "Abra o navegador Ia-bbaru ou a extensão Firefox para conectar ao componente local.",
     );
-  const response = await window.browser.runtime.sendMessage({
+  const response = await localBridge.runtime.sendMessage({
     type: "bridge.request",
     request: {
       protocol_version: "0",
@@ -30,19 +32,17 @@ export async function request<T>(
   return response.data;
 }
 export async function pendingCapture(): Promise<Capture | null> {
-  if (!inFirefox) return null;
-  return window.browser.runtime.sendMessage({ type: "capture.read" });
+  if (!localBridge) return null;
+  return localBridge.runtime.sendMessage({ type: "capture.read" });
 }
 export async function clearCapture(id: string) {
-  if (inFirefox)
-    await window.browser.runtime.sendMessage({ type: "capture.clear", id });
+  if (localBridge)
+    await localBridge.runtime.sendMessage({ type: "capture.clear", id });
 }
 export async function selectCapture(): Promise<Capture> {
-  if (!inFirefox)
-    throw new Error(
-      "No Firefox, selecione um texto e use “Adicionar ao Ia-bbaru” no menu de contexto.",
-    );
-  const result = await window.browser.runtime.sendMessage({
+  if (!localBridge)
+    throw new Error("Selecione um texto em uma página aberta no navegador.");
+  const result = await localBridge.runtime.sendMessage({
     type: "capture.selection",
   });
   if (!result?.ok)
@@ -52,15 +52,14 @@ export async function selectCapture(): Promise<Capture> {
   return result.capture;
 }
 export async function expand() {
-  if (inFirefox)
-    await window.browser.runtime.sendMessage({ type: "workspace.open" });
+  if (localBridge)
+    await localBridge.runtime.sendMessage({ type: "workspace.open" });
 }
 export async function readDraft(key: string): Promise<string> {
-  if (inFirefox)
-    return (await window.browser.storage.local.get(key))[key] || "";
+  if (localBridge) return (await localBridge.storage.local.get(key))[key] || "";
   return localStorage.getItem(key) || "";
 }
 export async function writeDraft(key: string, text: string) {
-  if (inFirefox) await window.browser.storage.local.set({ [key]: text });
+  if (localBridge) await localBridge.storage.local.set({ [key]: text });
   else localStorage.setItem(key, text);
 }

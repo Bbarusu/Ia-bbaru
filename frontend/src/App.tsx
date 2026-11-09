@@ -38,6 +38,8 @@ import {
   demo,
   expand,
   inFirefox,
+  inDesktop,
+  localBridge,
   pendingCapture,
   readDraft,
   request,
@@ -107,6 +109,8 @@ export default function App() {
   const [draftReady, setDraftReady] = useState(false);
   const [kind, setKind] = useState("study");
   const [review, setReview] = useState(false);
+  const [acceptedLimit, setAcceptedLimit] = useState(false);
+  const [catalogVersion, setCatalogVersion] = useState("1");
   const [host, setHost] = useState(false);
   const [online, setOnline] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -117,11 +121,14 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<"project" | "source" | null>(null);
   const [capture, setCapture] = useState<Capture | null>(null);
+  const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
   const [sourceView, setSourceView] = useState<Source | null>(null);
   const [taskView, setTaskView] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [search, setSearch] = useState("");
+  const editRef = useRef({ modal, title, content, capture, busy });
+  editRef.current = { modal, title, content, capture, busy };
   const project = projects.find((p) => p.id === projectId);
   const available = models.filter((m) => m.available);
 
@@ -148,8 +155,12 @@ export default function App() {
             "",
       );
       try {
-        const data = await request<{ models: Model[] }>("models.list");
+        const data = await request<{
+          protocol_version: string;
+          models: Model[];
+        }>("models.list");
         setModels(data.models);
+        setCatalogVersion(data.protocol_version);
         setModelError("");
         setSelectedModels((old) =>
           old.filter((id) =>
@@ -218,6 +229,15 @@ export default function App() {
 
   function receiveCapture(value: Capture | null) {
     if (value) {
+      const current = editRef.current;
+      if (
+        current.modal === "source" &&
+        (current.title || current.content || current.busy) &&
+        current.capture?.id !== value.id
+      ) {
+        setQueuedCapture(value);
+        return;
+      }
       setCapture(value);
       setTitle(value.title);
       setContent(value.text);
@@ -228,17 +248,17 @@ export default function App() {
     pendingCapture()
       .then(receiveCapture)
       .catch(() => {});
-    if (!inFirefox) return;
+    if (!localBridge) return;
     const listener = (changes: any) => {
       if (changes.pendingCapture?.newValue)
         receiveCapture(changes.pendingCapture.newValue);
       if (changes.captureError?.newValue) {
         setError(changes.captureError.newValue);
-        window.browser.storage.local.remove("captureError");
+        localBridge.storage.local.remove("captureError");
       }
     };
-    window.browser.storage.onChanged.addListener(listener);
-    return () => window.browser.storage.onChanged.removeListener(listener);
+    localBridge.storage.onChanged.addListener(listener);
+    return () => localBridge.storage.onChanged.removeListener(listener);
   }, []);
   async function act(fn: () => Promise<void>) {
     setBusy(true);
@@ -329,6 +349,27 @@ export default function App() {
       setError(warning);
       return;
     }
+    const selected = models.filter((m) => selectedModels.includes(m.id));
+    if (
+      catalogVersion === "1.1" &&
+      selected.some(
+        (m) => !m.capabilities || m.capabilities.tools !== "disabled",
+      )
+    ) {
+      setError(
+        "Este agente não oferece as capacidades necessárias para esta tarefa.",
+      );
+      return;
+    }
+    if (
+      selected.some(
+        (m) => m.capabilities && m.capabilities.output_limit !== "enforced",
+      ) &&
+      !acceptedLimit
+    ) {
+      setError("Aceite o limite indicativo antes de criar este plano.");
+      return;
+    }
     const target = projectId;
     await act(async () => {
       const task = await request<Task>("tasks.plan", {
@@ -339,10 +380,12 @@ export default function App() {
           source_ids: selectedSources,
           allowed_model_ids: selectedModels,
           mode: review ? "review" : "single",
+          allow_unenforced_output_limit: acceptedLimit,
         },
       });
       if (projectRef.current === target) setTasks((old) => [task, ...old]);
       setTaskView(task);
+      setAcceptedLimit(false);
       setNotice("Plano salvo. Nenhuma geração foi iniciada.");
     });
   }
@@ -508,7 +551,7 @@ export default function App() {
             >
               <RefreshCw size={16} className={checking ? "spin" : ""} />
             </button>
-            {inFirefox && (
+            {(inFirefox || inDesktop) && (
               <button
                 className="icon-button"
                 title="Abrir página ampla"
@@ -626,6 +669,23 @@ export default function App() {
                 onClick={() => setNotice("")}
               >
                 <X size={15} />
+              </button>
+            </div>
+          )}
+          {queuedCapture && (
+            <div className="alert" role="status">
+              <span>
+                Uma nova captura está aguardando. Conclua o material atual.
+              </span>
+              <button
+                className="text-button"
+                disabled={modal === "source" || busy}
+                onClick={() => {
+                  receiveCapture(queuedCapture);
+                  setQueuedCapture(null);
+                }}
+              >
+                Revisar nova captura
               </button>
             </div>
           )}
@@ -879,6 +939,28 @@ export default function App() {
                         </button>
                       ))}
                 </div>
+                {models.some(
+                  (m) =>
+                    selectedModels.includes(m.id) &&
+                    m.capabilities &&
+                    m.capabilities.output_limit !== "enforced",
+                ) && (
+                  <div className="card" style={{ padding: 16, marginTop: 12 }}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={acceptedLimit}
+                        onChange={(e) => setAcceptedLimit(e.target.checked)}
+                      />{" "}
+                      Aceito o limite indicativo para esta tarefa
+                    </label>
+                    <p className="small-note">
+                      O agente pode ultrapassar a saída solicitada. Encerrar o
+                      processo local não garante interrupção no provedor nem
+                      devolução de cota.
+                    </p>
+                  </div>
+                )}
                 <div className="agents-meta">
                   <span>
                     <Circle size={10} />
@@ -1009,7 +1091,7 @@ export default function App() {
                   <p>
                     {search
                       ? "Experimente outro termo."
-                      : "Adicione uma anotação ou selecione um trecho de uma página no Firefox."}
+                      : "Adicione uma anotação ou selecione um trecho de uma página no navegador."}
                   </p>
                   <button
                     className="text-button"
@@ -1097,16 +1179,18 @@ export default function App() {
               <section className="card connection-details">
                 <h2>Conexão com seu computador</h2>
                 <p>
-                  A extensão usa um componente local para acessar seus projetos.
+                  Seu espaço usa um componente local para acessar os projetos.
                 </p>
                 <div className="connection-line">
-                  <span>Extensão Firefox</span>
-                  <span className={inFirefox ? "good" : ""}>
-                    {inFirefox
+                  <span>
+                    {inDesktop ? "Navegador Chromium" : "Extensão Firefox"}
+                  </span>
+                  <span className={inFirefox || inDesktop ? "good" : ""}>
+                    {inFirefox || inDesktop
                       ? "Disponível"
                       : demo
                         ? "Demonstração"
-                        : "Abra no Firefox"}
+                        : "Abra no navegador Ia-bbaru"}
                   </span>
                 </div>
                 <div className="connection-line">
