@@ -47,7 +47,7 @@ export function Dialog({ title, children, close }: DialogProps) {
           title="Fechar"
           onClick={close}
         >
-          <Power size={16} />
+          <Power size={15} strokeWidth={1.7} />
         </button>
       </div>
       {children}

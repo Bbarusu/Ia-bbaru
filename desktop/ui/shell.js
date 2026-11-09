@@ -75,10 +75,10 @@ function createPowerIconSvg() {
   svg.setAttribute("height", "11");
   svg.setAttribute("aria-hidden", "true");
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M12 3v8M6.5 6.5a8 8 0 1 0 11 0");
+  path.setAttribute("d", "M12 3.5v7.5M6.8 6.8a7.5 7.5 0 1 0 10.4 0");
   path.setAttribute("fill", "none");
   path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "2.2");
+  path.setAttribute("stroke-width", "1.65");
   path.setAttribute("stroke-linecap", "round");
   svg.appendChild(path);
   return svg;

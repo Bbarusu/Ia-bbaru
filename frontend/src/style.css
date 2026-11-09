@@ -547,14 +547,17 @@ svg {
   justify-content: center;
   min-width: 32px;
   height: 32px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
   padding: 6px;
 }
 
 .icon-button:hover:not(:disabled) {
   color: var(--text);
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.11);
 }
 
 .mobile-brand,
@@ -746,17 +749,17 @@ main {
   gap: 6px;
   font-size: 11px;
   font-weight: 500;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
   color: var(--text-muted);
-  background: var(--surface-raised);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .prompt-ideas button:hover:not(:disabled) {
   color: var(--text);
-  background: var(--surface-hover);
-  border-color: #38404e;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .composer-context {
@@ -811,28 +814,28 @@ main {
 }
 
 .primary {
-  background: var(--accent);
+  background: #1f5cc2;
   color: #ffffff;
-  border: 1px solid #4a8bf7;
-  border-radius: var(--radius-sm);
-  padding: 9px 16px;
+  border: 1px solid rgba(89, 151, 255, 0.35);
+  border-radius: var(--radius-pill);
+  padding: 9px 18px;
   display: inline-flex;
   gap: 8px;
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   white-space: nowrap;
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: #6ba4ff;
+  background: #2567d4;
+  border-color: rgba(107, 164, 255, 0.5);
 }
 
 .primary:disabled {
-  background: #19273c;
-  border-color: #23344d;
+  background: rgba(57, 127, 242, 0.12);
+  border-color: rgba(57, 127, 242, 0.18);
   color: #6f829d;
   opacity: 0.65;
 }
@@ -1212,10 +1215,10 @@ main {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 12px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: var(--radius-pill);
   color: var(--text);
   font-size: 12px;
   font-weight: 500;
@@ -2241,7 +2244,7 @@ details summary:hover {
 dialog.kinfo-guide-dialog {
   max-width: 580px;
   padding: 22px;
-  border-radius: 16px;
+  border-radius: 20px;
 }
 
 .guide-modal-top {
@@ -2258,25 +2261,26 @@ dialog.kinfo-guide-dialog {
 }
 
 .guide-skip-btn {
-  padding: 6px 12px;
-  border-radius: 10px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.055);
 }
 
 .guide-skip-btn:hover {
-  background: var(--surface-raised);
+  background: rgba(255, 255, 255, 0.075);
   color: var(--text);
 }
 
 .guide-modal-mesa {
   margin-top: 14px;
   height: 112px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: #0c0d10;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2285,10 +2289,10 @@ dialog.kinfo-guide-dialog {
 
 .guide-modal-pill {
   min-height: 44px;
-  border-radius: 22px;
-  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2298,23 +2302,23 @@ dialog.kinfo-guide-dialog {
 
 .guide-modal-chip {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  padding: 5px 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
 }
 
 .guide-modal-chip.accent {
-  background: #17243c;
-  border-color: #2f5594;
-  color: #9ec2ff;
+  background: rgba(57, 127, 242, 0.14);
+  border-color: rgba(57, 127, 242, 0.28);
+  color: #a8c8ff;
 }
 
 .guide-modal-chip.good {
-  background: #0c2418;
-  border-color: #194d33;
+  background: rgba(62, 207, 142, 0.12);
+  border-color: rgba(62, 207, 142, 0.26);
   color: #6ee7b7;
 }
 
@@ -2334,10 +2338,10 @@ dialog.kinfo-guide-dialog {
 
 .guide-modal-item {
   margin-top: 16px;
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2363,12 +2367,12 @@ dialog.kinfo-guide-dialog {
 
 .guide-modal-tag {
   font-size: 11.5px;
-  font-weight: 600;
-  color: #9ec2ff;
-  background: #17243c;
-  border: 1px solid #28426e;
-  border-radius: 9px;
-  padding: 4px 10px;
+  font-weight: 550;
+  color: #a8c8ff;
+  background: rgba(57, 127, 242, 0.13);
+  border: 1px solid rgba(57, 127, 242, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
   white-space: nowrap;
 }
 

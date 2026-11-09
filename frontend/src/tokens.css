@@ -7,8 +7,8 @@
   --surface-raised: #12151b;
   --surface-hover: #171b22;
   --surface-active: #1b212b;
-  --border: #202226;
-  --border-subtle: #191b1f;
+  --border: #1b1e24;
+  --border-subtle: #15171c;
   --border-focus: #397ff2;
   --text: #e6e8ec;
   --text-muted: #a3aab7;
@@ -24,9 +24,9 @@
   --warning: #f59e0b;
   --warning-bg: #2b1f0c;
 
-  --radius-sm: 6px;
-  --radius-card: 12px;
-  --radius-panel: 16px;
+  --radius-sm: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
   --radius-pill: 9999px;
 
   /* Legacy aliases for backward compatibility with existing rules */

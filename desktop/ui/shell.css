@@ -4,14 +4,15 @@
   --surface: #0b0c0e;
   --surface-raised: #12151b;
   --surface-hover: #171b22;
-  --border: #202226;
+  --border: rgba(255, 255, 255, 0.065);
+  --border-strong: rgba(255, 255, 255, 0.11);
   --text: #e6e8ec;
-  --text-muted: #a3aab7;
+  --text-muted: #98a0ae;
   --accent: #397ff2;
   --accent-strong: #1f5cc2;
   --accent-strong-hover: #2567d4;
   --accent-hover: #4e8ff7;
-  --accent-muted: #17243c;
+  --accent-muted: rgba(57, 127, 242, 0.14);
   --danger-text: #ff9b9b;
   font-family:
     Inter,
@@ -51,11 +52,11 @@ input {
 
 button {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
   min-height: 26px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -63,18 +64,19 @@ button {
   gap: 5px;
   white-space: nowrap;
   transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease,
-    color 0.14s ease;
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
 }
 
 button:hover:not(:disabled) {
-  background: var(--surface-hover);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 
 button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -90,7 +92,7 @@ input:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  border-bottom: 1px solid #14161a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 #tabs {
@@ -109,27 +111,29 @@ input:focus-visible {
 .tab {
   display: flex;
   align-items: center;
-  border-radius: 8px;
-  background: var(--surface);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
   min-width: 96px;
-  max-width: 210px;
-  border: 1px solid var(--border);
+  max-width: 215px;
+  padding-right: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease;
+    background-color 0.16s ease,
+    border-color 0.16s ease;
 }
 
 .tab:hover {
-  background: var(--surface-raised);
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .tab.active {
   background: var(--accent-muted);
-  border-color: #2f5594;
+  border-color: rgba(57, 127, 242, 0.28);
 }
 
 .tab.has-error {
-  border-color: rgba(226, 75, 75, 0.55);
+  border-color: rgba(226, 75, 75, 0.4);
 }
 
 .tab .choose {
@@ -143,32 +147,50 @@ input:focus-visible {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  padding: 3px 6px 3px 9px;
+  padding: 3px 6px 3px 11px;
   min-height: 24px;
+  border-radius: 999px;
+}
+
+.tab .choose:hover:not(:disabled) {
+  background: transparent;
 }
 
 .tab.active .choose {
-  color: #ffffff;
+  color: #f3f6fc;
   font-weight: 550;
 }
 
 .tab .close {
-  padding: 2px 6px;
-  min-height: 22px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  border-radius: 999px;
   color: var(--text-muted);
-  font-size: 12px;
+  opacity: 0.6;
 }
 
-.tab .close:hover {
-  color: var(--danger-text);
+.tab .close:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
 }
 
 #new {
-  min-height: 24px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+}
+
+#new:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 
@@ -186,25 +208,26 @@ input:focus-visible {
   min-height: 26px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
 }
 
 .win-circle:hover:not(:disabled) {
-  background: var(--surface-raised);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.11);
+  color: var(--text);
 }
 
 .win-circle.power {
-  background: #1b1214;
-  border-color: #3d2026;
-  color: #ff9b9b;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #b4bcc9;
 }
 
 .win-circle.power:hover:not(:disabled) {
-  background: #b91c1c;
-  border-color: #ef4444;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
   color: #ffffff;
 }
 
@@ -214,7 +237,17 @@ input:focus-visible {
   gap: 6px;
   height: 38px;
   padding: 3px 10px;
-  border-bottom: 1px solid #14161a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+#back,
+#forward,
+#reload {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
 }
 
 #navigation {
@@ -223,20 +256,23 @@ input:focus-visible {
   flex: 1;
   min-width: 140px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 9px;
+  background: #0c0e12;
+  border-radius: 999px;
   height: 30px;
-  transition: border-color 0.14s ease;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
 }
 
 #navigation:focus-within {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent);
+  border-color: rgba(57, 127, 242, 0.55);
+  background: #0f1218;
+  outline: 2px solid rgba(57, 127, 242, 0.35);
   outline-offset: 1px;
 }
 
 .address-icon {
-  padding: 0 9px;
+  padding: 0 9px 0 12px;
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -247,7 +283,7 @@ input:focus-visible {
   color: var(--text);
   outline: none;
   width: 100%;
-  padding: 4px 10px 4px 0;
+  padding: 4px 12px 4px 0;
   font-size: 12px;
 }
 
@@ -256,34 +292,46 @@ input:focus-visible {
 }
 
 .sub-action {
+  width: 28px;
+  height: 28px;
   min-height: 28px;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
   font-size: 12px;
 }
 
 .sub-action.active {
-  color: #fbbf24;
-  border-color: #5c4813;
-  background: #1f1a0d;
+  color: #f5c451;
+  border-color: rgba(245, 196, 81, 0.28);
+  background: rgba(245, 196, 81, 0.1);
 }
 
 .capture {
   min-height: 28px;
-  border-color: var(--border);
-  background: var(--surface-raised);
+  padding: 4px 12px;
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.065);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: 12px;
   font-weight: 500;
 }
 
+.capture:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
 .primary {
   min-height: 28px;
-  background: var(--surface-raised);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  border-color: var(--border);
+  border-color: rgba(255, 255, 255, 0.065);
   font-size: 12px;
   font-weight: 550;
 }
@@ -292,7 +340,7 @@ input:focus-visible {
 #expand[aria-pressed="true"] {
   background: var(--accent-strong);
   color: #ffffff;
-  border-color: var(--accent);
+  border-color: rgba(89, 151, 255, 0.35);
 }
 
 .primary[aria-pressed="true"]:hover:not(:disabled),
@@ -302,10 +350,14 @@ input:focus-visible {
 }
 
 #expand {
+  width: 28px;
+  height: 28px;
   min-height: 28px;
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--text);
+  padding: 0;
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
 }
 
 .subbar {
@@ -314,7 +366,7 @@ input:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  background: #050608;
+  background: #040507;
   overflow: hidden;
 }
 
@@ -322,7 +374,7 @@ input:focus-visible {
 .bookmarks {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -335,41 +387,40 @@ input:focus-visible {
 
 .subbar-divider {
   width: 1px;
-  height: 16px;
-  background: var(--border);
+  height: 14px;
+  background: rgba(255, 255, 255, 0.07);
   flex-shrink: 0;
 }
 
 .subtab-chip,
 .bookmark-chip {
   min-height: 22px;
-  padding: 2px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 500;
 }
 
+.subtab-chip:hover:not(:disabled),
+.bookmark-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
 .subtab-chip.active {
-  background: #121d31;
-  border-color: #2f5594;
-  color: #ffffff;
+  background: rgba(57, 127, 242, 0.13);
+  border-color: rgba(57, 127, 242, 0.28);
+  color: #e4eeff;
 }
 
 .subtab-chip.add {
-  padding: 2px 7px;
+  padding: 2px 9px;
   background: transparent;
-  border-style: dashed;
-}
-
-.bookmark-chip {
-  background: #0b0c0e;
-}
-
-.bookmark-chip:hover {
-  border-color: var(--accent);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 #message {

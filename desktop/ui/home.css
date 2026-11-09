@@ -4,12 +4,12 @@
   --surface: #0b0c0e;
   --surface-raised: #12151b;
   --surface-hover: #171b22;
-  --border: #202226;
+  --border: rgba(255, 255, 255, 0.065);
   --text: #e6e8ec;
-  --text-muted: #a3aab7;
+  --text-muted: #98a0ae;
   --accent: #397ff2;
   --accent-strong: #1f5cc2;
-  --accent-muted: #17243c;
+  --accent-muted: rgba(57, 127, 242, 0.14);
   font-family:
     Inter,
     "Segoe UI",
@@ -28,7 +28,7 @@
 body {
   margin: 0;
   background:
-    radial-gradient(ellipse at 18% 0%, rgba(57, 127, 242, 0.14) 0, transparent 52%),
+    radial-gradient(ellipse at 18% 0%, rgba(57, 127, 242, 0.12) 0, transparent 52%),
     var(--background);
   min-height: 100vh;
 }
@@ -79,22 +79,22 @@ a {
   position: relative;
   text-decoration: none;
   color: inherit;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 14px 16px;
   display: grid;
   grid-template-columns: 36px 1fr;
   gap: 3px 12px;
   align-items: center;
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
+    background-color 0.16s ease,
+    border-color 0.16s ease;
 }
 
 a:hover {
-  border-color: #3865ad;
-  background: var(--surface-hover);
+  border-color: rgba(57, 127, 242, 0.35);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 a:focus-visible {
@@ -106,8 +106,8 @@ a:focus-visible {
   grid-row: span 2;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: var(--surface-raised);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   display: grid;
   place-items: center;
@@ -143,9 +143,9 @@ em {
 
 /* KInfo-style Guide ("Conhecendo o Ia-bbaru") */
 .kinfo-guide {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 20px 22px;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.36);
 }
@@ -175,24 +175,25 @@ em {
 .guide-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
 }
 
 .guide-pill-tab {
   font-size: 11.5px;
   font-weight: 500;
   color: var(--text-muted);
-  background: #111316;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 999px;
+  padding: 5px 12px;
   cursor: pointer;
-  transition: all 0.14s ease;
+  transition: all 0.16s ease;
 }
 
 .guide-pill-tab:hover {
   color: var(--text);
-  border-color: #2f5594;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.11);
 }
 
 .guide-step {
@@ -201,9 +202,9 @@ em {
 
 .guide-mesa {
   height: 92px;
-  border-radius: 12px;
-  background: #0c0d10;
-  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -212,10 +213,10 @@ em {
 
 .mesa-pill {
   min-height: 44px;
-  border-radius: 22px;
-  padding: 6px 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #0c0e12;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -225,23 +226,23 @@ em {
 
 .mesa-chip {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  padding: 5px 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 5px 12px;
 }
 
 .mesa-chip.accent {
-  background: var(--accent-muted);
-  border-color: #2f5594;
-  color: #9ec2ff;
+  background: rgba(57, 127, 242, 0.14);
+  border-color: rgba(57, 127, 242, 0.28);
+  color: #a8c8ff;
 }
 
 .mesa-chip.good {
-  background: #0c2418;
-  border-color: #194d33;
+  background: rgba(62, 207, 142, 0.12);
+  border-color: rgba(62, 207, 142, 0.26);
   color: #6ee7b7;
 }
 
@@ -261,10 +262,10 @@ em {
 
 .guide-item-row {
   margin-top: 14px;
-  border-radius: 12px;
-  padding: 11px 14px;
-  background: #111316;
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 11px 15px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -279,12 +280,12 @@ em {
 
 .guide-tag {
   font-size: 11.5px;
-  font-weight: 600;
-  color: #9ec2ff;
-  background: var(--accent-muted);
-  border: 1px solid #28426e;
-  border-radius: 9px;
-  padding: 4px 10px;
+  font-weight: 550;
+  color: #a8c8ff;
+  background: rgba(57, 127, 242, 0.13);
+  border: 1px solid rgba(57, 127, 242, 0.25);
+  border-radius: 999px;
+  padding: 4px 12px;
   white-space: nowrap;
 }
 
@@ -305,10 +306,10 @@ em {
 .gdot {
   width: 6px;
   height: 6px;
-  border-radius: 3px;
-  background: var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.16s ease;
 }
 
 .guide-nav-btns {
@@ -319,26 +320,38 @@ em {
 
 .gbtn {
   display: none;
-  height: 36px;
+  height: 34px;
   padding: 0 18px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 550;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    opacity 0.16s ease;
 }
 
 .gbtn.secondary {
-  background: #111316;
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   color: var(--text);
+}
+
+.gbtn.secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .gbtn.primary {
   background: var(--accent-strong);
-  border: 1px solid var(--accent);
+  border: 1px solid rgba(89, 151, 255, 0.35);
   color: #ffffff;
+}
+
+.gbtn.primary:hover {
+  background: #2567d4;
 }
 
 #gstep-1:checked ~ .guide-header .step-label-1,
@@ -354,8 +367,8 @@ em {
 #gstep-3:checked ~ .guide-header label[for="gstep-3"],
 #gstep-4:checked ~ .guide-header label[for="gstep-4"],
 #gstep-5:checked ~ .guide-header label[for="gstep-5"] {
-  background: var(--accent-muted);
-  border-color: #2f5594;
+  background: rgba(57, 127, 242, 0.15);
+  border-color: rgba(57, 127, 242, 0.32);
   color: #ffffff;
 }
 
