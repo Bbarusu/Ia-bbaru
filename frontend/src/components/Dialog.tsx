@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Power } from "lucide-react";
 
 interface DialogProps {
   title: string;
@@ -42,11 +42,12 @@ export function Dialog({ title, children, close }: DialogProps) {
         <h2 id={titleId}>{title}</h2>
         <button
           type="button"
-          className="icon-button"
+          className="icon-button power-close"
           aria-label="Fechar"
+          title="Fechar"
           onClick={close}
         >
-          <X size={18} />
+          <Power size={16} />
         </button>
       </div>
       {children}

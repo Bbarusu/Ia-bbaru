@@ -1,5 +1,4 @@
-import { Maximize2, RefreshCw } from "lucide-react";
-import { Mark } from "./Mark";
+import { CircleHelp, Maximize2, RefreshCw } from "lucide-react";
 import type { Tab } from "../types";
 
 interface TopBarProps {
@@ -11,6 +10,7 @@ interface TopBarProps {
   demo: boolean;
   connect: () => void;
   expand: () => void;
+  openGuide: () => void;
 }
 
 export function TopBar({
@@ -22,6 +22,7 @@ export function TopBar({
   demo,
   connect,
   expand,
+  openGuide,
 }: TopBarProps) {
   const currentTab =
     tabs.find((t) => t.id === tab)?.label || "Área de trabalho";
@@ -30,9 +31,6 @@ export function TopBar({
     <>
       <header className="topbar">
         <div className="breadcrumb">
-          <span className="mobile-brand">
-            <Mark small />
-          </span>
           <span>Meu espaço</span>
           <span className="slash">/</span>
           <strong>{currentTab}</strong>
@@ -50,6 +48,15 @@ export function TopBar({
                 ? "Backend local ativo"
                 : "Modo desconectado"}
           </span>
+          <button
+            type="button"
+            className="icon-button"
+            title="Conhecendo o Ia-bbaru (Guia)"
+            aria-label="Abrir guia do Ia-bbaru"
+            onClick={openGuide}
+          >
+            <CircleHelp size={16} />
+          </button>
           <button
             type="button"
             className="icon-button"

@@ -12,16 +12,13 @@
   </head>
   <body>
     <main>
-      <div class="badge">
-        <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>IA-BBARU</span>
-      </div>
       <span class="eyebrow">UM ESPAÇO PARA AS SUAS IDEIAS</span>
       <h1>Explore.<br /><span>Conecte as ideias.</span></h1>
       <p class="lead">
-        Abra seus materiais de referência, selecione apenas o trecho que importa
-        e leve o contexto revisado para o seu espaço local de agentes.
+        Abra seus materiais de referência, organize sub-abas e favoritos, selecione
+        apenas o trecho que importa e leve o contexto revisado para o seu espaço local.
       </p>
+
       <nav aria-label="Atalhos">
         <a href="https://notebooklm.google.com/">
           <span class="symbol" aria-hidden="true">▤</span>
@@ -48,19 +45,169 @@
           <b aria-hidden="true">↗</b>
         </a>
       </nav>
-      <div class="tip">
-        <span aria-hidden="true">01</span>
-        <p>
-          <strong>O contexto começa com você.</strong><br />Selecione um trecho
-          de uma página web e use <em>＋ Capturar</em> na barra superior. Revise
-          a origem e o texto antes de salvar no projeto.
-        </p>
-      </div>
-      <footer>
-        Os atalhos abrem os sites oficiais em abas isoladas. Fazer login em um
-        site não conecta agentes automaticamente: o catálogo de IA é configurado
-        separadamente no componente local.
-      </footer>
+
+      <section class="kinfo-guide" aria-label="Guia rápido do Ia-bbaru">
+        <input type="radio" name="gstep" id="gstep-1" class="gstep-radio" checked />
+        <input type="radio" name="gstep" id="gstep-2" class="gstep-radio" />
+        <input type="radio" name="gstep" id="gstep-3" class="gstep-radio" />
+        <input type="radio" name="gstep" id="gstep-4" class="gstep-radio" />
+        <input type="radio" name="gstep" id="gstep-5" class="gstep-radio" />
+
+        <div class="guide-header">
+          <span class="guide-counter step-label-1">Conhecendo o Ia-bbaru · 1 de 5</span>
+          <span class="guide-counter step-label-2">Conhecendo o Ia-bbaru · 2 de 5</span>
+          <span class="guide-counter step-label-3">Conhecendo o Ia-bbaru · 3 de 5</span>
+          <span class="guide-counter step-label-4">Conhecendo o Ia-bbaru · 4 de 5</span>
+          <span class="guide-counter step-label-5">Conhecendo o Ia-bbaru · 5 de 5</span>
+          <div class="guide-tabs" role="group" aria-label="Passos do guia">
+            <label for="gstep-1" class="guide-pill-tab">1. Projeto</label>
+            <label for="gstep-2" class="guide-pill-tab">2. Como usar</label>
+            <label for="gstep-3" class="guide-pill-tab">3. Gastos</label>
+            <label for="gstep-4" class="guide-pill-tab">4. Assinatura</label>
+            <label for="gstep-5" class="guide-pill-tab">5. Segurança</label>
+          </div>
+        </div>
+
+        <div class="guide-step step-1">
+          <div class="guide-mesa">
+            <div class="mesa-pill">
+              <span class="mesa-chip accent">Abas + Sub-abas</span>
+              <span class="mesa-chip">★ Favoritos</span>
+              <span class="mesa-chip">◈ Agentes + SQLite Local</span>
+            </div>
+          </div>
+          <h2>Oi, esse é o Ia-bbaru</h2>
+          <p>
+            Um navegador Chromium pensado para estudar, pesquisar e organizar contexto com
+            agentes de IA no seu próprio computador. Tudo o que você cria — projetos, textos
+            e trechos capturados — fica guardado localmente em SQLite, sem servidor externo
+            intermediando seus dados.
+          </p>
+          <div class="guide-item-row">
+            <div>
+              <strong>Seu contexto fica no seu PC</strong>
+              <small>Projetos, biblioteca e planos ficam salvos localmente e continuam lá quando você reabre o app.</small>
+            </div>
+            <span class="guide-tag">SQLite local</span>
+          </div>
+        </div>
+
+        <div class="guide-step step-2">
+          <div class="guide-mesa">
+            <div class="mesa-pill">
+              <span class="mesa-chip">★ Favoritar</span>
+              <span class="mesa-chip">+ Sub-aba</span>
+              <span class="mesa-chip accent">＋ Capturar trecho</span>
+            </div>
+          </div>
+          <h2>Sub-abas, favoritos e captura num clique</h2>
+          <p>
+            Use a barra de favoritos para abrir suas ferramentas rápidas e crie sub-abas para
+            manter páginas do mesmo assunto juntas. Achou um parágrafo importante? Seleciona o
+            trecho na página e clica em <em>＋ Capturar</em>: você revisa o título e o texto
+            antes de salvar no projeto.
+          </p>
+          <div class="guide-item-row">
+            <div>
+              <strong>Rascunho protegido contra perda</strong>
+              <small>Se outra captura chegar enquanto você edita um texto, ela entra em espera sem apagar seu trabalho.</small>
+            </div>
+            <span class="guide-tag">Fila segura</span>
+          </div>
+        </div>
+
+        <div class="guide-step step-3">
+          <div class="guide-mesa">
+            <div class="mesa-pill">
+              <span class="mesa-chip good">App Ia-bbaru: R$ 0</span>
+              <span class="mesa-chip">Chave de API: removida</span>
+            </div>
+          </div>
+          <h2>Quanto custa usar? Nada por fora</h2>
+          <p>
+            O Ia-bbaru não tem mensalidade, não vende créditos e não usa chaves de API pagas
+            por token escondidas. No adaptador do Claude Code, variáveis de chave de API são
+            removidas do processo de propósito para nunca cair em cobrança por uso sem você querer.
+          </p>
+          <div class="guide-item-row">
+            <div>
+              <strong>Zero chamadas automáticas em segundo plano</strong>
+              <small>Nenhuma geração acontece sem a sua ação e nenhuma chamada com falha é repetida sozinha.</small>
+            </div>
+            <span class="guide-tag">Sem taxas</span>
+          </div>
+        </div>
+
+        <div class="guide-step step-4">
+          <div class="guide-mesa">
+            <div class="mesa-pill">
+              <span class="mesa-chip accent">Assinatura (cota da conta)</span>
+              <span class="mesa-chip">Limite indicativo</span>
+              <span class="mesa-chip">Cancelamento local</span>
+            </div>
+          </div>
+          <h2>Impacto na sua assinatura de IA</h2>
+          <p>
+            Quando você conecta um agente oficial (como o Claude Code logado na sua conta),
+            cada geração usa a cota normal da sua assinatura — igual a mandar mensagem no site.
+            Como o CLI trata o teto de tokens como indicativo e fechar o processo local não
+            devolve cota no servidor, o app mostra isso claro e pede seu aceite por tarefa.
+          </p>
+          <div class="guide-item-row">
+            <div>
+              <strong>Saída parcial nunca é descartada</strong>
+              <small>Se a resposta atingir o limite ou não confirmar término, o texto recebido fica salvo para leitura e a revisão para na hora.</small>
+            </div>
+            <span class="guide-tag">Contrato 1.1</span>
+          </div>
+        </div>
+
+        <div class="guide-step step-5">
+          <div class="guide-mesa">
+            <div class="mesa-pill">
+              <span class="mesa-chip">Aba Web (Isolada)</span>
+              <span class="mesa-chip accent">≠</span>
+              <span class="mesa-chip">Gateway Local (CLI Oficial)</span>
+            </div>
+          </div>
+          <h2>Abas web isoladas dos agentes locais</h2>
+          <p>
+            Entrar no Claude, ChatGPT, Gemini ou NotebookLM pelas abas do navegador serve para
+            você usar os sites normalmente e capturar trechos. Por segurança, o navegador nunca
+            lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial
+            instalado no PC.
+          </p>
+          <div class="guide-item-row">
+            <div>
+              <strong>Isolamento total nas páginas web</strong>
+              <small>Sites abertos nas abas não têm acesso ao Node, ao seu banco de dados nem à ponte de agentes.</small>
+            </div>
+            <span class="guide-tag">Sandbox ativo</span>
+          </div>
+        </div>
+
+        <div class="guide-footer">
+          <div class="guide-dots" aria-hidden="true">
+            <label for="gstep-1" class="gdot dot-1"></label>
+            <label for="gstep-2" class="gdot dot-2"></label>
+            <label for="gstep-3" class="gdot dot-3"></label>
+            <label for="gstep-4" class="gdot dot-4"></label>
+            <label for="gstep-5" class="gdot dot-5"></label>
+          </div>
+          <div class="guide-nav-btns">
+            <label for="gstep-1" class="gbtn secondary back-to-1">Voltar</label>
+            <label for="gstep-2" class="gbtn secondary back-to-2">Voltar</label>
+            <label for="gstep-3" class="gbtn secondary back-to-3">Voltar</label>
+            <label for="gstep-4" class="gbtn secondary back-to-4">Voltar</label>
+
+            <label for="gstep-2" class="gbtn primary next-to-2">Próximo</label>
+            <label for="gstep-3" class="gbtn primary next-to-3">Próximo</label>
+            <label for="gstep-4" class="gbtn primary next-to-4">Próximo</label>
+            <label for="gstep-5" class="gbtn primary next-to-5">Próximo</label>
+            <label for="gstep-1" class="gbtn primary next-to-1">Recomeçar</label>
+          </div>
+        </div>
+      </section>
     </main>
   </body>
 </html>

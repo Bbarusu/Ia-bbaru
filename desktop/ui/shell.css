@@ -35,7 +35,7 @@ body {
   user-select: none;
 }
 
-/* Must remain 106px to match TOP = 106 in desktop/main.cjs */
+/* Must remain 106px (34 + 38 + 34) to match TOP = 106 in desktop/main.cjs */
 header {
   height: 106px;
   border-bottom: 1px solid var(--border);
@@ -54,8 +54,8 @@ button {
   border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 26px;
+  padding: 4px 9px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -85,54 +85,12 @@ input:focus-visible {
 }
 
 .tabbar {
-  height: 40px;
+  height: 34px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-bottom: 1px solid #14161a;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
-
-.mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2.5px;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: var(--accent);
-  position: relative;
-}
-
-.mark::after {
-  content: "";
-  position: absolute;
-  width: 15px;
-  height: 1.5px;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.mark i {
-  width: 1.6px;
-  height: 9px;
-  border-radius: 2px;
-  background: #ffffff;
-}
-
-.mark i:nth-child(2) {
-  height: 14px;
-}
-
-.mark i:nth-child(3) {
-  height: 6px;
 }
 
 #tabs {
@@ -185,8 +143,8 @@ input:focus-visible {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  padding: 4px 8px 4px 10px;
-  min-height: 28px;
+  padding: 3px 6px 3px 9px;
+  min-height: 24px;
 }
 
 .tab.active .choose {
@@ -195,48 +153,68 @@ input:focus-visible {
 }
 
 .tab .close {
-  padding: 2px 7px;
-  min-height: 24px;
+  padding: 2px 6px;
+  min-height: 22px;
   border-radius: 6px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.tab .close:hover {
+  color: var(--danger-text);
 }
 
 #new {
-  min-height: 28px;
-  padding: 4px 9px;
+  min-height: 24px;
+  padding: 2px 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
 }
 
-.edition {
+.window-actions {
   margin-left: auto;
-  letter-spacing: 1.5px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding-left: 6px;
 }
 
-.edition small {
-  margin-left: 6px;
-  color: #82b0ff;
-  letter-spacing: 1px;
-  font-size: 9px;
-  background: var(--accent-muted);
-  border: 1px solid #28426e;
-  padding: 1px 5px;
-  border-radius: 4px;
+.win-circle {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.win-circle:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: #ffffff;
+}
+
+.win-circle.power {
+  background: #1b1214;
+  border-color: #3d2026;
+  color: #ff9b9b;
+}
+
+.win-circle.power:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #ef4444;
+  color: #ffffff;
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 44px;
-  padding: 4px 12px;
+  height: 38px;
+  padding: 3px 10px;
+  border-bottom: 1px solid #14161a;
 }
 
 #navigation {
@@ -246,8 +224,8 @@ input:focus-visible {
   min-width: 140px;
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 10px;
-  height: 34px;
+  border-radius: 9px;
+  height: 30px;
   transition: border-color 0.14s ease;
 }
 
@@ -258,9 +236,9 @@ input:focus-visible {
 }
 
 .address-icon {
-  padding: 0 10px;
+  padding: 0 9px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #address {
@@ -269,7 +247,7 @@ input:focus-visible {
   color: var(--text);
   outline: none;
   width: 100%;
-  padding: 5px 10px 5px 0;
+  padding: 4px 10px 4px 0;
   font-size: 12px;
 }
 
@@ -277,7 +255,23 @@ input:focus-visible {
   color: var(--text-muted);
 }
 
+.sub-action {
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sub-action.active {
+  color: #fbbf24;
+  border-color: #5c4813;
+  background: #1f1a0d;
+}
+
 .capture {
+  min-height: 28px;
   border-color: var(--border);
   background: var(--surface-raised);
   color: var(--text);
@@ -286,6 +280,7 @@ input:focus-visible {
 }
 
 .primary {
+  min-height: 28px;
   background: var(--surface-raised);
   color: var(--text);
   border-color: var(--border);
@@ -307,21 +302,85 @@ input:focus-visible {
 }
 
 #expand {
+  min-height: 28px;
   border-color: var(--border);
   background: var(--surface);
   color: var(--text);
 }
 
+.subbar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: #050608;
+  overflow: hidden;
+}
+
+.subtabs,
+.bookmarks {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.subtabs::-webkit-scrollbar,
+.bookmarks::-webkit-scrollbar {
+  display: none;
+}
+
+.subbar-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.subtab-chip,
+.bookmark-chip {
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.subtab-chip.active {
+  background: #121d31;
+  border-color: #2f5594;
+  color: #ffffff;
+}
+
+.subtab-chip.add {
+  padding: 2px 7px;
+  background: transparent;
+  border-style: dashed;
+}
+
+.bookmark-chip {
+  background: #0b0c0e;
+}
+
+.bookmark-chip:hover {
+  border-color: var(--accent);
+}
+
 #message {
+  margin-left: auto;
   font-size: 11px;
   color: var(--text-muted);
-  height: 22px;
-  line-height: 22px;
-  padding: 0 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: #050608;
+  max-width: 320px;
+  text-align: right;
 }
 
 #message.has-error {
@@ -329,12 +388,12 @@ input:focus-visible {
 }
 
 @media (max-width: 980px) {
-  .edition small {
-    display: none;
-  }
   .tab {
     min-width: 80px;
     max-width: 160px;
+  }
+  #message {
+    max-width: 190px;
   }
 }
 

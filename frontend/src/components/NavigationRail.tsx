@@ -5,7 +5,6 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { Mark } from "./Mark";
 import type { Project, Tab } from "../types";
 
 interface NavigationRailProps {
@@ -37,20 +36,6 @@ export function NavigationRail({
 }: NavigationRailProps) {
   return (
     <aside className="rail">
-      <a
-        className="brand"
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          setTab("workspace");
-        }}
-      >
-        <Mark />
-        <span>
-          Ia-bbaru<span className="brand-sub">PENSE. CONECTE. CRIE.</span>
-        </span>
-      </a>
-
       <button
         type="button"
         className="new-project"

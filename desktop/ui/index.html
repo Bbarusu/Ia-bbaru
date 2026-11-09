@@ -13,17 +13,47 @@
   <body>
     <header>
       <div class="tabbar">
-        <span class="brand" aria-hidden="true">
-          <span class="mark" aria-hidden="true">
-            <i></i><i></i><i></i>
-          </span>
-        </span>
         <div id="tabs" role="tablist" aria-label="Abas abertas"></div>
         <button id="new" type="button" title="Nova aba" aria-label="Nova aba">
           ＋
         </button>
-        <span class="edition">IA-BBARU <small>CHROMIUM</small></span>
+        <div class="window-actions" role="group" aria-label="Controle da janela">
+          <button
+            id="minimize"
+            type="button"
+            class="win-circle"
+            title="Minimizar painel"
+            aria-label="Minimizar painel"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path
+                d="M5 12h14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <button
+            id="power"
+            type="button"
+            class="win-circle power"
+            title="Encerrar o Ia-bbaru"
+            aria-label="Encerrar o Ia-bbaru"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path
+                d="M12 3v8M6.5 6.5a8 8 0 1 0 11 0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
+
       <div class="toolbar">
         <button id="back" type="button" aria-label="Voltar" title="Voltar">
           ←
@@ -55,6 +85,15 @@
           />
         </form>
         <button
+          id="bookmark-toggle"
+          type="button"
+          class="sub-action"
+          title="Salvar página atual nos favoritos"
+          aria-label="Favoritar página"
+        >
+          ★
+        </button>
+        <button
           id="capture"
           type="button"
           class="capture"
@@ -80,7 +119,23 @@
           ⤢
         </button>
       </div>
-      <div id="message" role="status" aria-live="polite"></div>
+
+      <div class="subbar">
+        <div
+          id="subtabs"
+          class="subtabs"
+          role="group"
+          aria-label="Sub-abas da aba ativa"
+        ></div>
+        <span class="subbar-divider" aria-hidden="true"></span>
+        <div
+          id="bookmarks"
+          class="bookmarks"
+          role="group"
+          aria-label="Barra de favoritos"
+        ></div>
+        <div id="message" role="status" aria-live="polite"></div>
+      </div>
     </header>
     <script src="shell.js"></script>
   </body>

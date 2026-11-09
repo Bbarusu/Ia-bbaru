@@ -6,10 +6,10 @@ import {
   Circle,
   FileText,
   Layers3,
+  Power,
   Settings2,
   Unplug,
   Workflow,
-  X,
 } from "lucide-react";
 import type { Capture, Model, Page, Project, Source, Tab, Task } from "./types";
 import {
@@ -32,7 +32,6 @@ import {
   validateDraft,
 } from "./logic.mjs";
 
-import { Mark } from "./components/Mark";
 import { TopBar } from "./components/TopBar";
 import { NavigationRail } from "./components/NavigationRail";
 import { MobileNav } from "./components/MobileNav";
@@ -47,6 +46,7 @@ import { ProjectModal } from "./components/ProjectModal";
 import { SourceModal } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
+import { GuideModal } from "./components/GuideModal";
 
 const tabs: { id: Tab; label: string; icon: typeof Layers3 }[] = [
   { id: "workspace", label: "Área de trabalho", icon: Layers3 },
@@ -93,6 +93,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const [modal, setModal] = useState<"project" | "source" | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [capture, setCapture] = useState<Capture | null>(null);
   const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
   const [sourceView, setSourceView] = useState<Source | null>(null);
@@ -490,6 +491,7 @@ export default function App() {
           demo={demo}
           connect={connect}
           expand={expand}
+          openGuide={() => setGuideOpen(true)}
         />
 
         <MobileNav tab={tab} setTab={setTab} tabs={tabs} />
@@ -546,7 +548,7 @@ export default function App() {
                 aria-label="Dispensar erro"
                 onClick={() => setError("")}
               >
-                <X size={15} />
+                <Power size={14} />
               </button>
             </div>
           )}
@@ -561,7 +563,7 @@ export default function App() {
                 aria-label="Dispensar aviso"
                 onClick={() => setNotice("")}
               >
-                <X size={15} />
+                <Power size={14} />
               </button>
             </div>
           )}
@@ -725,12 +727,7 @@ export default function App() {
           )}
 
           <footer className="footer">
-            <span>
-              <Mark small /> Um espaço. Mais possibilidades.
-            </span>
-            <span>
-              Ia-bbaru <span className="version">0.2</span>
-            </span>
+            <span>Um espaço. Mais possibilidades.</span>
           </footer>
         </main>
       </div>
@@ -783,6 +780,8 @@ export default function App() {
           close={() => setTaskView(null)}
         />
       )}
+
+      {guideOpen && <GuideModal close={() => setGuideOpen(false)} />}
     </div>
   );
 }
