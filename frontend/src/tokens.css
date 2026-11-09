@@ -1,9 +1,41 @@
 :root {
-  color-scheme: dark;
-  --bg: #090b0f;
-  --surface: #101319;
-  --line: #232832;
-  --text: #e0e5ed;
-  --muted: #818d9f;
-  --blue: #397ff2;
+  color-scheme: light;
+
+  /* Yuki Snow / Ice-White Light Theme canonical tokens */
+  --background: #f5f9fd;
+  --surface: #ffffff;
+  --surface-raised: #eaf1f8;
+  --surface-hover: #dfeaf5;
+  --surface-active: #d4e3f2;
+  --border: #d4e0ee;
+  --border-subtle: #e2ebf5;
+  --border-focus: #0b0f17;
+  --text: #0b0f17;
+  --text-muted: #3d4b5f;
+  --text-subtle: #4f6078;
+  --accent: #0b0f17;
+  --accent-hover: #1e293b;
+  --accent-ink: #0b0f17;
+  --accent-muted: #dce8f6;
+  --accent-glow: rgba(15, 23, 42, 0.08);
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --success: #065f46;
+  --success-bg: #ecfdf5;
+  --warning: #92400e;
+  --warning-bg: #fffbeb;
+
+  /* Mini snowflakes in a perceptible grayish ice-blue (#95abc4) on the snow background */
+  --snow-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%2395abc4' stroke-opacity='0.58' stroke-width='1.2' stroke-linecap='round'%3E%3Cpath d='M36 28v12M30 34h12M31.8 29.8l8.4 8.4M40.2 29.8l-8.4 8.4'/%3E%3Cpath d='M168 52v10M163 57h10M164.5 53.5l7 7M171.5 53.5l-7 7'/%3E%3Cpath d='M92 146v12M86 152h12M87.8 147.8l8.4 8.4M96.2 147.8l-8.4 8.4'/%3E%3Cpath d='M184 176v8M180 180h8M181.2 177.2l5.6 5.6M186.8 177.2l-5.6 5.6'/%3E%3Ccircle cx='78' cy='44' r='1.5' fill='%2395abc4' fill-opacity='0.55' stroke='none'/%3E%3Ccircle cx='140' cy='108' r='1.6' fill='%2395abc4' fill-opacity='0.52' stroke='none'/%3E%3Ccircle cx='28' cy='128' r='1.3' fill='%2395abc4' fill-opacity='0.52' stroke='none'/%3E%3Ccircle cx='196' cy='24' r='1.2' fill='%2395abc4' fill-opacity='0.5' stroke='none'/%3E%3Ccircle cx='44' cy='192' r='1.5' fill='%2395abc4' fill-opacity='0.52' stroke='none'/%3E%3C/g%3E%3C/svg%3E");
+
+  --radius-sm: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 9999px;
+
+  /* Legacy aliases for backward compatibility with existing rules */
+  --bg: var(--background);
+  --line: var(--border);
+  --muted: var(--text-muted);
+  --blue: var(--accent);
 }
