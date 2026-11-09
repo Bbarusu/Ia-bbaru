@@ -1,5 +1,6 @@
 import { CircleHelp, Maximize2, RefreshCw } from "lucide-react";
 import type { Tab } from "../types";
+import { YukiMark } from "./YukiMark";
 
 interface TopBarProps {
   tab: Tab;
@@ -31,7 +32,10 @@ export function TopBar({
     <>
       <header className="topbar">
         <div className="breadcrumb">
-          <span>Meu espaço</span>
+          <span className="mobile-brand">
+            <YukiMark size="sm" />
+          </span>
+          <span>Yuki</span>
           <span className="slash">/</span>
           <strong>{currentTab}</strong>
         </div>
@@ -51,8 +55,8 @@ export function TopBar({
           <button
             type="button"
             className="icon-button"
-            title="Conhecendo o Ia-bbaru (Guia)"
-            aria-label="Abrir guia do Ia-bbaru"
+            title="Conhecendo o Yuki (Guia)"
+            aria-label="Abrir guia do Yuki"
             onClick={openGuide}
           >
             <CircleHelp size={16} />

@@ -14,7 +14,7 @@ export async function request<T>(
   }
   if (!localBridge)
     throw new Error(
-      "Abra o navegador Ia-bbaru ou a extensão Firefox para conectar ao componente local.",
+      "Abra o navegador Yuki ou a extensão Firefox para conectar ao componente local.",
     );
   const response = await localBridge.runtime.sendMessage({
     type: "bridge.request",

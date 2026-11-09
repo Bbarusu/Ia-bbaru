@@ -47,6 +47,7 @@ import { SourceModal } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
+import { YukiMark } from "./components/YukiMark";
 
 const tabs: { id: Tab; label: string; icon: typeof Layers3 }[] = [
   { id: "workspace", label: "Área de trabalho", icon: Layers3 },
@@ -727,7 +728,10 @@ export default function App() {
           )}
 
           <footer className="footer">
-            <span>Um espaço. Mais possibilidades.</span>
+            <span>
+              <YukiMark size="sm" />
+              Yuki · Um espaço. Mais possibilidades.
+            </span>
           </footer>
         </main>
       </div>

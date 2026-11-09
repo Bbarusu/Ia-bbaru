@@ -1,9 +1,5 @@
+import { YukiMark } from "./YukiMark";
+
 export function Mark({ small = false }: { small?: boolean }) {
-  return (
-    <span className={`mark ${small ? "small" : ""}`} aria-hidden="true">
-      <i />
-      <i />
-      <i />
-    </span>
-  );
+  return <YukiMark small={small} />;
 }

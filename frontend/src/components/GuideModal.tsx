@@ -7,16 +7,16 @@ interface GuideModalProps {
 const STEPS = [
   {
     chips: [
-      { text: "Abas + Sub-abas", variant: "accent" },
-      { text: "★ Favoritos", variant: "default" },
-      { text: "◈ Agentes + SQLite Local", variant: "default" },
+      { text: "❄ Abas + Sub-abas", variant: "accent" },
+      { text: "Favoritos", variant: "default" },
+      { text: "❄ Agentes + SQLite Local", variant: "default" },
     ],
-    title: "Oi, esse é o Ia-bbaru",
+    title: "Oi, esse é o Yuki",
     description:
       "Um navegador Chromium pensado para estudar, pesquisar e organizar contexto com agentes de IA no seu próprio computador. Tudo o que você cria — projetos, textos e trechos capturados — fica guardado localmente em SQLite, sem servidor externo intermediando seus dados.",
     rowTitle: "Seu contexto fica no seu PC",
     rowSub:
-      "Projetos, biblioteca e planos ficam salvos localmente e continuam lá quando você reabre o app.",
+      "Projetos, biblioteca e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.",
     tag: "SQLite local",
   },
   {
@@ -35,12 +35,12 @@ const STEPS = [
   },
   {
     chips: [
-      { text: "App Ia-bbaru: R$ 0", variant: "good" },
+      { text: "App Yuki: R$ 0", variant: "good" },
       { text: "Chave de API: removida", variant: "default" },
     ],
     title: "Quanto custa usar? Nada por fora",
     description:
-      "O Ia-bbaru não tem mensalidade, não vende créditos e não usa chaves de API pagas por token escondidas. No adaptador do Claude Code, variáveis de chave de API são removidas do processo de propósito para nunca cair em cobrança por uso sem você querer.",
+      "O Yuki não tem mensalidade, não vende créditos e não usa chaves de API pagas por token escondidas. No adaptador do Claude Code, variáveis de chave de API são removidas do processo de propósito para nunca cair em cobrança por uso sem você querer.",
     rowTitle: "Zero chamadas automáticas em segundo plano",
     rowSub:
       "Nenhuma geração acontece sem a sua ação e nenhuma chamada com falha é repetida sozinha.",
@@ -54,7 +54,7 @@ const STEPS = [
     ],
     title: "Impacto na sua assinatura de IA",
     description:
-      "Quando você conecta um agente oficial (como o Claude Code logado na sua conta), cada geração usa a cota normal da sua assinatura — igual a mandar mensagem no site. Como o CLI trata o teto de tokens como indicativo e fechar o processo local não devolve cota no servidor, o app mostra isso claro e pede seu aceite por tarefa.",
+      "Quando você conecta um agente oficial (como o Claude Code logado na sua conta), cada geração usa a cota normal da sua assinatura — igual a mandar mensagem no site. Como o CLI trata o teto de tokens como indicativo e fechar o processo local não devolve cota no servidor, o Yuki mostra isso claro e pede seu aceite por tarefa.",
     rowTitle: "Saída parcial nunca é descartada",
     rowSub:
       "Se a resposta atingir o limite ou não confirmar término, o texto recebido fica salvo para leitura e a revisão para na hora.",
@@ -68,7 +68,7 @@ const STEPS = [
     ],
     title: "Abas web isoladas dos agentes locais",
     description:
-      "Entrar no Claude, ChatGPT, Gemini ou NotebookLM pelas abas do navegador serve para você usar os sites normalmente e capturar trechos. Por segurança, o navegador nunca lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial instalado no PC.",
+      "Entrar no Claude, ChatGPT, Gemini ou NotebookLM pelas abas do navegador serve para você usar os sites normalmente e capturar trechos. Por segurança, o Yuki nunca lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial instalado no PC.",
     rowTitle: "Isolamento total nas páginas web",
     rowSub:
       "Sites abertos nas abas não têm acesso ao Node, ao seu banco de dados nem à ponte de agentes.",
@@ -109,7 +109,7 @@ export function GuideModal({ close }: GuideModalProps) {
     >
       <div className="guide-modal-top">
         <span className="guide-modal-count">
-          Conhecendo o Ia-bbaru · {step + 1} de {STEPS.length}
+          ❄ Conhecendo o Yuki · {step + 1} de {STEPS.length}
         </span>
         <button
           type="button"

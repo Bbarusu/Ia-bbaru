@@ -1,4 +1,4 @@
-import { Layers3 } from "lucide-react";
+import { Snowflake } from "lucide-react";
 
 export function ContextGuideCard() {
   return (
@@ -9,7 +9,7 @@ export function ContextGuideCard() {
           <h2>Um lugar para suas ideias.</h2>
         </div>
         <span className="orbit-icon" aria-hidden="true">
-          <Layers3 size={22} />
+          <Snowflake size={20} />
         </span>
       </div>
       <p>O contexto acompanha o projeto, mesmo quando o agente muda.</p>

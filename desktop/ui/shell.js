@@ -14,7 +14,9 @@ const subtabsByTab = new Map();
 
 function loadBookmarks() {
   try {
-    const raw = localStorage.getItem("ia-bbaru:bookmarks");
+    const raw =
+      localStorage.getItem("yuki:bookmarks") ||
+      localStorage.getItem("ia-bbaru:bookmarks");
     const parsed = raw ? JSON.parse(raw) : null;
     if (Array.isArray(parsed) && parsed.length) return parsed;
   } catch {}
@@ -23,7 +25,7 @@ function loadBookmarks() {
 
 function saveBookmarks(items) {
   try {
-    localStorage.setItem("ia-bbaru:bookmarks", JSON.stringify(items));
+    localStorage.setItem("yuki:bookmarks", JSON.stringify(items));
   } catch {}
 }
 
@@ -64,7 +66,7 @@ function renderMessage() {
     errorText ||
     (activeTab?.loading
       ? `Carregando ${activeTab.title || "página"}…`
-      : "Seu navegador. Seu contexto. Seus agentes.");
+      : "❄ Yuki · Seu navegador. Seu contexto. Seus agentes.");
   msgEl.classList.toggle("has-error", Boolean(errorText));
 }
 

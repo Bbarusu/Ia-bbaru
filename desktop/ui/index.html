@@ -7,12 +7,34 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'"
     />
-    <title>Ia-bbaru</title>
+    <title>Yuki</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23ffffff'/%3E%3Cg fill='none' stroke='%2307090d' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2v20M19.07 4.93 4.93 19.07M22 12H2M19.07 19.07 4.93 4.93'/%3E%3Cpath d='m10 4 2 2 2-2M14 20l-2-2-2 2M4 10l2 2-2 2M20 14l-2-2 2-2'/%3E%3C/g%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="shell.css" />
   </head>
   <body>
     <header>
       <div class="tabbar">
+        <div class="brand" aria-hidden="true">
+          <span class="yuki-icon">
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="#07090d"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2v20M19.07 4.93 4.93 19.07M22 12H2M19.07 19.07 4.93 4.93" />
+              <path d="m10 4 2 2 2-2M14 20l-2-2-2 2M4 10l2 2-2 2M20 14l-2-2 2-2" />
+            </svg>
+          </span>
+          <span class="brand-name">Yuki</span>
+        </div>
         <div id="tabs" role="tablist" aria-label="Abas abertas"></div>
         <button id="new" type="button" title="Nova aba" aria-label="Nova aba">
           ＋
@@ -38,8 +60,8 @@
             id="power"
             type="button"
             class="win-circle power"
-            title="Encerrar o Ia-bbaru"
-            aria-label="Encerrar o Ia-bbaru"
+            title="Encerrar o Yuki"
+            aria-label="Encerrar o Yuki"
           >
             <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
               <path
@@ -79,7 +101,7 @@
           <input
             id="address"
             aria-label="Endereço ou pesquisa"
-            placeholder="Pesquise ou digite um endereço"
+            placeholder="Pesquise ou digite um endereço no Yuki"
             autocomplete="off"
             spellcheck="false"
           />
@@ -107,7 +129,7 @@
           class="primary"
           aria-pressed="true"
         >
-          ◈ Agentes
+          ❄ Agentes
         </button>
         <button
           id="expand"

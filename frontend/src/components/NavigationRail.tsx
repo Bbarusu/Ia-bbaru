@@ -6,6 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Project, Tab } from "../types";
+import { YukiMark } from "./YukiMark";
 
 interface NavigationRailProps {
   tab: Tab;
@@ -36,6 +37,14 @@ export function NavigationRail({
 }: NavigationRailProps) {
   return (
     <aside className="rail">
+      <div className="brand">
+        <YukiMark />
+        <div>
+          Yuki
+          <span className="brand-sub">NEVE · ESPAÇO LOCAL</span>
+        </div>
+      </div>
+
       <button
         type="button"
         className="new-project"
@@ -126,10 +135,10 @@ export function NavigationRail({
           aria-label="Abrir conexões e configurações locais"
         >
           <span className="avatar" aria-hidden="true">
-            B
+            Y
           </span>
           <span>
-            Meu espaço<small>Uso pessoal · local</small>
+            Yuki<small>Uso pessoal · local</small>
           </span>
           <Settings2 size={16} />
         </button>

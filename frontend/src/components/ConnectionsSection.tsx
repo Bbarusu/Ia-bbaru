@@ -51,7 +51,7 @@ export function ConnectionsSection({
               ? "Disponível"
               : demo
                 ? "Demonstração"
-                : "Abra no navegador Ia-bbaru"}
+                : "Abra no navegador Yuki"}
           </span>
         </div>
 
