@@ -94,6 +94,35 @@ inventar resultado.
 | Geração real pelo contrato 1.1, depois da revisão | **Feita uma vez** (7/11/2026), autorizada pelo usuário, no Windows dele: Claude Code 2.1.307, `sonnet`, teto 64, aceite por tarefa. `laranja`, `usage` 913/5, `finish_reason: stop`, ~5 s. Sem inferência por tokens: o CLI informou `stop_reason` de término normal. |
 | Windows (`claude.exe`, `taskkill`) | No PC do usuário (Python 3.12): diagnóstico validado e os 34 testes de integração passando (timeout com `taskkill`, deduplicação, ponta a ponta com o backend), também combinados com `codex/frontend-firefox` (25 testes OK). A primeira rodada revelou que o dublê lia a entrada em cp1252; corrigido. |
 
+## 4. Navegador Chromium: login, cota e abas web
+
+A troca do Firefox pelo navegador Electron/Chromium (`codex/chromium-browser`) não
+muda o gateway nem os contratos. O que o painel pode mostrar fielmente, com as
+informações que o contrato 1.1 já tem:
+
+| Situação | O que o gateway informa | Quando |
+| --- | --- | --- |
+| Claude Code ausente, quebrado ou antigo | `available: false`, `unavailable_reason` `cli_not_installed` / `cli_not_runnable` / `cli_version_unsupported` | No catálogo |
+| Sem login ou login por chave de API | `available: false`, `not_logged_in` / `not_subscription_login` | No catálogo; reavaliado a cada 5 s enquanto indisponível (30 s quando pronto) |
+| Limite indicativo | `capabilities.output_limit: best_effort`; a tarefa precisa aceitar | No catálogo e no plano |
+| Cota do plano esgotada | 429 `provider_quota_exceeded` | **Só ao gerar.** O catálogo não sabe da cota sem chamar o modelo, e o gateway não faz chamadas de sondagem |
+| Login expirado durante a geração | 503 `provider_not_authenticated` | Só ao gerar |
+
+- Uma aba do Claude, ChatGPT, Gemini ou NotebookLM aberta e logada no navegador
+  **não** torna nenhum modelo disponível. O gateway só usa o CLI oficial, com o
+  login feito no terminal, e não lê cookies nem sessões do navegador.
+- Assinaturas web do ChatGPT e do Gemini não viram API de geração por causa do
+  Electron. Transportes oficiais a avaliar antes de um novo adaptador: Codex CLI
+  (Sign in with ChatGPT, se elegível) e Gemini CLI (login Google). As páginas
+  oficiais deles não puderam ser reconferidas nesta sessão (rede bloqueada);
+  nenhum adaptador foi proposto.
+- NotebookLM: sem importação automática. Continua dependendo da API de notebooks
+  com OAuth próprio, ainda não implementada.
+
+Verificado no Linux com o navegador real e este gateway (dublê do CLI): sem login,
+o cartão fica desabilitado e mostra "Indisponível", mas o **motivo não aparece** no
+painel, embora venha no catálogo. Exibir `unavailable_reason` é do frontend (Gemini).
+
 ## Fontes oficiais consultadas
 
 - https://code.claude.com/docs/en/headless

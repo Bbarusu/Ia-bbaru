@@ -1,154 +1,153 @@
-# Windows: validação sem conta e teste prático 1.1
+# Windows: gateway com o navegador Chromium
 
-Comandos para o PowerShell do usuário. A **parte 1** não usa conta real.
-A **parte 2** é a etapa seguinte, com o usuário, e consome um pouco da cota.
+Base do navegador: `codex/chromium-browser` (Electron). O app **inicia o próprio
+backend** em porta livre, com token interno. Não é preciso subir backend na porta
+8000 nem definir `LAUNCHER_API_TOKEN` para usar o navegador. O gateway continua
+um processo separado, normalmente em `127.0.0.1:8010`.
 
-Pastas usadas (ajuste se quiser outras):
+| Parte | O quê | Conta real |
+| --- | --- | --- |
+| 1 | Testes automáticos (fixtures, dublê do CLI, Electron) | Não |
+| 2 | Navegador + gateway com o seu Claude Code: catálogo, seleção, aceite, plano | Só lê login; **não gera** |
+| 3 | Geração real por HTTP (etapa separada, opcional) | Sim, com autorização |
+
+A execução de IA **pelo painel** continua bloqueada até a fila/worker durável do
+Codex. Abrir o navegador, ver o catálogo, diagnosticar ou criar plano nunca gera.
+
+Pastas (ajuste se quiser outras):
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `W:\Projeto\Ia-bbaru` | Repositório existente com o `.venv` (Python 3.12) |
-| `W:\Projeto\ia-backend` | Worktree do backend `codex/frontend-firefox` |
-| `W:\Projeto\ia-gateway` | Worktree do gateway `claude/vibrant-meitner-ksbzgf` |
-| `W:\Projeto\ia-integracao` | Worktree local que junta os dois, só para os testes do gateway |
+| `W:\Projeto\Ia-bbaru` | Repositório existente |
+| `W:\Projeto\Ia-bbaru-chromium` | Worktree do navegador (`teste/chromium`, como no guia do Codex) |
+| `W:\Projeto\ia-gateway` | Worktree do gateway (`claude/vibrant-meitner-ksbzgf`) |
+| `W:\Projeto\ia-integracao-chromium` | Os dois juntos, só para os testes automáticos |
 | `W:\Projeto\ia-teste-local` | Tokens e bancos de teste, fora do Git |
 
-Worktrees não mexem nas branches existentes nem no trabalho em andamento.
-Não fazer `git push` da worktree de integração.
+Requisitos: Git, Python 3.12 e **Node.js 24 LTS** (`node --version`).
 
-## Parte 1 — validação sem conta real
+## Parte 1 — testes automáticos (sem conta)
 
 ```powershell
 cd W:\Projeto\Ia-bbaru
-git status            # precisa estar limpo; senão, pare e avise
+git status                      # precisa estar limpo
 git fetch origin
-git worktree add --detach W:\Projeto\ia-backend origin/codex/frontend-firefox
+
+# Navegador (se a pasta já existir, pule esta linha)
+git worktree add -b teste/chromium W:\Projeto\Ia-bbaru-chromium origin/codex/chromium-browser
+# Gateway (se já existir da rodada anterior: git -C W:\Projeto\ia-gateway checkout --detach origin/claude/vibrant-meitner-ksbzgf)
 git worktree add --detach W:\Projeto\ia-gateway origin/claude/vibrant-meitner-ksbzgf
-git worktree add --detach W:\Projeto\ia-integracao origin/codex/frontend-firefox
-git -C W:\Projeto\ia-integracao merge --no-edit origin/claude/vibrant-meitner-ksbzgf
+# Integração local (não fazer push)
+git worktree add --detach W:\Projeto\ia-integracao-chromium origin/codex/chromium-browser
+git -C W:\Projeto\ia-integracao-chromium merge --no-edit origin/claude/vibrant-meitner-ksbzgf
 
-# SHAs usados (copiar para o registro)
-git -C W:\Projeto\ia-backend rev-parse HEAD
+git -C W:\Projeto\Ia-bbaru-chromium rev-parse HEAD
 git -C W:\Projeto\ia-gateway rev-parse HEAD
-git -C W:\Projeto\ia-integracao rev-parse HEAD
+git -C W:\Projeto\ia-integracao-chromium rev-parse HEAD
+```
 
-$py = "W:\Projeto\Ia-bbaru\.venv\Scripts\python.exe"
+Ambiente do navegador (uma vez; mesmos passos do `start-browser.ps1 -Install`,
+sem abrir o app):
+
+```powershell
+cd W:\Projeto\Ia-bbaru-chromium
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+$py = (Resolve-Path .venv\Scripts\python.exe).Path
 Remove-Item Env:IA_BBARU_REAL_TEST -ErrorAction SilentlyContinue
+```
 
-# 1. Backend atual: 48 testes (inclui fechamento do SQLite no Windows)
-cd W:\Projeto\ia-backend
-& $py -m unittest discover -s tests -v
+Testes na pasta de integração:
 
-# 2. Gateway com o backend atual: 52 executados, 51 OK + 1 pulado (teste real)
-cd W:\Projeto\ia-integracao
-& $py -m unittest discover -s tests -v
-& $py -m unittest discover -s tests/integrations -v
+```powershell
+cd W:\Projeto\ia-integracao-chromium
+npm.cmd --prefix frontend ci
+npm.cmd --prefix desktop ci
+npm.cmd --prefix desktop run build
+$env:IA_BBARU_PYTHON = $py
 
-# 3. Backend -> HTTP -> gateway -> CLI de teste (bancos temporários, sem conta)
-cd W:\Projeto\ia-backend
+& $py -m unittest discover -s tests -v                 # 1. backend: 48 OK
+& $py -m unittest discover -s tests/integrations -v    # 2. gateway: 53 executados, 52 OK + 1 pulado
+npm.cmd --prefix frontend test                          # 3. painel: 6 OK
+npm.cmd --prefix desktop test                           # 4. política Electron: 3 OK
+npm.cmd --prefix desktop run test:ui                    # 5. Electron real, catálogo sintético
+node tests/integrations/desktop_gateway_smoke.cjs       # 6. Electron + este gateway por HTTP, dublê do CLI
+```
+
+O passo 5 é o teste gráfico do Codex (catálogo sintético). O passo 6 é o deste
+gateway: sobe o gateway real com o dublê, abre o navegador real e confere catálogo
+1.1, seleção, aceite obrigatório, plano gravado com as capacidades do gateway (teto
+128), `tasks.execute` recusado, nenhuma geração e, sem login, modelo indisponível.
+
+Script do Codex e diagnóstico:
+
+```powershell
+cd W:\Projeto\Ia-bbaru-chromium
 & $py scripts/verify_gateway_v11.py --gateway-checkout W:\Projeto\ia-gateway
 
-# 4. Diagnóstico, sem gerar resposta
 cd W:\Projeto\ia-gateway
 & $py -m integrations diagnose
 ```
 
-Esperado no passo 4, bloco `claude_code`: `"ready": true`,
-`"contract_1_1": {"available": true, "requires_task_acceptance": true}` e
-`"contract_1": {"available": false, "reason": "output_limit_not_enforced"}`.
+Diagnóstico esperado no bloco `claude_code`: `logged_in: true`, `auth_method:
+claude.ai`, `missing_flags: []`, `contract_1_1.available: true` e
+`contract_1.available: false`.
 
-## Parte 2 — teste prático 1.1 (consome cota; só com autorização)
-
-Uma tarefa `single`, fonte sintética com acentos, perfil do gateway pedindo 128
-tokens (indicativo), aceite `true`. Banco de teste separado, para não misturar com
-dados pessoais.
+## Parte 2 — navegador com o seu Claude Code (sem geração)
 
 **Preparação (uma vez):**
 
 ```powershell
 New-Item -ItemType Directory -Force W:\Projeto\ia-teste-local | Out-Null
-$py = "W:\Projeto\Ia-bbaru\.venv\Scripts\python.exe"
+$py = "W:\Projeto\Ia-bbaru-chromium\.venv\Scripts\python.exe"
 & $py -c "import secrets;print(secrets.token_urlsafe(32))" | Set-Content W:\Projeto\ia-teste-local\gateway.token
-& $py -c "import secrets;print(secrets.token_urlsafe(32))" | Set-Content W:\Projeto\ia-teste-local\launcher.token
 ```
 
-**Janela 1 — gateway (8010):**
+**Terminal 1 — gateway:**
 
 ```powershell
 cd W:\Projeto\ia-gateway
-$py = "W:\Projeto\Ia-bbaru\.venv\Scripts\python.exe"
+$py = "W:\Projeto\Ia-bbaru-chromium\.venv\Scripts\python.exe"
 $env:GATEWAY_TOKEN = (Get-Content W:\Projeto\ia-teste-local\gateway.token -Raw).Trim()
 $env:IA_BBARU_GATEWAY_DB = "W:\Projeto\ia-teste-local\gateway.sqlite3"
 $env:IA_BBARU_CLAUDE_CODE_MODELS = "sonnet"
 $env:IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS = "128"
-# O 1.1 não usa a flag legada; deixe-a desligada:
 Remove-Item Env:IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT -ErrorAction SilentlyContinue
 & $py -m integrations serve
 ```
 
-**Janela 2 — backend (8000), contrato 1.1:**
+**Terminal 2 — navegador:** só as três variáveis do gateway. Não defina
+`LAUNCHER_API_TOKEN`: o app cria o próprio token interno.
 
 ```powershell
-cd W:\Projeto\ia-backend
-$py = "W:\Projeto\Ia-bbaru\.venv\Scripts\python.exe"
-$env:LAUNCHER_API_TOKEN = (Get-Content W:\Projeto\ia-teste-local\launcher.token -Raw).Trim()
-$env:LAUNCHER_DB_PATH = "W:\Projeto\ia-teste-local\backend.sqlite3"
+cd W:\Projeto\Ia-bbaru-chromium
 $env:GATEWAY_URL = "http://127.0.0.1:8010"
 $env:GATEWAY_TOKEN = (Get-Content W:\Projeto\ia-teste-local\gateway.token -Raw).Trim()
 $env:GATEWAY_PROTOCOL_VERSION = "1.1"
-& $py -m uvicorn backend.main:create_app --factory --host 127.0.0.1 --port 8000 --workers 1
+.\scripts\start-browser.ps1
 ```
 
-**Janela 3 — cliente.** Parte A, sem custo:
+Se o PowerShell bloquear scripts locais, use os comandos equivalentes do guia do
+Codex (`docs/TESTAR_NAVEGADOR_CHROMIUM.md`), mantendo as três variáveis acima.
 
-```powershell
-$h = @{ Authorization = "Bearer " + (Get-Content W:\Projeto\ia-teste-local\launcher.token -Raw).Trim() }
-$api = "http://127.0.0.1:8000/v1"
-function Show($r) { [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()) }
-function Req($method, $url, $obj) {
-  $params = @{ Uri = $url; Method = $method; Headers = $h; UseBasicParsing = $true }
-  if ($obj) { $params.ContentType = "application/json; charset=utf-8"
-              $params.Body = [Text.Encoding]::UTF8.GetBytes(($obj | ConvertTo-Json -Depth 6)) }
-  Invoke-WebRequest @params
-}
+**No navegador:**
 
-Show (Req GET "$api/models")      # protocol_version 1.1, capabilities.output_limit best_effort, max_output_tokens 128
+1. Aguarde "Backend local ativo". Crie um projeto.
+2. Em agentes, confira **Claude Code (sonnet) - assinatura** como disponível.
+3. Selecione-o, escreva um pedido com acentos e clique em **Criar plano**.
+   Esperado: aviso pedindo o aceite; nenhum plano criado.
+4. Marque **Aceito o limite indicativo para esta tarefa** e crie o plano.
+   Esperado: plano criado; a caixa volta desmarcada.
+5. No terminal 1 só devem aparecer `GET /v1.1/models`. **Nenhum**
+   `POST /v1.1/generate`: o plano não gera resposta.
 
-$p = (Req POST "$api/projects" @{ title = "Teste prático 1.1" }).Content | ConvertFrom-Json
-$s = (Req POST "$api/projects/$($p.id)/sources" @{ title = "Aula sintética"; content = "A fotossíntese converte luz, água e gás carbônico em glicose e oxigênio. Ocorre nos cloroplastos das células vegetais." }).Content | ConvertFrom-Json
+Feche o navegador e Ctrl+C no terminal 1. O perfil do app fica em
+`%APPDATA%\Ia-bbaru`; os dados de teste do gateway em `W:\Projeto\ia-teste-local`.
 
-# Sem aceite: deve falhar com 422, sem gerar nada
-try { Req POST "$api/projects/$($p.id)/tasks" @{ instruction = "Resuma em duas frases."; kind = "study"; source_ids = @($s.id); allowed_model_ids = @("claude-code:sonnet"); mode = "single" } } catch { $_.Exception.Response.StatusCode.value__ }
+## Parte 3 — geração real por HTTP (etapa separada, opcional)
 
-# Com aceite booleano true
-$tr = Req POST "$api/projects/$($p.id)/tasks" @{ instruction = "Resuma em duas frases e cite a fonte."; kind = "study"; source_ids = @($s.id); allowed_model_ids = @("claude-code:sonnet"); mode = "single"; allow_unenforced_output_limit = $true }
-Show $tr
-$t = $tr.Content | ConvertFrom-Json
-```
-
-Conferir no plano: `"status": "planned"`, `"gateway_protocol_version": "1.1"`,
-`"allow_unenforced_output_limit": true` e `plan[0].capabilities` com
-`output_limit: best_effort`.
-
-Parte B — **a geração real** (uma chamada):
-
-```powershell
-Show (Req POST "$api/tasks/$($t.id)/execute")
-```
-
-| Resultado | Leitura |
-| --- | --- |
-| `completed`, `finish_reason: stop` | Término confirmado pelo CLI |
-| `incomplete` / `completion_unconfirmed` | `unknown`: saída guardada, **não é sucesso** e não deve ser repetida |
-| `incomplete` / `output_token_limit_reached` | `length`: saída parcial guardada |
-
-Parte C — persistência e repetição, sem custo:
-
-```powershell
-Show (Req GET "$api/tasks/$($t.id)")                       # aceite, capacidades e resultado persistidos
-try { Req POST "$api/tasks/$($t.id)/execute" } catch { $_.Exception.Response.StatusCode.value__ }   # 409
-```
-
-Encerrar: Ctrl+C nas janelas 1 e 2. Os tokens e bancos ficam em
-`W:\Projeto\ia-teste-local` (fora do Git); apague a pasta quando quiser.
-Remover as worktrees depois: `git worktree remove W:\Projeto\ia-integracao` (e as outras).
+O painel ainda não executa tarefas. Para testar a geração real pelo backend 1.1,
+use o fluxo HTTP de desenvolvimento descrito em `docs/TESTAR_GATEWAY_1_1.md`
+(branch do Codex), com um backend próprio de teste e banco separado. Consome um
+pouco da cota e só deve ser feito com sua autorização explícita; não faz parte da
+validação do navegador.

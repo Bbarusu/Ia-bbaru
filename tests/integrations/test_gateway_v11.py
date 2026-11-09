@@ -49,6 +49,16 @@ class CatalogV11Tests(GatewayTestCase):
         model = self.client.get("/v1.1/models").json()["models"][0]
         self.assertEqual(model["unavailable_reason"], "not_subscription_login")
 
+    def test_login_change_shows_up_quickly(self):
+        from unittest.mock import patch as mock_patch
+        from integrations.adapters import claude_code
+        self.set_mode(FAKE_CLAUDE_LOGIN="none")
+        self.assertFalse(self.client.get("/v1.1/models").json()["models"][0]["available"])
+        mock_patch.dict("os.environ", {"FAKE_CLAUDE_LOGIN": "claude.ai"}).start()
+        later = claude_code.time.monotonic() + claude_code.STATUS_TTL_NOT_READY_S + 1
+        with mock_patch.object(claude_code.time, "monotonic", return_value=later):
+            self.assertTrue(self.client.get("/v1.1/models").json()["models"][0]["available"])
+
     def test_capabilities_are_mandatory(self):
         profile = {"id": "x:y", "provider": "x", "label": "y", "available": True,
                    "task_kinds": ["general"], "context_char_limit": 1000, "max_output_tokens": 10}

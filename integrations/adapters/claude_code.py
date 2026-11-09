@@ -41,6 +41,8 @@ REQUIRED_FLAGS = (
 SUBSCRIPTION_AUTH = {"claude.ai", "oauth_token"}
 CHARS_PER_TOKEN_RESERVE = 4
 STATUS_TTL_S = 30
+# Re-check sooner while not ready, so a login done in the terminal shows up quickly.
+STATUS_TTL_NOT_READY_S = 5
 STOP_REASONS_COMPLETE = {"end_turn", "stop_sequence"}
 CAPABILITIES = ModelCapabilities(
     output_limit="best_effort",        # CLAUDE_CODE_MAX_OUTPUT_TOKENS, "most requests"
@@ -100,7 +102,8 @@ class ClaudeCodeAdapter:
 
     def status(self, refresh=False) -> ConnectionStatus:
         with self._status_lock:
-            if not refresh and self._status and time.monotonic() - self._status_at < STATUS_TTL_S:
+            ttl = STATUS_TTL_S if self._status and self._status.ready else STATUS_TTL_NOT_READY_S
+            if not refresh and self._status and time.monotonic() - self._status_at < ttl:
                 return self._status
             self._status = self._probe()
             self._status_at = time.monotonic()

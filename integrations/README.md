@@ -236,6 +236,13 @@ python -m unittest discover -s tests/integrations -v   # gateway, com dublê
 As integrações rodam numa descoberta separada porque `tests/integrations/` teria
 o mesmo nome do pacote `integrations`.
 
+Com o navegador Chromium do Codex (`codex/chromium-browser`), numa pasta que junte
+as duas branches e depois de `npm --prefix desktop ci` e `npm --prefix desktop run build`:
+`node tests/integrations/desktop_gateway_smoke.cjs` (com `IA_BBARU_PYTHON` apontando
+para o Python do projeto). Abre o Electron real ligado a este gateway, com o dublê do
+CLI, e não gera nada. Guia completo do Windows em
+[docs/TESTE_PRATICO_1_1.md](docs/TESTE_PRATICO_1_1.md).
+
 Atualizar o schema 1.1 publicado depois de mudar `contracts_v1_1.py`:
 `python -m integrations.export_openapi` (um teste falha se ele estiver desatualizado).
 
