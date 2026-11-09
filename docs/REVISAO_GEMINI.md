@@ -1,5 +1,10 @@
 # Revisão da entrega do Gemini — PR #3
 
+**Atualização de 9/11/2026:** os dois achados desta revisão histórica foram
+corrigidos em `9814424`. A [revisão atual](REVISAO_INTEGRADA_2026_11_09.md) registra
+as verificações e as pendências de capacidades e preservação de capturas/edições.
+Veja o [prompt preparado para o Gemini](PROMPT_GEMINI_PENDENCIAS.md).
+
 PR: https://github.com/Bbarusu/Ia-bbaru/pull/3
 
 Commit revisado: `a0f852453dde65e34136227e79e2098c9abaa1c1`.

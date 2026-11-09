@@ -43,6 +43,8 @@ Codex usou somente fixtures. O novo backend ainda precisa de validação no Wind
 
 - Validação do novo backend 1.1 no Windows e no fluxo real com a conta do usuário.
 - Apresentação das capacidades/aceite na interface pelo Gemini.
+- Preservação de edições e de capturas recebidas durante salvamento/descarte no
+  frontend da PR #3. A captura dupla e a lista ARIA anteriores já foram corrigidas.
 - Fila/worker durável, progresso e execução pelo painel. O host recusa `tasks.execute`.
 - Importação automática NotebookLM, projetos Claude/ChatGPT ou arquivos binários.
 - Instalação Windows e fluxo completo de menu nativo→host no computador de uso.
@@ -50,6 +52,10 @@ Codex usou somente fixtures. O novo backend ainda precisa de validação no Wind
 - Login multiusuário e deploy público. A aplicação continua exclusivamente local.
 
 ## Responsabilidades e próximo marco
+
+Revisão atual das duas frentes: [REVISAO_INTEGRADA_2026_11_09.md](REVISAO_INTEGRADA_2026_11_09.md).
+Prompts para encaminhamento: [Gemini](PROMPT_GEMINI_PENDENCIAS.md) e
+[Claude](PROMPT_CLAUDE_VALIDACAO.md).
 
 - **Codex:** implementou a primeira interface e mantém extensão, backend,
   persistência e ponte local.

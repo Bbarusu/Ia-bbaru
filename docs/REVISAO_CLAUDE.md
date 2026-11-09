@@ -1,5 +1,11 @@
 # Revisão da entrega de integrações do Claude
 
+**Atualização de 9/11/2026:** as correções e o gateway 1.1 foram confirmados em
+`452d2fd`, combinado com o backend `d593e76`. Veja a
+[revisão atual](REVISAO_INTEGRADA_2026_11_09.md) e o
+[prompt de validação no Windows](PROMPT_CLAUDE_VALIDACAO.md).
+Os achados abaixo são históricos e permanecem vinculados ao commit original.
+
 Repositório: https://github.com/Bbarusu/Ia-bbaru — PR [#1](https://github.com/Bbarusu/Ia-bbaru/pull/1).
 Revisão em 6 de novembro de 2026 (horário de Brasília) do commit
 `16d094d0c1b84cc9a2a3216c62e4bf885c061861`.
