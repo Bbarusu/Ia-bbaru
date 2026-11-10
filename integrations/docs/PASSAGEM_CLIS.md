@@ -97,6 +97,35 @@ chave de API salva na própria CLI poderia ser usada. Agora:
 | Configuração de sistema presente / sonda inconclusiva / sem autorização | `auth_status_unknown` | recusada |
 | Login perdido depois do catálogo | — | `provider_not_authenticated`, sem cair em chave de API |
 
+### 1.2 Achado no Windows do usuário (10/11): o Google recusa o login individual na Gemini CLI
+
+Ao escolher **Sign in with Google** na Gemini CLI 0.67.0, a conta do usuário recebeu:
+
+> Failed to sign in. Message: This client is no longer supported for Gemini Code Assist
+> for individuals. To continue using Gemini, please migrate to the Antigravity suite of
+> products: https://antigravity.google
+
+Consequências:
+- O adaptador `gemini-cli` fica **indisponível para esta conta** (`not_logged_in`). O
+  diagnóstico acertou: a verificação nova não deu falso positivo nem caiu em chave de API.
+- As outras opções da CLI são "Use Gemini API Key" e "Vertex AI": cobrança de API ou de
+  nuvem, fora da regra do projeto (assinaturas primeiro). O gateway continua recusando.
+- A mensagem fala em contas individuais; contas de organização com licença podem se
+  comportar de outro modo. Não verificado.
+- O caso "login válido" da verificação nunca foi observado com conta real.
+
+Sobre o Antigravity, só o que o próprio pacote oficial da Gemini CLI traz
+(`bundle/builtin/antigravity-support/SKILL.md`): existe a **Antigravity CLI** (comando
+`agy`, instalador em antigravity.google), descrita como interface de terminal
+interativa. Não há ali informação sobre modo não interativo, saída estruturada, login
+por assinatura ou controle de ferramentas, e a documentação oficial não pôde ser
+consultada desta sessão (rede bloqueada). **Nenhum adaptador foi proposto.** Antes de
+qualquer trabalho: o usuário instala a CLI oficial e fornece `agy --version` e
+`agy --help`; só então se avalia se há um caminho sem ferramentas e sem cobrança de API.
+
+Para o Codex e o Gemini: tratem o agente Gemini como **indisponível por decisão do
+provedor**, não como erro de configuração. O painel não deve sugerir chave de API.
+
 ### Limites honestos
 
 - **Gemini — o que resta fora da garantia:** uma configuração de sistema da Gemini CLI

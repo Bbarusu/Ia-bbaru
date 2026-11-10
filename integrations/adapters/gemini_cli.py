@@ -183,7 +183,9 @@ class GeminiCliAdapter(CliAdapterBase):
         if state == "not_logged_in":
             return make_status(PROVIDER, **installed, logged_in=False, auth_method="none",
                                uses_subscription=False, reason="not_logged_in",
-                               next_action="Rode `gemini` no terminal e escolha Login with Google.")
+                               next_action=("Rode `gemini` no terminal e escolha Sign in with Google. Se a CLI "
+                                            "recusar o login (contas individuais: o Google pede migração para "
+                                            "o Antigravity), este agente não pode ser usado com a conta Google."))
         return make_status(
             PROVIDER, **installed, reason="auth_status_unknown",
             detail=("a verificação de login não respondeu" if code is None
