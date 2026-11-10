@@ -43,7 +43,7 @@ import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
 import { ProjectModal } from "./components/ProjectModal";
-import { SourceModal } from "./components/SourceModal";
+import { SourceModal, type CaptureMediaKind } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
@@ -94,6 +94,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const [modal, setModal] = useState<"project" | "source" | null>(null);
+  const [sourceMode, setSourceMode] = useState<CaptureMediaKind>("text");
   const [guideOpen, setGuideOpen] = useState(false);
   const [capture, setCapture] = useState<Capture | null>(null);
   const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
@@ -302,8 +303,9 @@ export default function App() {
     setModal("project");
   }
 
-  function openSource() {
+  function openSource(mode: CaptureMediaKind = "text") {
     setCapture(null);
+    setSourceMode(mode);
     setTitle("");
     setContent("");
     setModal("source");
@@ -671,6 +673,9 @@ export default function App() {
                   draftReady={draftReady}
                   selectedSourcesCount={selectedSources.length}
                   openSource={openSource}
+                  captureSelection={() =>
+                    act(async () => receiveCapture(await selectCapture()))
+                  }
                   kind={kind}
                   setKind={setKind}
                   plan={plan}
@@ -784,7 +789,7 @@ export default function App() {
 
       {modal === "source" && (
         <SourceModal
-          key={capture?.id ?? "source-manual"}
+          key={`${capture?.id ?? "source-manual"}-${sourceMode}`}
           capture={capture}
           queuedCapture={queuedCapture}
           projects={projects}
@@ -801,6 +806,7 @@ export default function App() {
           busy={busy}
           online={online}
           error={error}
+          initialMode={sourceMode}
         />
       )}
 

@@ -36,8 +36,17 @@
           <span class="brand-name">Yuki</span>
         </div>
         <div id="tabs" role="group" aria-label="Abas abertas"></div>
-        <button id="new" type="button" title="Nova aba" aria-label="Nova aba">
+        <button id="new" type="button" title="Nova aba (Ctrl+T)" aria-label="Nova aba">
           ＋
+        </button>
+        <button
+          id="reopen-tab"
+          type="button"
+          class="win-circle"
+          title="Reabrir última aba fechada (Ctrl+Shift+T)"
+          aria-label="Reabrir aba fechada"
+        >
+          ↺
         </button>
         <div class="window-actions" role="group" aria-label="Controle da janela">
           <button
@@ -77,14 +86,14 @@
       </div>
 
       <div class="toolbar">
-        <button id="back" type="button" aria-label="Voltar" title="Voltar">
+        <button id="back" type="button" aria-label="Voltar" title="Voltar (Alt+←)">
           ←
         </button>
         <button
           id="forward"
           type="button"
           aria-label="Avançar"
-          title="Avançar"
+          title="Avançar (Alt+→)"
         >
           →
         </button>
@@ -92,12 +101,29 @@
           id="reload"
           type="button"
           aria-label="Recarregar"
-          title="Recarregar"
+          title="Recarregar (Ctrl+R)"
         >
           ↻
         </button>
+        <button
+          id="home"
+          type="button"
+          aria-label="Página inicial"
+          title="Ir para a página inicial do Yuki"
+        >
+          ⌂
+        </button>
+
         <form id="navigation">
-          <span class="address-icon" aria-hidden="true">⌕</span>
+          <button
+            id="site-security"
+            type="button"
+            class="omnibox-badge"
+            title="Segurança da conexão e isolamento da aba"
+            aria-label="Segurança da página"
+          >
+            ❄
+          </button>
           <input
             id="address"
             aria-label="Endereço ou pesquisa"
@@ -105,31 +131,82 @@
             autocomplete="off"
             spellcheck="false"
           />
+          <button
+            id="find-toggle"
+            type="button"
+            class="omnibox-action"
+            title="Buscar nesta página (Ctrl+F)"
+            aria-label="Buscar na página"
+          >
+            ⌕
+          </button>
+          <button
+            id="zoom-toggle"
+            type="button"
+            class="omnibox-action zoom-indicator"
+            title="Ajustar zoom da página"
+            aria-label="Zoom da página"
+          >
+            100%
+          </button>
+          <button
+            id="bookmark-toggle"
+            type="button"
+            class="omnibox-action"
+            title="Salvar página atual nos favoritos"
+            aria-label="Favoritar página"
+          >
+            ★
+          </button>
         </form>
+
+        <div class="capture-group" role="group" aria-label="Capturar contexto da página">
+          <button
+            id="capture"
+            type="button"
+            class="capture"
+            title="Capturar texto selecionado na página"
+          >
+            ＋ Capturar
+          </button>
+          <button
+            id="capture-print"
+            type="button"
+            class="capture-mode-btn"
+            title="Capturar print da tela/aba para o projeto"
+            aria-label="Capturar print"
+          >
+            📸 Print
+          </button>
+          <button
+            id="capture-image"
+            type="button"
+            class="capture-mode-btn"
+            title="Capturar imagem da página para o projeto"
+            aria-label="Capturar imagem"
+          >
+            🖼 Imagem
+          </button>
+        </div>
+
         <button
-          id="bookmark-toggle"
+          id="history-toggle"
           type="button"
           class="sub-action"
-          title="Salvar página atual nos favoritos"
-          aria-label="Favoritar página"
+          title="Histórico de navegação"
+          aria-label="Histórico de navegação"
         >
-          ★
+          🕘
         </button>
-        <button
-          id="capture"
-          type="button"
-          class="capture"
-          title="Adicionar o texto selecionado ao projeto"
-        >
-          ＋ Capturar
-        </button>
+
         <button
           id="panel"
           type="button"
           class="primary"
           aria-pressed="true"
+          title="Abrir barra lateral de agentes (inspirado no Atlas)"
         >
-          ❄ Agentes
+          ❄ Perguntar ao Yuki
         </button>
         <button
           id="expand"
@@ -143,19 +220,49 @@
       </div>
 
       <div class="subbar">
-        <div
-          id="subtabs"
-          class="subtabs"
-          role="group"
-          aria-label="Sub-abas da aba ativa"
-        ></div>
-        <span class="subbar-divider" aria-hidden="true"></span>
-        <div
-          id="bookmarks"
-          class="bookmarks"
-          role="group"
-          aria-label="Barra de favoritos"
-        ></div>
+        <div id="subbar-default" class="subbar-default">
+          <div
+            id="bookmarks"
+            class="bookmarks"
+            role="group"
+            aria-label="Barra de favoritos"
+          ></div>
+          <span class="subbar-divider" aria-hidden="true"></span>
+          <div
+            id="atlas-actions"
+            class="atlas-actions"
+            role="group"
+            aria-label="Ações rápidas com agentes (Atlas)"
+          >
+            <button
+              type="button"
+              class="atlas-chip"
+              data-atlas="summarize"
+              title="Acionar agente no painel para resumir a aba ativa"
+            >
+              ✨ Resumir página
+            </button>
+            <button
+              type="button"
+              class="atlas-chip"
+              data-atlas="print"
+              title="Enviar print da página para análise de um agente"
+            >
+              📸 Analisar print
+            </button>
+            <button
+              type="button"
+              class="atlas-chip"
+              data-atlas="image"
+              title="Extrair ou anexar imagem da página ao agente"
+            >
+              🖼 Extrair imagem
+            </button>
+          </div>
+        </div>
+
+        <div id="subbar-tool" class="subbar-tool" hidden></div>
+
         <div id="message" role="status" aria-live="polite"></div>
       </div>
     </header>
