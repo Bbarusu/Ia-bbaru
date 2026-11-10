@@ -27,6 +27,9 @@ def out(data, stream=sys.stdout):
 
 
 def main():
+    # Match the real Node CLI's UTF-8 pipes, including on Windows (CP1252).
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     args = sys.argv[1:]
     if args == ["--version"]:
         print("9.9.9")
