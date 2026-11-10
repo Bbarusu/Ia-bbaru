@@ -14,7 +14,9 @@ Base `main` `1c72ffa` + esta branch. Nenhuma conta real; nenhuma geração real.
 | Codex CLI oficial 0.167.0, sem login, pasta isolada | ✅ diagnóstico pelo adaptador; `features list` confirma a trava; `unified_exec` não desliga (por isso `tools: restricted`) |
 | Gemini CLI oficial 0.67.0, sem login, pasta isolada | ✅ diagnóstico e geração pelo adaptador → `provider_not_authenticated` (código 41) em ~2 s |
 | Backend + fila + gateway por HTTP (dublês) | ✅ ChatGPT recusado no plano (`model_tools_not_supported`); Gemini → `incomplete/completion_unconfirmed` |
-| Windows | ⏳ pendente ([PASSAGEM_CLIS.md](PASSAGEM_CLIS.md), seção 5) |
+| Windows do usuário, 1ª tentativa | ⚠️ uma CLI em `cli_not_runnable` (sem detalhe na época). Corrigido em `732b0ac`: no Windows, preferir `.exe`/`.cmd` ao script sem extensão criado pelo npm; diagnóstico ganhou `detail` |
+| Windows do usuário, `diagnose` com `732b0ac` | ✅ Claude Code 2.1.307 pronto (`claude.ai`); **Codex CLI 0.167.0 instalada, `Logged in using ChatGPT`, flags presentes e trava de recursos confirmada no Windows** (`features list`); Gemini CLI 0.67.0 instalada e executável, `auth_status_unknown` (login ainda não declarado). Nenhuma chave de API no ambiente. Sem geração |
+| Windows: catálogo no navegador e geração real | ⏳ pendente |
 
 ## Rodada anterior: fila durável integrada no `main` (10/11/2026)
 

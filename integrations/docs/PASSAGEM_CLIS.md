@@ -88,7 +88,7 @@ Variáveis de chave de API (`OPENAI_API_KEY`, `CODEX_API_KEY`, `CODEX_ACCESS_TOK
 | Backend do Codex + fila + gateway por HTTP | mesmo arquivo | ✅ ChatGPT recusado no plano (`model_tools_not_supported`); Gemini executado → `incomplete/completion_unconfirmed`, resposta guardada, 1 chamada |
 | Suítes completas | `tests` 60 OK; `tests/integrations` 70 OK + 1 pulado | ✅ Linux |
 | **Conta real** (ChatGPT ou Google) | — | ❌ **não feito**; nenhuma geração real |
-| Windows | — | ⏳ pendente |
+| Windows do usuário: `diagnose` | `732b0ac`, sem geração | ✅ Codex CLI 0.167.0 com login ChatGPT e trava confirmada; Gemini CLI 0.67.0 executável (login ainda não declarado) |
 
 ## 3. Para o Codex (backend, fila, ponte)
 
