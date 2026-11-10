@@ -18,6 +18,7 @@ Esses testes reais usaram o contrato 1, **antes** das correções da revisão do
 O fluxo backend → gateway ainda precisa ser repetido depois que o backend adotar o 1.1.
 Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
 **Onde paramos e o que o Codex precisa corrigir:** [docs/PASSAGEM_CODEX.md](docs/PASSAGEM_CODEX.md).
+**Navegador (revisão e roteiro para o Gemini):** [docs/PASSAGEM_GEMINI_NAVEGADOR.md](docs/PASSAGEM_GEMINI_NAVEGADOR.md).
 **Primeiro início no Windows:** [docs/PRIMEIRO_INICIO.md](docs/PRIMEIRO_INICIO.md)
 (`integrations/scripts/iniciar-ia-bbaru.ps1`).
 Ver [docs/CONEXOES.md](docs/CONEXOES.md), o registro em
