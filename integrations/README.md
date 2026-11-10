@@ -34,7 +34,7 @@ Ver [docs/CONEXOES.md](docs/CONEXOES.md), o registro em
 | `GET /v1/connections` | **Experimental, fora dos contratos**: diagnóstico. |
 | `python -m integrations diagnose` | Relatório local sem chamar modelos nem ler arquivos de credencial. |
 | Deduplicação persistente | SQLite próprio (`data/integrations.sqlite3`, fora do Git). |
-| ChatGPT / Gemini | **Não implementados**; o diagnóstico só informa se o CLI está instalado. |
+| ChatGPT (Codex CLI) e Gemini CLI | Adaptadores **só no contrato 1.1**, sem conta real testada. ChatGPT com `tools: restricted` (o backend ainda recusa no plano); Gemini com `tools: disabled`. Ver [docs/PASSAGEM_CLIS.md](docs/PASSAGEM_CLIS.md). |
 
 ## Requisitos (Windows)
 
@@ -84,6 +84,8 @@ Em bash, troque `$env:NOME = valor` por `export NOME=valor` e ative com
 | `IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS` | 4096 | Teto pedido ao CLI (não garantido, ver abaixo). |
 | `IA_BBARU_CLAUDE_CODE_TIMEOUT_S` | 90 | Entre 5 e 110 s; o backend desiste em 120 s. |
 | `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` | desligado | Só contrato 1 (legado). Ver "Contratos 1 e 1.1". |
+| `IA_BBARU_CHATGPT_CODEX_*` | — | Mesmos sufixos (`BIN`, `MODELS`, `TASK_KINDS`, `CONTEXT_CHARS`, `MAX_OUTPUT_TOKENS`, `TIMEOUT_S`) para o ChatGPT pela Codex CLI. |
+| `IA_BBARU_GEMINI_CLI_*` | — | Idem para a Gemini CLI, mais `IA_BBARU_GEMINI_CLI_LOGIN=google` (você declara que fez Login with Google). |
 
 `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, as variáveis de
 Bedrock/Vertex/Foundry, `GATEWAY_TOKEN` e `LAUNCHER_API_TOKEN` **são removidas** do

@@ -123,6 +123,19 @@ Verificado no Linux com o navegador real e este gateway (dublê do CLI): sem log
 o cartão fica desabilitado e mostra "Indisponível", mas o **motivo não aparece** no
 painel, embora venha no catálogo. Exibir `unavailable_reason` é do frontend (Gemini).
 
+## 5. ChatGPT (Codex CLI) e Gemini CLI
+
+Adaptadores implementados em 10/11/2026, **só no contrato 1.1**, conferidos contra os
+pacotes oficiais `@openai/codex` 0.167.0 e `@google/gemini-cli` 0.67.0, sem conta real.
+Detalhes, evidências e decisões pendentes: [PASSAGEM_CLIS.md](PASSAGEM_CLIS.md).
+
+| | ChatGPT (Codex CLI) | Gemini CLI |
+| --- | --- | --- |
+| Login | `codex login status` (oficial) | Declarado pelo usuário: não há comando de status e o projeto não lê credenciais |
+| Ferramentas | `restricted`: execução de comandos não pode ser desligada | `disabled`: política oficial que nega todas |
+| Término | nunca informado → `unknown` | nunca informado → `unknown` |
+| Teto de saída | nenhum | nenhum |
+
 ## Fontes oficiais consultadas
 
 - https://code.claude.com/docs/en/headless

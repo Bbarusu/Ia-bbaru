@@ -3,7 +3,20 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: fila durável integrada no `main` (10/11/2026)
+## Rodada atual: CLIs do ChatGPT e do Gemini (10/11/2026)
+
+Base `main` `1c72ffa` + esta branch. Nenhuma conta real; nenhuma geração real.
+
+| Verificação | Resultado |
+| --- | --- |
+| `tests/integrations` (Linux) | ✅ 71 executados: 70 OK + 1 pulado (o real). Inclui 15 testes novos em `test_cli_adapters.py` |
+| `tests` (backend, Linux) | ✅ 60 OK |
+| Codex CLI oficial 0.167.0, sem login, pasta isolada | ✅ diagnóstico pelo adaptador; `features list` confirma a trava; `unified_exec` não desliga (por isso `tools: restricted`) |
+| Gemini CLI oficial 0.67.0, sem login, pasta isolada | ✅ diagnóstico e geração pelo adaptador → `provider_not_authenticated` (código 41) em ~2 s |
+| Backend + fila + gateway por HTTP (dublês) | ✅ ChatGPT recusado no plano (`model_tools_not_supported`); Gemini → `incomplete/completion_unconfirmed` |
+| Windows | ⏳ pendente ([PASSAGEM_CLIS.md](PASSAGEM_CLIS.md), seção 5) |
+
+## Rodada anterior: fila durável integrada no `main` (10/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_EXECUCAO.md`. Base `main` `1c72ffa` (merges #4 → #5 → #1 e
 #6 do Codex: C-1 códigos do gateway, C-2 fila/worker). Esta branch recomeçou do `main`.
@@ -52,7 +65,7 @@ node tests/integrations/desktop_gateway_smoke.cjs
 Esperado: 60 OK; 56 com 1 pulado; as 5 linhas do script; `Chromium UI passed`;
 `Gateway + Chromium verificados`. Nenhum comando usa a conta.
 
-## Rodada anterior: primeiro início com as três frentes (9/11/2026)
+## Rodada: primeiro início com as três frentes (9/11/2026)
 
 Codex `33fc1ea` + Gemini `00e2c8f` + este gateway, juntos numa worktree local.
 Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INICIO.md).

@@ -7,6 +7,7 @@
 """
 import hmac
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,7 +18,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 
 from . import __version__, errors
-from .adapters.claude_code import CAPABILITIES, ClaudeCodeAdapter, NotStarted, ProviderResult
+from .adapters.base import NotStarted, ProviderResult
+from .adapters.claude_code import ClaudeCodeAdapter
+from .adapters.gemini_cli import GeminiCliAdapter
+from .adapters.openai_codex import OpenAICodexAdapter
 from .config import Settings
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 from .dedup import DedupStore, payload_hash
@@ -50,10 +54,28 @@ def to_v11(request: GenerateRequestV11, result: ProviderResult) -> GenerateRespo
 
 
 def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | None = None,
-               max_concurrency: int = 1) -> FastAPI:
+               max_concurrency: int = 1, adapters: list | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     settings.validate()
-    adapter = adapter or ClaudeCodeAdapter(settings.claude_code)
+    if adapters is None:
+        adapters = [adapter or ClaudeCodeAdapter(settings.claude_code),
+                    OpenAICodexAdapter(settings.openai_codex),
+                    GeminiCliAdapter(settings.gemini_cli)]
+    by_provider = {a.provider: a for a in adapters}
+
+    def each_adapter(fn):
+        """Probe providers in parallel: each status check spawns a few CLI
+        commands, and the browser bridge waits at most 20 s for the catalog."""
+        with ThreadPoolExecutor(max_workers=max(1, len(adapters))) as pool:
+            return list(pool.map(fn, adapters))
+
+    def adapter_for(model_id: str, version: str):
+        """Route by the `<provider>:` prefix. Contract 1 only reaches adapters
+        that can honour it; the others answer as an unknown model there."""
+        found = by_provider.get(model_id.split(":", 1)[0])
+        if found is None or (version == "1" and not found.supports_v1):
+            raise errors.unknown_model()
+        return found
     store = DedupStore(settings.db_path)
     slots = threading.BoundedSemaphore(max_concurrency)
     token = settings.gateway_token.encode()
@@ -90,22 +112,21 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     # Catalogs are built from operator configuration + local status. No model call.
     @app.get("/v1/models", response_model=ModelCatalog, dependencies=protected)
     def models():
-        return ModelCatalog(models=adapter.profiles())
+        return ModelCatalog(models=[p for a in adapters for p in a.profiles()])
 
     @app.get("/v1.1/models", response_model=ModelCatalogV11, dependencies=protected)
     def models_v11():
-        return ModelCatalogV11(models=adapter.profiles_v11())
+        return ModelCatalogV11(models=[p for group in each_adapter(lambda a: a.profiles_v11()) for p in group])
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():
         """Experimental, outside the contracts: diagnostics and real capabilities."""
-        status = adapter.status(refresh=True)
-        return {"connections": [{
-            **status.as_dict(),
-            "contract_1_available": adapter.v1_gate().ready,
-            "configured_models": [adapter.profile_id(m) for m in settings.claude_code.models],
-            "capabilities": CAPABILITIES.model_dump(),
-        }]}
+        return {"connections": each_adapter(lambda a: {
+            **a.status(refresh=True).as_dict(),
+            "contract_1_available": a.v1_gate().ready,
+            "configured_models": [a.profile_id(m) for m in a.settings.models],
+            "capabilities": a.capabilities.model_dump(),
+        })}
 
     def run(body, convert):
         digest = payload_hash(body.model_dump(mode="json"))
@@ -113,6 +134,7 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
         replay = _existing(store, body.request_id, digest, response_model)
         if replay is not None:
             return replay
+        adapter = adapter_for(body.model_id, body.protocol_version)
         adapter.check_request(body)
         if not slots.acquire(blocking=False):
             raise errors.busy()

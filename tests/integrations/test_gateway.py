@@ -154,7 +154,7 @@ class AuthAndCatalogTests(GatewayTestCase):
         status = self.client.get("/v1/connections").json()["connections"][0]
         self.assertFalse(status["installed"])
         self.assertEqual(status["reason"], "cli_not_runnable")
-        with patch("integrations.adapters.claude_code.shutil.which", return_value=None):
+        with patch("integrations.adapters.base.shutil.which", return_value=None):
             adapter = ClaudeCodeAdapter(ClaudeCodeSettings(models=["sonnet"]))
             self.assertEqual(adapter.status().reason, "cli_not_installed")
             self.assertFalse(adapter.profiles()[0].available)

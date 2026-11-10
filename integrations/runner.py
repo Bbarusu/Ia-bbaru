@@ -12,8 +12,15 @@ from dataclasses import dataclass
 # Variables that would switch the CLI from the user's subscription login to a
 # paid API or cloud account, plus this project's own secrets. Never forwarded.
 STRIPPED_ENV = (
+    # Claude Code: API key / cloud providers instead of the subscription.
     "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL",
+    # Codex CLI: API key / access tokens instead of Sign in with ChatGPT.
+    "OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_BASE_URL",
+    # Gemini CLI: API key / Vertex / custom endpoint instead of Login with Google.
+    "GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI",
+    "GOOGLE_GEMINI_BASE_URL", "GOOGLE_APPLICATION_CREDENTIALS",
+    # This project's own secrets.
     "GATEWAY_TOKEN", "LAUNCHER_API_TOKEN",
 )
 

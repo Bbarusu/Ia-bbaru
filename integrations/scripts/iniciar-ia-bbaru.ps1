@@ -1,15 +1,20 @@
 ﻿<#
-Inicia o Ia-bbaru com o gateway do Claude Code: primeiro início e aberturas seguintes.
+Inicia o Ia-bbaru com o gateway das CLIs oficiais (Claude Code; opcionalmente
+ChatGPT pela Codex CLI e Gemini CLI): primeiro início e aberturas seguintes.
 
 Uso, na raiz de um checkout que junte o navegador (Codex), a interface (Gemini)
 e o gateway (Claude):
 
     powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1
 
+Opcional (cada provedor só aparece se receber um modelo):
+    ... -ChatGptModel gpt-5.5                        # Codex CLI com Sign in with ChatGPT
+    ... -GeminiModel gemini-2.5-pro -GeminiLoginGoogle   # depois de fazer Login with Google na Gemini CLI
+
 O que faz:
   1. Na primeira vez, cria .venv (Python 3.12) e instala requirements.txt.
   2. Guarda um token de gateway fora do repositório (%LOCALAPPDATA%\Ia-bbaru-gateway).
-  3. Mostra o diagnóstico do Claude Code (sem gerar resposta).
+  3. Mostra o diagnóstico das CLIs configuradas (sem gerar resposta).
   4. Abre o gateway sem janela (porta 8010), com log em %LOCALAPPDATA%\Ia-bbaru-gateway.
   5. Abre o navegador com GATEWAY_URL, GATEWAY_TOKEN e GATEWAY_PROTOCOL_VERSION=1.1,
      usando scripts\start-browser.ps1 (com -Install na primeira vez).
@@ -21,7 +26,10 @@ geração. Não lê cookies nem arquivos de credencial. Não liga a flag legada 
 param(
     [string]$Model = 'sonnet',
     [int]$MaxOutputTokens = 128,
-    [int]$Port = 8010
+    [int]$Port = 8010,
+    [string]$ChatGptModel = '',
+    [string]$GeminiModel = '',
+    [switch]$GeminiLoginGoogle
 )
 $ErrorActionPreference = 'Stop'
 
@@ -60,6 +68,12 @@ $env:IA_BBARU_GATEWAY_DB = Join-Path $stateDir 'gateway.sqlite3'
 $env:IA_BBARU_CLAUDE_CODE_MODELS = $Model
 $env:IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
 Remove-Item Env:IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT -ErrorAction SilentlyContinue
+$env:IA_BBARU_CHATGPT_CODEX_MODELS = $ChatGptModel
+$env:IA_BBARU_CHATGPT_CODEX_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
+$env:IA_BBARU_GEMINI_CLI_MODELS = $GeminiModel
+$env:IA_BBARU_GEMINI_CLI_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
+# A Gemini CLI não tem comando de status de login: você declara que fez Login with Google.
+if ($GeminiLoginGoogle) { $env:IA_BBARU_GEMINI_CLI_LOGIN = 'google' } else { Remove-Item Env:IA_BBARU_GEMINI_CLI_LOGIN -ErrorAction SilentlyContinue }
 Remove-Item Env:IA_BBARU_REAL_TEST -ErrorAction SilentlyContinue
 
 # 3. Diagnóstico (não gera resposta).
@@ -67,14 +81,25 @@ Push-Location $root
 try {
     $diagnostic = (& $python -m integrations diagnose | Out-String) | ConvertFrom-Json
 } finally { Pop-Location }
-$claude = $diagnostic.claude_code
-if ($claude.contract_1_1.available) {
-    Write-Host "Claude Code $($claude.version): pronto (login $($claude.auth_method))." -ForegroundColor Green
-} else {
-    Write-Host "Claude Code indisponível: $($claude.reason)." -ForegroundColor Yellow
-    if ($claude.next_action) { Write-Host "  O que fazer: $($claude.next_action)" -ForegroundColor Yellow }
-    Write-Host '  O navegador abre mesmo assim; o agente aparece como indisponível.'
+$agents = @(
+    @{ Name = 'Claude Code'; Data = $diagnostic.claude_code; Configured = $true },
+    @{ Name = 'ChatGPT (Codex CLI)'; Data = $diagnostic.chatgpt_codex; Configured = [bool]$ChatGptModel },
+    @{ Name = 'Gemini CLI'; Data = $diagnostic.gemini_cli; Configured = [bool]$GeminiModel }
+)
+foreach ($agent in $agents) {
+    if (-not $agent.Configured) { continue }
+    $info = $agent.Data
+    if ($info.contract_1_1.available) {
+        Write-Host "$($agent.Name) $($info.version): pronto (login $($info.auth_method))." -ForegroundColor Green
+        if ($info.capabilities.tools -ne 'disabled') {
+            Write-Host '  Aviso: esta CLI não permite desligar todas as ferramentas; o planejamento ainda a recusa.' -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "$($agent.Name) indisponível: $($info.reason)." -ForegroundColor Yellow
+        if ($info.next_action) { Write-Host "  O que fazer: $($info.next_action)" -ForegroundColor Yellow }
+    }
 }
+Write-Host '  O navegador abre mesmo assim; agentes indisponíveis aparecem como indisponíveis.'
 
 # 4. Gateway.
 $url = "http://127.0.0.1:$Port"

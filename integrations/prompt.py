@@ -48,3 +48,12 @@ def build_user_prompt(request: GenerateRequest) -> str:
 def input_chars(request: GenerateRequest) -> int:
     """Everything sent as input: system prompt, argument and JSON document."""
     return len(SYSTEM_PROMPT) + len(CLI_ARGUMENT_PROMPT) + len(build_user_prompt(request))
+
+
+def build_cli_document(request: GenerateRequest) -> str:
+    """Prompt for CLIs that expand `@path` mentions into local file contents.
+
+    `@` is written as the JSON escape \\u0040: the document stays valid JSON for
+    the model, but the CLI never sees a literal `@` it could treat as a file path.
+    """
+    return SYSTEM_PROMPT + "\n\n" + build_user_prompt(request).replace("@", "\\u0040")
