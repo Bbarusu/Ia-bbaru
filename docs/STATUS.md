@@ -1,6 +1,36 @@
 # Estado do Ia-bbaru / Yuki
 
+## Atualização: Gemini CLI indisponível para a conta do usuário
+
+Revisão dos registros do Claude até `47bffd5` (10/11/2026), na branch
+`claude/vibrant-meitner-ksbzgf`. Essas alterações ainda não foram incorporadas
+à branch de integração por esta atualização documental.
+
+- O Google recusou o login individual na Gemini CLI 0.67.0 e orientou migração
+  para o Antigravity. Essa rota não é utilizável com a conta testada; não sugerir
+  chave de API/Vertex nem tratar a recusa como simples configuração incorreta.
+  Não há conclusão sobre todas as contas ou versões futuras.
+- Claude corrigiu os dois achados anteriores em `64c6c36`: verificação do modo
+  Google e recusa de saída mista de modelos, com regressões. O caminho de login
+  válido ainda não foi observado com a conta real. A correção usa mecanismo
+  interno da CLI, com limitações documentadas; não equivale a validar produção.
+- Segundo `integrations/docs/VALIDACAO.md` dessa branch, o Windows passou com
+  66 testes de backend, 80 de gateway + 1 ignorado e os 5 cenários HTTP 1.1.
+  As duas falhas de acentuação foram resolvidas. O usuário também confirmou
+  aprovação do teste gráfico da PR #7.
+- Claude Code é o caminho funcional atual. Codex CLI tem login ChatGPT
+  reconhecido, mas continua inelegível por `tools=restricted`; não foi liberado.
+- Antigravity não é substituto implementado: faltam evidências de login por
+  assinatura, execução não interativa, formato de saída e controle de ferramentas.
+
+Direção recomendada: tirar a Gemini CLI do caminho dos testes práticos desta
+conta e continuar com Claude Code e a avaliação do isolamento do Codex. Isso
+não afeta o frontend produzido pelo Gemini nem o uso manual do site Gemini.
+As capturas continuam locais e o contrato visual 1.2 é apenas uma proposta.
+
 ## Revisão de 10/11/2026 (ainda fora da main)
+
+Estado da integração antes dos novos registros acima:
 
 Branch `codex/browser-capture-clis`: combina Claude `db8cee4` (código `732b0ac`) e Gemini `fd2a574`,
 com busca/zoom/minimizar/reabrir reais, captura nativa de tela/imagem, armazenamento

@@ -1,5 +1,13 @@
 # Revisão das CLIs e da interface — 10/11/2026
 
+Atualização posterior: os commits do Claude `64c6c36` a `47bffd5` corrigem os
+dois achados abaixo e registram aprovação dos testes no Windows. A conta individual
+do usuário, porém, recebeu recusa de login da Gemini CLI 0.67.0, com orientação
+para migrar ao Antigravity. Ver [status atualizado](STATUS.md) e
+[passagem do Claude, seção 1.2](https://github.com/Bbarusu/Ia-bbaru/blob/47bffd570d50b65e7f875a97272d4e628ca34263/integrations/docs/PASSAGEM_CLIS.md).
+Esta atualização revisa código/documentos; não incorpora esses commits nem executa
+novas gerações. Os achados e prompts originais permanecem como histórico da rodada.
+
 Base: Claude `db8cee4` (código dos adaptadores em `732b0ac`), Gemini `fd2a574`,
 main `1c72ffa`. Branch de integração: `codex/browser-capture-clis`.
 Branches dos autores preservadas. O código de `integrations/` veio dos commits
