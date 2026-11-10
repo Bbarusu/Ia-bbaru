@@ -8,8 +8,9 @@ e o gateway (Claude):
     powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1
 
 Opcional (cada provedor só aparece se receber um modelo):
-    ... -ChatGptModel gpt-5.5                        # Codex CLI com Sign in with ChatGPT
-    ... -GeminiModel gemini-2.5-pro -GeminiLoginGoogle   # depois de fazer Login with Google na Gemini CLI
+    ... -ChatGptModel NOME                       # nome mostrado por /model dentro do `codex`
+    ... -GeminiModel NOME -GeminiLoginGoogle     # nome mostrado por `gemini models list`
+  Escreva o nome sem < >: no PowerShell, < é redirecionamento.
 
 O que faz:
   1. Na primeira vez, cria .venv (Python 3.12) e instala requirements.txt.
@@ -96,6 +97,7 @@ foreach ($agent in $agents) {
         }
     } else {
         Write-Host "$($agent.Name) indisponível: $($info.reason)." -ForegroundColor Yellow
+        if ($info.detail) { Write-Host "  Detalhe: $($info.detail)" -ForegroundColor Yellow }
         if ($info.next_action) { Write-Host "  O que fazer: $($info.next_action)" -ForegroundColor Yellow }
     }
 }

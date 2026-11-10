@@ -100,6 +100,17 @@ class CatalogTests(CliAdaptersTestCase):
         self.assertEqual(status.reason, "cli_version_unsupported")
         self.assertEqual(status.missing_flags, ["computer_use"])
 
+    def test_windows_prefers_cmd_over_extensionless_npm_script(self):
+        found = {"gemini.cmd": "C:/npm/gemini.cmd", "gemini": "C:/npm/gemini"}
+        with patch("integrations.adapters.base.sys.platform", "win32"), \
+                patch("integrations.adapters.base.shutil.which", found.get):
+            self.assertEqual(GeminiCliAdapter(GeminiCliSettings()).command(), ["C:/npm/gemini.cmd"])
+
+    def test_unrunnable_cli_explains_why(self):
+        status = GeminiCliAdapter(GeminiCliSettings(command=[str(Path(self.tmp.name) / "gemini")])).status()
+        self.assertEqual(status.reason, "cli_not_runnable")
+        self.assertIn("não pôde ser executado", status.detail)
+
     def test_gemini_login_must_be_stated(self):
         self.gemini.settings.login_confirmed = False
         model = self.client.get("/v1.1/models").json()["models"]

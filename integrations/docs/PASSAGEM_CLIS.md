@@ -155,11 +155,16 @@ git fetch origin
 git merge --no-edit origin/claude/vibrant-meitner-ksbzgf
 .\.venv\Scripts\python.exe -m unittest discover -s tests/integrations -v
 .\.venv\Scripts\python.exe -m integrations diagnose
-powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1 -ChatGptModel <modelo> -GeminiModel <modelo> -GeminiLoginGoogle
+powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1 -ChatGptModel NOME -GeminiModel NOME -GeminiLoginGoogle
 ```
 
-Use nomes de modelo que a própria CLI mostra. Nada disso gera resposta. Uma geração
-real com essas contas é etapa separada, com sua autorização.
+Troque `NOME` pelo nome real, **sem `< >`** (no PowerShell, `<` é redirecionamento):
+- ChatGPT: abra `codex`, digite `/model` e use o nome mostrado para o seu plano;
+- Gemini: `gemini models list` (lista local, não gera nada).
+
+Se o diagnóstico disser `cli_not_runnable`, o campo `detail` explica o motivo.
+Nada disso gera resposta. Uma geração real com essas contas é etapa separada, com
+sua autorização.
 
 ## 6. Prompts prontos
 

@@ -70,7 +70,9 @@ def run_process(args: list[str], stdin_text: str, timeout_s: float,
             cwd=cwd, env=env, text=True, encoding="utf-8", errors="replace", **kwargs,
         )
     except OSError as exc:
-        raise ProcessStartError(type(exc).__name__) from exc
+        # Type and OS error number only (e.g. WinError 193 = not a Windows program).
+        code = getattr(exc, "winerror", None) or exc.errno
+        raise ProcessStartError(f"{type(exc).__name__} {code}" if code else type(exc).__name__) from exc
     try:
         stdout, stderr = proc.communicate(stdin_text, timeout=timeout_s)
     except subprocess.TimeoutExpired:
