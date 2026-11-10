@@ -131,7 +131,7 @@ Detalhes, evidências e decisões pendentes: [PASSAGEM_CLIS.md](PASSAGEM_CLIS.md
 
 | | ChatGPT (Codex CLI) | Gemini CLI |
 | --- | --- | --- |
-| Login | `codex login status` (oficial) | Declarado pelo usuário: não há comando de status e o projeto não lê credenciais |
+| Login | `codex login status` (oficial) | Login with Google forçado (`GEMINI_CLI_AUTH_OVERRIDE`) e verificado pela própria CLI com entrada vazia; nenhum arquivo de credencial é lido |
 | Ferramentas | `restricted`: execução de comandos não pode ser desligada | `disabled`: política oficial que nega todas |
 | Término | nunca informado → `unknown` | nunca informado → `unknown` |
 | Teto de saída | nenhum | nenhum |

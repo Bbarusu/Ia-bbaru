@@ -16,7 +16,7 @@ e do Gemini e deixar tudo registrado para orientar o Codex e o Gemini". Só
 | `provider` / `model_id` | `chatgpt-codex` / `chatgpt-codex:<modelo>` | `gemini-cli` / `gemini-cli:<modelo>` |
 | Rótulo no catálogo | `ChatGPT (<modelo>, Codex CLI) - assinatura` | `Gemini (<modelo>) - conta Google` |
 | Contrato | **Só 1.1** (`/v1.1/*`). Não aparece em `/v1/models`; `/v1/generate` responde `unknown_model` | igual |
-| Login exigido | Sign in with ChatGPT (`codex login status` = "Logged in using ChatGPT") | Login with Google, **declarado** pelo usuário (`IA_BBARU_GEMINI_CLI_LOGIN=google`) |
+| Login exigido | Sign in with ChatGPT (`codex login status` = "Logged in using ChatGPT") | Login with Google **forçado e verificado pela própria CLI** (correção de 10/11, seção 1.1); `IA_BBARU_GEMINI_CLI_LOGIN=google` só autoriza a verificação |
 | `output_limit` | `none` | `none` |
 | `cancellation` | `local_process_only` | `local_process_only` |
 | `finish_reason` | `inferred` → todo resultado sai `unknown` | `inferred` → todo resultado sai `unknown` |
@@ -47,13 +47,16 @@ provedor não aparece e nada é executado. O inicializador ganhou
 **Gemini CLI** — `gemini --skip-trust --prompt <pedido fixo> --output-format json --model <m>
 --extensions none --allowed-mcp-server-names <nome inexistente> --admin-policy <pasta>
 --policy <pasta> --approval-mode default`, com `GEMINI_SYSTEM_MD` (nosso prompt de
-sistema) e `GOOGLE_GENAI_USE_GCA=true`.
+sistema), `GEMINI_CLI_AUTH_OVERRIDE=oauth-personal` e `GOOGLE_GENAI_USE_GCA=true`.
 - Política com `toolName = "*"` e `decision = "deny"` bloqueia toda ferramenta, MCP
   incluído. Se mesmo assim uma ferramenta rodar (`stats.tools.totalSuccess > 0`), a
   resposta é recusada (502).
 - `@caminho` na entrada viraria conteúdo de arquivo local: o documento vai com `@`
   escrito como `\u0040` (JSON válido, nenhum `@` literal). Vale também para o ChatGPT.
-- Se a CLI trocar de modelo sozinha (fallback por cota), `provider_model_mismatch` (502).
+- Qualquer token de saída de outro modelo, mesmo misturado ao modelo pedido (fallback,
+  modelos auxiliares), dá `provider_model_mismatch` (502, final, sem repetição). Sem
+  estatísticas de modelo na saída, `provider_invalid_output`. Configure o nome exato do
+  modelo (o de `gemini models list`), não apelidos.
 - `--skip-trust` é obrigatório no modo não interativo (sem ele, código 55); confia só
   na pasta temporária vazia, nesta execução.
 
@@ -61,16 +64,46 @@ Variáveis de chave de API (`OPENAI_API_KEY`, `CODEX_API_KEY`, `CODEX_ACCESS_TOK
 `OPENAI_BASE_URL`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI`,
 `GOOGLE_GEMINI_BASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`) são removidas do processo.
 
+### 1.1 Correção de 10/11: login Google forçado e verificado (revisão do Codex, P1)
+
+Antes, o catálogo anunciava o Gemini como pronto só pela declaração do usuário, e uma
+chave de API salva na própria CLI poderia ser usada. Agora:
+
+1. **Forçar:** toda chamada define `GEMINI_CLI_AUTH_OVERRIDE=oauth-personal`, a variável
+   que a própria CLI usa ao se relançar e que substitui o tipo de login salvo.
+   Conferido na CLI oficial 0.67.0, sem conta: com "gemini-api-key" salvo, a CLI segue
+   o caminho do Google e para em "Manual authorization is required".
+2. **Auto-teste do mecanismo** (a variável é interna): numa pasta de usuário isolada e
+   vazia, com Vertex AI salvo e entrada vazia, só uma CLI que aplica a variável chega
+   ao caminho do Google. Se não aplicar: `cli_version_unsupported`, indisponível.
+3. **Verificar o login pela CLI**, sem ler credenciais: execução com a variável e
+   **entrada vazia**. Login válido → a CLI autentica e para em "No input provided"
+   (código 42). Sem login → código 41. Entrada vazia não gera resposta; a sonda ainda
+   pede um modelo que não existe.
+4. `IA_BBARU_GEMINI_CLI_LOGIN=google` (`-GeminiLoginGoogle`) apenas **autoriza** essa
+   verificação, que faz a CLI falar com o Google usando o login do usuário. Sem ela,
+   nada é consultado e o estado é `auth_status_unknown`.
+5. Variáveis removidas do processo: chaves de API, `GEMINI_DEFAULT_AUTH_TYPE`,
+   `GEMINI_CLI_USE_COMPUTE_ADC`, `GEMINI_CLI_SYSTEM_SETTINGS_PATH` e
+   `GEMINI_CLI_SYSTEM_DEFAULTS_PATH`.
+
+| Situação | Catálogo | Geração |
+| --- | --- | --- |
+| Login Google válido | disponível | usa o login Google |
+| Chave de API salva na CLI | disponível só se o login Google também for válido | login Google; a chave não é usada |
+| Chaves de API no ambiente | removidas | login Google |
+| Sem login Google | `not_logged_in` | recusada antes de iniciar |
+| CLI que não aplica a variável | `cli_version_unsupported` | recusada |
+| Configuração de sistema presente / sonda inconclusiva / sem autorização | `auth_status_unknown` | recusada |
+| Login perdido depois do catálogo | — | `provider_not_authenticated`, sem cair em chave de API |
+
 ### Limites honestos
 
-- **Gemini — login não verificável:** a CLI não tem comando de status e o projeto não
-  lê arquivos de credencial. Sem a declaração do usuário, o catálogo mostra
-  `auth_status_unknown`. Se a declaração estiver errada, a geração falha rápido com
-  `provider_not_authenticated` (código 41, sem chamar o modelo).
-- **Gemini — chave de API configurada na própria CLI:** o gateway não consegue
-  *forçar* Login with Google (a CLI só aceita configurações de sistema em pasta do
-  administrador). Se o usuário escolher "Gemini API Key" dentro da Gemini CLI, essa
-  escolha vale. Orientação ao usuário: use apenas Login with Google.
+- **Gemini — o que resta fora da garantia:** uma configuração de sistema da Gemini CLI
+  (administrador) tem precedência sobre tudo; se o arquivo existir, o provedor fica
+  indisponível (`auth_status_unknown`). O login pode usar uma conta Google ligada a um
+  projeto ou licença da organização: continua sendo login, nunca chave de API. Ganchos
+  (`hooks`) do próprio usuário na Gemini CLI não podem ser desligados de fora.
 - **Ambas — término nunca informado:** nenhuma das duas informa se a resposta acabou ou
   foi cortada. O gateway responde `unknown` e o backend marca
   `incomplete/completion_unconfirmed`, sem revisão. É o comportamento correto pelo

@@ -3,7 +3,57 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: CLIs do ChatGPT e do Gemini (10/11/2026)
+## Rodada atual: correções da revisão do Codex nos adaptadores (10/11/2026)
+
+Prompt `docs/PROMPT_CLAUDE_CLIS.md` e revisão `docs/REVISAO_CLIS_2026_11_10.md`
+(branch `codex/browser-capture-clis`, `5a55e69`). Resposta item a item:
+[RESPOSTA_REVISAO.md](RESPOSTA_REVISAO.md). Nenhuma conta real; nenhuma geração.
+
+### Linux (contêiner do Claude), fixtures
+
+| Verificação | Onde | Resultado |
+| --- | --- | --- |
+| `python -m unittest discover -s tests/integrations` | esta branch (base `main` `1c72ffa`) | ✅ 81 executados: 80 OK + 1 pulado (o real) |
+| `python -m unittest discover -s tests` | esta branch | ✅ 60 OK |
+| Backend + gateway | `codex/browser-capture-clis` `5a55e69` + esta branch (worktree local) | ✅ backend 66 OK; gateway 80 OK + 1 pulado |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | mesma combinação | ✅ |
+| `npm --prefix frontend test` / `desktop test` / build | mesma combinação | ✅ 11 / 3 / ✅ |
+| `desktop run test:ui` e `tests/integrations/desktop_gateway_smoke.cjs` (Electron real, Xvfb, sem sandbox do SO) | mesma combinação | ✅ |
+| Gemini CLI oficial 0.67.0, sem conta, pasta de usuário isolada | adaptador real | ✅ auto-teste: a CLI aplica `GEMINI_CLI_AUTH_OVERRIDE`; sonda de login → `not_logged_in`, com e sem "gemini-api-key" salvo; todas as sondas com entrada vazia; ~7 s na primeira verificação (4 processos) |
+
+Regressões novas em `tests/integrations/test_cli_adapters.py` (dublê `fake_gemini.py`,
+que imita a ordem de autenticação da CLI): login verificado pela CLI; declarado mas sem
+login; sem autorização (nenhuma sonda); CLI que ignora a variável; configuração de
+sistema; chave de API salva na CLI nunca usada; chaves no ambiente removidas; login
+perdido antes da geração; saída mista de modelos recusada e não repetida; reprodução
+mínima da revisão do Codex.
+
+### Windows do usuário — pendente (item 5 do prompt)
+
+Não executado aqui. Comandos, na pasta que junta as frentes, com o navegador fechado:
+
+```powershell
+git status
+git fetch origin
+git merge --no-edit origin/claude/vibrant-meitner-ksbzgf
+git log --oneline -1
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/integrations -v
+.\.venv\Scripts\python.exe scripts/verify_gateway_v11.py --gateway-checkout .
+$env:IA_BBARU_GEMINI_CLI_LOGIN = "google"
+.\.venv\Scripts\python.exe -m integrations diagnose | clip
+```
+
+O que conferir e registrar (SHA, versão do Windows e do Python):
+- **Resolução `.exe`/`.cmd`:** as três CLIs com `installed: true` e sem `detail`.
+- **Tempo do catálogo:** `probe_seconds` de cada CLI no `diagnose`; a ponte do navegador
+  espera 20 s e as três são verificadas em paralelo.
+- **Processos e SQLite:** as suítes terminam com `OK`, sem `PermissionError`/`WinError 32`
+  (inclui timeout com `taskkill` e a trava do worker).
+- **Gemini:** com login Google feito, `ready: true`, `logged_in: true`; sem login,
+  `not_logged_in`. O `diagnose` não gera resposta.
+
+## Rodada anterior: CLIs do ChatGPT e do Gemini (10/11/2026)
 
 Base `main` `1c72ffa` + esta branch. Nenhuma conta real; nenhuma geração real.
 
@@ -18,7 +68,7 @@ Base `main` `1c72ffa` + esta branch. Nenhuma conta real; nenhuma geração real.
 | Windows do usuário, `diagnose` com `732b0ac` | ✅ Claude Code 2.1.307 pronto (`claude.ai`); **Codex CLI 0.167.0 instalada, `Logged in using ChatGPT`, flags presentes e trava de recursos confirmada no Windows** (`features list`); Gemini CLI 0.67.0 instalada e executável, `auth_status_unknown` (login ainda não declarado). Nenhuma chave de API no ambiente. Sem geração |
 | Windows: catálogo no navegador e geração real | ⏳ pendente |
 
-## Rodada anterior: fila durável integrada no `main` (10/11/2026)
+## Rodada: fila durável integrada no `main` (10/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_EXECUCAO.md`. Base `main` `1c72ffa` (merges #4 → #5 → #1 e
 #6 do Codex: C-1 códigos do gateway, C-2 fila/worker). Esta branch recomeçou do `main`.
