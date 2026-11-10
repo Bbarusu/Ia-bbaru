@@ -38,7 +38,7 @@ Executado pelo usuário em 10/11/2026 na pasta `W:\Projeto\Ia-bbaru-validacao-pr
 | `python -m unittest discover -s tests -v` | ✅ 66 OK em 10,5 s (fila, trava do worker, mídia, ponte e fechamento do SQLite; nenhum `PermissionError`) |
 | `python -m unittest discover -s tests/integrations -v` | ✅ 81 executados: 80 OK + 1 pulado (conta real), 69,8 s. Inclui timeout com `taskkill`, resolução `.cmd` simulada e as regressões novas do Gemini. As 2 falhas de acentuação relatadas antes na PR #7 não ocorreram mais (dublês em UTF-8) |
 | `python scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ 5 modos: incompleta, concluída com revisão, login, cota e timeout; sem repetição |
-| `python -m integrations diagnose` com `IA_BBARU_GEMINI_CLI_LOGIN=google` | ⏳ executado; saída ainda não registrada (tempo do catálogo e login do Gemini verificado pela CLI real) |
+| `python -m integrations diagnose` com `IA_BBARU_GEMINI_CLI_LOGIN=google` | ✅ sem geração. **Resolução `.exe`/`.cmd`:** as três CLIs instaladas e executáveis, sem `detail`. **Tempo (`probe_seconds`):** Claude Code 0,5 s; Codex CLI 0,5 s; Gemini CLI 5,7 s (em paralelo, bem abaixo dos 20 s da ponte). Claude Code 2.1.307 `claude.ai` e Codex CLI 0.167.0 `chatgpt` prontos. **Gemini CLI 0.67.0: `not_logged_in`** — o auto-teste da variável passou no Windows (senão seria `cli_version_unsupported`) e a sonda recebeu da CLI real "Manual authorization is required". ⏳ Falta confirmar com o usuário se o Login with Google já tinha sido feito; o caso `logged_in: true` com conta real ainda não foi observado |
 
 Comandos usados:
 
