@@ -8,7 +8,7 @@ import {
 import { Camera, FileText, Image as ImageIcon, Link2, Loader2, Plus, Upload } from "lucide-react";
 import { Dialog } from "./Dialog";
 import { sourceContent } from "../logic.mjs";
-import type { Capture, Project } from "../types";
+import type { Capture, Project, Media } from "../types";
 
 export type CaptureMediaKind = "text" | "screenshot" | "image";
 
@@ -23,7 +23,7 @@ interface SourceModalProps {
   content: string;
   setContent: (content: string) => void;
   close: () => void;
-  saveSource: (e: FormEvent) => Promise<void>;
+  saveSource: (e: FormEvent, media?: Media) => Promise<void>;
   discardCapture: (captureId: string) => Promise<void>;
   replaceWithQueuedCapture?: () => void;
   busy: boolean;
@@ -32,43 +32,39 @@ interface SourceModalProps {
   initialMode?: CaptureMediaKind;
 }
 
-function compressImageToDataUrl(file: File): Promise<{ dataUrl: string; width: number; height: number }> {
-  return new Promise((resolve, reject) => {
+async function compressImageToDataUrl(file: File): Promise<{ dataUrl: string; width: number; height: number }> {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10000000)
+    throw new Error("Use PNG, JPEG ou WebP de até 10 MB.");
+  const raw = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
-    reader.onload = () => {
-      const raw = String(reader.result || "");
-      const img = new window.Image();
-      img.onerror = () => resolve({ dataUrl: raw.slice(0, 32000), width: 0, height: 0 });
-      img.onload = () => {
-        try {
-          const maxW = 520;
-          const scale = img.width > maxW ? maxW / img.width : 1;
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            resolve({ dataUrl: raw.slice(0, 32000), width: img.width, height: img.height });
-            return;
-          }
-          ctx.drawImage(img, 0, 0, w, h);
-          const compressed = canvas.toDataURL("image/jpeg", 0.72);
-          resolve({
-            dataUrl: compressed.length <= 34000 ? compressed : canvas.toDataURL("image/jpeg", 0.5),
-            width: img.width,
-            height: img.height,
-          });
-        } catch {
-          resolve({ dataUrl: raw.slice(0, 32000), width: img.width, height: img.height });
-        }
-      };
-      img.src = raw;
-    };
+    reader.onload = () => resolve(String(reader.result));
     reader.readAsDataURL(file);
   });
+  const img = new window.Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Imagem inválida; nenhum arquivo foi salvo."));
+    img.src = raw;
+  });
+  if (img.width * img.height > 16000000) throw new Error("A imagem excede 16 megapixels.");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Não foi possível preparar a imagem.");
+  let width = Math.min(1920, img.width);
+  for (;;) {
+    canvas.width = width;
+    canvas.height = Math.max(1, Math.round(img.height * width / img.width));
+    ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    for (const quality of [.9, .75, .6]) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= 640000) return { dataUrl, width: canvas.width, height: canvas.height };
+    }
+    if (width <= 160) break;
+    width = Math.max(160, Math.floor(width * .75));
+  }
+  throw new Error("A imagem excede o limite local; use uma captura menor.");
 }
 
 export function SourceModal({
@@ -90,9 +86,10 @@ export function SourceModal({
   error,
   initialMode = "text",
 }: SourceModalProps) {
-  const [mode, setMode] = useState<CaptureMediaKind>(initialMode);
-  const [mediaPreview, setMediaPreview] = useState<string>("");
-  const [imageUrlInput, setImageUrlInput] = useState<string>("");
+  const [mode, setMode] = useState<CaptureMediaKind>(capture?.media?.kind || initialMode);
+  const [mediaPreview, setMediaPreview] = useState<string>(capture?.media?.data_url || "");
+  const [mediaError, setMediaError] = useState("");
+  const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const originUrl = capture?.url || "";
@@ -111,12 +108,19 @@ export function SourceModal({
     if (!title.trim()) {
       setTitle(defaultTitle.slice(0, 120));
     }
-    const dimText = width && height ? ` (${width}×${height}px)` : "";
-    const header = `${tag}${dimText}\nArquivo: ${file.name || "colado da área de transferência"}\nAnexoVisual: ${dataUrl}\n\nNotas sobre a captura:\n`;
-    setContent(header.slice(0, 38500));
+    setContent(`Captura local (${width}×${height}px). Descrição: `);
+  }
+
+  async function importImage(file: File, targetMode: CaptureMediaKind) {
+    setPreparing(true); setMediaError("");
+    if (!content.trim()) setContent("Preparando imagem local. Descrição: ");
+    try { await applyImageFile(file, targetMode); }
+    catch (error) { setMediaError((error as Error).message); }
+    finally { setPreparing(false); }
   }
 
   function handlePaste(e: ClipboardEvent) {
+    if (preparing || busy) { e.preventDefault(); return; }
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of Array.from(items)) {
@@ -126,7 +130,7 @@ export function SourceModal({
           e.preventDefault();
           const nextMode = mode === "text" ? "screenshot" : mode;
           setMode(nextMode);
-          applyImageFile(file, nextMode).catch(() => {});
+          void importImage(file, nextMode);
           return;
         }
       }
@@ -134,26 +138,17 @@ export function SourceModal({
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    if (preparing || busy) return;
     const file = e.target.files?.[0];
     if (!file) return;
-    applyImageFile(file, mode === "text" ? "image" : mode).catch(() => {});
+    void importImage(file, mode === "text" ? "image" : mode);
   }
 
-  function applyExternalImageUrl() {
-    const clean = imageUrlInput.trim();
-    if (!clean) return;
-    const tag = mode === "screenshot" ? "[PRINT CAPTURADO]" : "[IMAGEM CAPTURADA]";
-    setMediaPreview(clean);
-    if (!title.trim()) {
-      setTitle(mode === "screenshot" ? "Print da página" : "Imagem da página");
-    }
-    setContent(`${tag}\nAnexoVisual: ${clean}\n\nDescrição / contexto da imagem:\n`);
-  }
 
   return (
     <Dialog
       title={
-        capture
+        capture?.media ? "Revisar captura visual" : capture
           ? "Revisar trecho selecionado"
           : mode === "screenshot"
             ? "Capturar print para o projeto"
@@ -161,9 +156,11 @@ export function SourceModal({
               ? "Capturar imagem para o projeto"
               : "Adicionar material"
       }
-      close={close}
+      close={() => { if (!preparing && !busy) close(); }}
     >
-      <form onSubmit={saveSource} onPaste={handlePaste}>
+      <form onSubmit={(event) => saveSource(event, mediaPreview ? {
+        kind: mode === "screenshot" ? "screenshot" : "image", data_url: mediaPreview,
+      } : undefined)} onPaste={handlePaste}>
         <div
           className="capture-mode-tabs"
           role="group"
@@ -229,7 +226,7 @@ export function SourceModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleFileChange}
                 hidden
               />
@@ -237,27 +234,14 @@ export function SourceModal({
                 type="button"
                 className="subtle"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={preparing || busy}
               >
                 <Upload size={14} aria-hidden="true" />
                 {mode === "screenshot"
                   ? "Selecionar print ou colar (Ctrl+V)"
                   : "Selecionar imagem ou colar (Ctrl+V)"}
               </button>
-              <div className="media-url-row">
-                <input
-                  type="url"
-                  value={imageUrlInput}
-                  onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder="Ou cole o endereço (https://...) da imagem da aba"
-                />
-                <button
-                  type="button"
-                  className="subtle"
-                  onClick={applyExternalImageUrl}
-                >
-                  Anexar URL
-                </button>
-              </div>
+
             </div>
             {mediaPreview && (
               <div className="media-preview-frame">
@@ -270,6 +254,7 @@ export function SourceModal({
           </div>
         )}
 
+        {mediaPreview && <p className="small-note">A prévia será armazenada localmente, separada do texto. Os agentes atuais não recebem imagens. Para consultar seu conteúdo, adicione uma descrição em um material de texto.</p>}
         <label>
           Projeto
           <select
@@ -334,7 +319,7 @@ export function SourceModal({
             type="submit"
             className="primary"
             disabled={
-              busy ||
+              busy || preparing || Boolean(mediaError) ||
               !online ||
               !projectId ||
               !title.trim() ||
@@ -351,6 +336,7 @@ export function SourceModal({
           </button>
         </div>
       </form>
+      {mediaError && <p role="alert" className="dialog-error">{mediaError}</p>}
       {error && (
         <p role="alert" className="dialog-error">
           {error}

@@ -5,9 +5,11 @@ import {
   formatOutputLimit,
   formatUnavailableReason,
 } from "../logic.mjs";
-import type { Model } from "../types";
+import type { Model, Connection } from "../types";
 
 interface ConnectionsSectionProps {
+  connections: Connection[];
+  diagnosticError: string;
   inFirefox: boolean;
   inDesktop: boolean;
   demo: boolean;
@@ -24,6 +26,8 @@ interface ConnectionsSectionProps {
 }
 
 export function ConnectionsSection({
+  connections,
+  diagnosticError,
   inFirefox,
   inDesktop,
   demo,
@@ -41,6 +45,13 @@ export function ConnectionsSection({
   return (
     <div className="connections-grid">
       <section className="card connection-details">
+        {connections.map((connection) => (
+          <div className="connection-line" key={connection.provider}>
+            <span>{({ "claude-code": "Claude Code", "chatgpt-codex": "ChatGPT / Codex CLI", "gemini-cli": "Gemini CLI" } as Record<string, string>)[connection.provider]} · {connection.version || "versão não identificada"}</span>
+            <span>{!connection.configured ? "Nenhum modelo configurado" : connection.ready ? connection.provider === "chatgpt-codex" ? "Instalado; execução bloqueada por ferramentas" : connection.provider === "gemini-cli" ? "Login Google declarado; não verificado" : "Pronto" : formatUnavailableReason(connection.reason, connection.provider)}</span>
+          </div>
+        ))}
+        {diagnosticError && <p className="small-note">{diagnosticError}</p>}
         <h2>Conexão com seu computador</h2>
         <p>Seu espaço usa um componente local para acessar os projetos.</p>
 

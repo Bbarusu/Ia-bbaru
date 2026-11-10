@@ -5,6 +5,8 @@ const {
   ipcMain,
   session,
   Menu,
+  dialog,
+  nativeImage,
 } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -35,6 +37,7 @@ let tabs = [],
   expanded = false,
   localData = {},
   capture = null;
+const closedTabs = [];
 const TOP = 106,
   PANEL = 440;
 
@@ -58,6 +61,9 @@ function snapshot() {
     forward: tab?.view.webContents.navigationHistory.canGoForward() || false,
     startupError,
     chromium: process.versions.chrome,
+    canReopen: closedTabs.length > 0,
+    zoom: tab ? Math.round(tab.view.webContents.getZoomFactor() * 100) : 100,
+    find: tab?.find || null,
   };
 }
 function publish() {
@@ -113,7 +119,13 @@ function keyboard(contents) {
         break;
       case "t":
         event.preventDefault();
-        if (tabs.length < 20) newTab();
+        if (input.shift) reopenTab();
+        else if (tabs.length < 20) newTab();
+        break;
+      case "f":
+        event.preventDefault();
+        win.webContents.focus();
+        win.webContents.send("browser:tool", "find");
         break;
       case "w":
         event.preventDefault();
@@ -198,6 +210,13 @@ function newTab(url = null) {
     if (!isWeb(url)) event.preventDefault();
   });
   wc.on("will-attach-webview", (event) => event.preventDefault());
+  wc.on("did-start-navigation", (_event, _url, _inPlace, mainFrame) => {
+    if (mainFrame) { tab.documentVersion = (tab.documentVersion || 0) + 1; tab.find = null; }
+  });
+  wc.on("found-in-page", (_event, result) => {
+    tab.find = { matches: result.matches, activeMatchOrdinal: result.activeMatchOrdinal };
+    publish();
+  });
   wc.on("page-title-updated", (_event, title) => {
     tab.title = title.slice(0, 160) || "Sem título";
     publish();
@@ -231,6 +250,9 @@ function newTab(url = null) {
   wc.on("context-menu", (_event, params) => {
     const selected = params.selectionText?.trim();
     Menu.buildFromTemplate([
+      { label: "Capturar print da página", enabled: isWeb(wc.getURL()), click: () => captureScreenshot(tab).catch(captureFailure) },
+      { label: "Capturar área visível da imagem", enabled: params.mediaType === "image" && isWeb(wc.getURL()),
+        click: () => captureImageAt(tab, params.x, params.y).catch(captureFailure) },
       {
         label: "Adicionar seleção ao Ia-bbaru",
         enabled: !!selected && selected.length <= 38000 && isWeb(wc.getURL()),
@@ -257,12 +279,19 @@ function newTab(url = null) {
 function closeTab(id) {
   const tab = tabs.find((t) => t.id === id);
   if (!tab) return;
+  if (isWeb(tab.url)) { closedTabs.push(tab.url); if (closedTabs.length > 20) closedTabs.shift(); }
   win.contentView.removeChildView(tab.view);
   tab.view.webContents.close();
   tabs = tabs.filter((t) => t !== tab);
   if (!tabs.length) newTab();
   else if (activeId === id) activate(tabs[tabs.length - 1].id);
   layout();
+}
+function reopenTab() {
+  if (closedTabs.length && tabs.length < 20) newTab(closedTabs.pop());
+}
+function captureFailure(error) {
+  workspace.webContents.send("workspace:changed", { captureError: { newValue: error.message } });
 }
 function store() {
   fs.writeFileSync(
@@ -271,11 +300,11 @@ function store() {
     { mode: 0o600 },
   );
 }
-function saveCapture(tab, text) {
+function saveCapture(tab, text, media = undefined, title = undefined, originUrl = undefined) {
   if (
     !text?.trim() ||
     text.length > 38000 ||
-    !isWeb(tab.view.webContents.getURL())
+    (!media && !isWeb(tab.view.webContents.getURL()))
   )
     throw new Error(
       "Selecione um trecho de até 38.000 caracteres em uma página web.",
@@ -286,12 +315,13 @@ function saveCapture(tab, text) {
     );
   capture = {
     id: randomUUID(),
-    title: (tab.view.webContents.getTitle() || "Trecho selecionado").slice(
+    title: (title || tab.view.webContents.getTitle() || "Trecho selecionado").slice(
       0,
       120,
     ),
-    url: tab.view.webContents.getURL(),
+    url: originUrl ?? (isWeb(tab.view.webContents.getURL()) ? tab.view.webContents.getURL() : ""),
     text,
+    ...(media ? { media } : {}),
   };
   localData.pendingCapture = capture;
   store();
@@ -301,6 +331,72 @@ function saveCapture(tab, text) {
     pendingCapture: { newValue: capture },
   });
   return capture;
+}
+function rasterAttachment(image, kind) {
+  if (image.isEmpty()) throw new Error("Imagem inválida.");
+  const size = image.getSize();
+  if (size.width * size.height > 16000000) throw new Error("A imagem excede 16 megapixels.");
+  let width = Math.min(size.width, 1920);
+  for (;;) {
+    const scaled = image.resize({ width });
+    for (const quality of [90, 75, 60]) {
+      const bytes = scaled.toJPEG(quality);
+      if (bytes.length <= 480000) return { kind, data_url: "data:image/jpeg;base64," + bytes.toString("base64") };
+    }
+    if (width <= 160) throw new Error("Imagem grande demais. Capture uma área menor.");
+    width = Math.max(160, Math.floor(width * .75));
+  }
+}
+async function captureScreenshot(tab = active()) {
+  if (capture) throw new Error("Salve ou descarte a captura pendente antes de capturar outra.");
+  if (!tab || !isWeb(tab.view.webContents.getURL()) || expanded)
+    throw new Error("Abra uma página visível antes de capturar o print.");
+  const version = tab.documentVersion;
+  const pixels = await tab.view.webContents.capturePage();
+  if (tab !== active() || tab.documentVersion !== version || tab.view.webContents.isDestroyed())
+    throw new Error("A página mudou. Capture novamente.");
+  return saveCapture(tab, "Print da área visível. Descrição: ", rasterAttachment(pixels, "screenshot"), "Print: " + tab.title);
+}
+async function importImage() {
+  if (capture) throw new Error("Salve ou descarte a captura pendente antes de importar outra.");
+  const result = await dialog.showOpenDialog(win, { title: "Adicionar imagem ao projeto", properties: ["openFile"],
+    filters: [{ name: "Imagens", extensions: ["png", "jpg", "jpeg", "webp"] }] });
+  if (result.canceled) return null;
+  const file = result.filePaths[0];
+  if (fs.statSync(file).size > 10000000) throw new Error("Use uma imagem de até 10 MB.");
+  const media = rasterAttachment(nativeImage.createFromBuffer(fs.readFileSync(file)), "image");
+  return saveCapture(active(), "Imagem importada. Descrição: ", media, path.basename(file).slice(0, 120), "");
+}
+async function captureImageAt(tab, x, y) {
+  if (capture) throw new Error("Salve ou descarte a captura pendente antes de capturar outra.");
+  if (tab !== active() || expanded || !isWeb(tab.view.webContents.getURL()) || !Number.isFinite(x) || !Number.isFinite(y))
+    throw new Error("Abra a imagem em uma página visível.");
+  const version = tab.documentVersion;
+  // Coordinates are finite numbers from Chromium's native context-menu event.
+  // Read only geometry; do not fetch arbitrary image URLs or bypass CORS.
+  const rect = await tab.view.webContents.executeJavaScript(`(() => {
+    const image = document.elementFromPoint(${x}, ${y});
+    if (!image || image.tagName !== 'IMG') return null;
+    const r = image.getBoundingClientRect();
+    const left = Math.max(0, Math.ceil(r.left)), top = Math.max(0, Math.ceil(r.top));
+    return { x: left, y: top, width: Math.floor(Math.min(innerWidth, r.right) - left), height: Math.floor(Math.min(innerHeight, r.bottom) - top) };
+  })()`);
+  if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("Imagem não acessível neste quadro. Use o print da página.");
+  const zoom = tab.view.webContents.getZoomFactor();
+  const clip = Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, Math.round(value * zoom)]));
+  if (tab.documentVersion !== version) throw new Error("A página mudou. Capture novamente.");
+  const pixels = await tab.view.webContents.capturePage(clip);
+  if (tab !== active() || tab.documentVersion !== version) throw new Error("A página mudou. Capture novamente.");
+  return saveCapture(tab, "Recorte visível de uma imagem da página. Descrição: ", rasterAttachment(pixels, "image"), "Imagem: " + tab.title);
+}
+async function capturePageText() {
+  const tab = active();
+  if (!tab || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página web.");
+  const version = tab.documentVersion;
+  const result = await tab.view.webContents.executeJavaScript("({text: (document.body?.innerText || '').slice(0, 38001)})");
+  if (tab.documentVersion !== version || tab !== active()) throw new Error("A página mudou. Capture novamente.");
+  if (result.text.length > 38000) throw new Error("A página excede 38.000 caracteres. Selecione o trecho desejado.");
+  return saveCapture(tab, result.text);
 }
 async function selectCapture() {
   const tab = active();
@@ -427,6 +523,31 @@ app
           case "capture":
             await selectCapture();
             break;
+          case "capture.screenshot":
+            await captureScreenshot();
+            break;
+          case "capture.image":
+            await importImage();
+            break;
+          case "capture.page":
+            await capturePageText();
+            break;
+          case "minimize":
+            win.minimize();
+            break;
+          case "reopen":
+            reopenTab();
+            break;
+          case "zoom":
+            if (!Number.isFinite(value) || value < 50 || value > 200) throw new Error("Zoom inválido.");
+            active().view.webContents.setZoomFactor(value / 100);
+            publish();
+            break;
+          case "find":
+            if (!value || typeof value.text !== "string" || value.text.length > 500 || typeof value.forward !== "boolean") throw new Error("Busca inválida.");
+            if (value.text.trim()) active().view.webContents.findInPage(value.text, { forward: value.forward, findNext: true });
+            else { active().view.webContents.stopFindInPage("clearSelection"); active().find = null; publish(); }
+            break;
           default:
             throw new Error("Ação não disponível.");
         }
@@ -459,6 +580,11 @@ app
           } catch (error) {
             return { ok: false, error: { message: error.message } };
           }
+        case "capture.screenshot":
+        case "capture.image":
+          try {
+            return { ok: true, capture: msg.type === "capture.screenshot" ? await captureScreenshot() : await importImage() };
+          } catch (error) { return { ok: false, error: { message: error.message } }; }
         case "workspace.open":
           panel = true;
           expanded = !expanded;

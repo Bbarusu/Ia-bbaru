@@ -1,7 +1,7 @@
 # Ia-bbaru: navegador Chromium e backend local
 
 Em 9/11/2026, o usuário escolheu **Chromium** para iniciar o navegador independente.
-A implementação está em `codex/chromium-browser`, baseada na entrega `cbcf3d7`.
+A base está na `main`. A revisão de captura/CLIs está em `codex/browser-capture-clis`.
 Usamos Electron, com Chromium incorporado e interface própria. Não é um fork do
 código do Chrome. A extensão Firefox permanece como alternativa de desenvolvimento;
 Gecko deixou de ser a direção do navegador.
@@ -46,8 +46,10 @@ navegação de documentos internos e anexação de webviews são bloqueados. Jan
 novas são direcionadas para abas sem privilégios do processo principal. Downloads e
 permissões de dispositivos estão desativados nesta primeira versão.
 
-A captura lê somente a seleção após uma ação do usuário, inclui URL/título e exige
-revisão antes de salvar. Há uma captura pendente por vez no desktop. Receber uma
+A captura lê seleção, texto da página ou pixels visíveis após ação explícita,
+inclui origem quando disponível e exige revisão antes de salvar. Imagens locais
+também podem ser importadas/coladas; a origem não é inventada para esses arquivos.
+Há uma captura pendente por vez no desktop. Receber uma
 seleção durante edição manual não substitui o rascunho. Páginas e respostas de IA
 continuam como dados não confiáveis, renderizados como texto.
 
@@ -67,6 +69,17 @@ desenvolvimento não deve ser exposto diretamente no renderer. Codex fará a fil
 worker e acompanhamento de tarefas no próximo marco.
 
 ## Responsabilidades
+
+Os adaptadores `chatgpt-codex` e `gemini-cli` novos operam somente em 1.1 e devolvem
+término `unknown`. Codex não é elegível enquanto exigir ferramentas restritas;
+o login Google do Gemini é declarado e tem pendências de garantia de cobrança.
+Veja [revisão](REVISAO_CLIS_2026_11_10.md). O worker não fabrica `stop` nem inicia
+revisão de uma saída não confirmada.
+
+Capturas raster são registros `source_media` vinculados à fonte/projeto, separados
+do texto. O backend valida tipo, tamanho e dimensões e não envia esses pixels em
+`ContextItem.content`. Multimodalidade exige contrato versionado e suporte
+declarado por modelo. Ver [contrato local de capturas](CONTRATO_CAPTURAS.md).
 
 | Frente | Responsável | Área |
 | --- | --- | --- |

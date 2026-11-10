@@ -19,6 +19,12 @@ Windows; a nova execução durável ainda requer validação local.*
 
 ## Direção aprovada
 
+Revisão atual de capturas e dos três CLIs: [status](docs/STATUS.md),
+[achados no gateway](docs/REVISAO_CLIS_2026_11_10.md) e
+[contrato de capturas](docs/CONTRATO_CAPTURAS.md). Essa integração está na branch
+`codex/browser-capture-clis`, ainda fora da main. Instale o requirements atualizado
+para testar a captura; imagens são armazenadas localmente, sem envio visual pelo 1.1.
+
 Construir o navegador Chromium com backend local. A extensão Firefox foi a etapa
 anterior e continua disponível. Navegação, projetos, captura e planejamento já
 podem ser testados pela interface. O Chromium também executa planos por uma fila

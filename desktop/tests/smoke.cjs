@@ -17,6 +17,20 @@ async function main() {
   fs.mkdirSync(artifacts, { recursive: true });
   const generations = [];
   const server = http.createServer((req, res) => {
+    if (req.url === "/v1/connections") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ connections: [
+        { provider: "claude-code", version: "2.1.307", installed: true, ready: true, configured_models: ["claude-code:fixture"] },
+        { provider: "chatgpt-codex", version: "0.167.0", installed: true, ready: true, configured_models: ["chatgpt-codex:fixture"] },
+        { provider: "gemini-cli", version: "0.67.0", installed: true, ready: true, configured_models: ["gemini-cli:fixture"] },
+      ] }));
+      return;
+    }
+    if (req.url === "/fixture-image.svg") {
+      res.setHeader("Content-Type", "image/svg+xml");
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="blue"/></svg>');
+      return;
+    }
     if (req.url === "/v1.1/generate" && req.method === "POST") {
       let body = "";
       req.on("data", (chunk) => { body += chunk; });
@@ -62,7 +76,7 @@ async function main() {
     }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(
-      '<!doctype html><html lang="pt-BR"><head><title>Aula de teste</title></head><body style="background:#f4f4f7;color:#222;padding:45px;font:20px sans-serif"><h1>Material da faculdade</h1><p id="source">A fotossíntese transforma energia luminosa em energia química.</p><a href="/segunda">Segunda página</a><button onclick="window.open(\'/popup\')">Abrir outra aba</button></body></html>',
+      '<!doctype html><html lang="pt-BR"><head><title>Aula de teste</title></head><body style="background:#f4f4f7;color:#222;padding:45px;font:20px sans-serif"><h1>Material da faculdade</h1><p id="source">A fotossíntese transforma energia luminosa em energia química.</p><a href="/segunda">Segunda página</a><button onclick="window.open(\'/popup\')">Abrir outra aba</button><p><img id="diagram" src="/fixture-image.svg" alt="Diagrama de teste" /></p></body></html>',
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -509,6 +523,68 @@ async function main() {
           "Native screenshot unavailable; individual view screenshots saved.",
         );
     }
+    // Exercise the new browser tools against the actual remote WebContents.
+    await shell.locator("#address").fill(url);
+    await shell.locator("#address").press("Enter");
+    await expect(web.locator("h1")).toHaveText("Material da faculdade");
+    await shell.locator("#zoom-toggle").click();
+    await shell.getByRole("button", { name: "125%", exact: true }).click();
+    await expect.poll(() => app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find((w) => w.getURL().startsWith(url)).getZoomFactor(), url)).toBe(1.25);
+    await shell.getByRole("button", { name: "100%", exact: true }).click();
+    await shell.locator("#find-toggle").click();
+    await shell.locator(".tool-input").fill("fotossíntese");
+    await shell.locator(".tool-input").press("Enter");
+    await expect(shell.locator("#subbar-tool [role=status]")).toContainText("1 / 1");
+    await shell.locator(".tool-close-btn").click();
+    await shell.locator("#capture-print").click();
+    await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    const imageSource = await workspace.evaluate(async (project) => {
+      const call = (operation, params) => window.iaDesktop.runtime.sendMessage({ type: "bridge.request", request: {
+        protocol_version: "0", request_id: crypto.randomUUID(), operation, params }});
+      const list = await call("sources.list", { project_id: project });
+      const media = list.data.items.find((s) => s.media);
+      return (await call("sources.get", { project_id: project, source_id: media.id })).data;
+    }, saved.projects[0].id);
+    assert.equal(imageSource.media.kind, "screenshot");
+    assert.ok(imageSource.media.data_url.startsWith("data:image/jpeg;base64,"));
+    assert.ok(!imageSource.content.includes("base64"));
+    // Intercept only the native menu presentation; invoke the actual callback
+    // registered by the runtime for the user's right-click on the fixture image.
+    await app.evaluate(({ Menu }) => {
+      globalThis.originalBuildMenu = Menu.buildFromTemplate;
+      Menu.buildFromTemplate = (template) => { globalThis.imageMenu = template; return { popup() {} }; };
+    });
+    await web.locator("#diagram").click({ button: "right" });
+    await expect.poll(() => app.evaluate(() => Boolean(globalThis.imageMenu))).toBe(true);
+    await app.evaluate(async ({ Menu }) => {
+      const entry = globalThis.imageMenu.find((item) => item.label === "Capturar área visível da imagem");
+      if (!entry?.enabled) throw new Error("Image capture menu unavailable");
+      await entry.click();
+      Menu.buildFromTemplate = globalThis.originalBuildMenu;
+    });
+    await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    await workspace.screenshot({ path: path.join(artifacts, "media-library.png") });
+    await workspace.getByRole("button", { name: "Capturar imagem", exact: true }).click();
+    const tinyImage = await workspace.evaluate(() => {
+      const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 24;
+      const context = canvas.getContext("2d"); context.fillStyle = "blue"; context.fillRect(0, 0, 32, 24);
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    await workspace.locator('dialog input[type=file]').setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") });
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue("Imagem: tiny.png");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await expect(workspace.locator("dialog textarea")).not.toHaveValue(/base64/);
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    await workspace.getByRole("button", { name: "Conexões", exact: true }).first().click();
+    await expect(workspace.getByText("ChatGPT / Codex CLI · 0.167.0", { exact: true })).toBeVisible();
+    await expect(workspace.getByText("Login Google declarado; não verificado", { exact: true })).toBeVisible();
     const versions = await app.evaluate(() => process.versions);
     await app.close();
     app = null;
@@ -545,7 +621,9 @@ async function main() {
             "selection capture and SQLite source",
             "1.1 acceptance required and persisted",
             "1.1 capability badges in plan modal (Término informado pelo provedor)",
-            "execution denied",
+            "synchronous execution denied; durable enqueue confirmed",
+            "native zoom and findInPage",
+            "native screenshot and separate local image storage",
             "file navigation denied",
             "tabs",
             "manual draft preserved (save then review queued)",

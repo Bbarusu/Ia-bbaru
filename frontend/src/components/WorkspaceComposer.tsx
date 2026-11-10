@@ -49,7 +49,7 @@ export function WorkspaceComposer({
 }: WorkspaceComposerProps) {
   const promptSuggestions = [
     "Resumir pontos essenciais da página",
-    "Analisar print ou diagrama capturado",
+    "Explicar a descrição de um diagrama",
     "Comparar argumentos dos materiais",
   ];
 
@@ -73,9 +73,9 @@ export function WorkspaceComposer({
         </span>
         <div>
           <h2>Perguntar ao Yuki</h2>
-          <p>Acione seus agentes com textos, prints e imagens da página.</p>
+          <p>Capture materiais da página. Os agentes atuais recebem texto.</p>
         </div>
-        <span className="micro-badge">MODO ATLAS</span>
+        <span className="micro-badge">CONTEXTO DA ABA</span>
       </div>
 
       <div
@@ -126,7 +126,7 @@ export function WorkspaceComposer({
         </label>
         <textarea
           id="instruction"
-          placeholder="Pergunte sobre a página aberta, peça para analisar um print/imagem ou sintetizar seus materiais…"
+          placeholder="Pergunte sobre os textos selecionados ou peça para sintetizar seus materiais…"
           value={text}
           onChange={(e) => changeText(e.target.value)}
           disabled={!draftReady}

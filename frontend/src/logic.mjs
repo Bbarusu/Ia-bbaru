@@ -74,8 +74,12 @@ export function formatFinishReason(finishReason) {
   );
 }
 
-export function formatUnavailableReason(reason) {
+export function formatUnavailableReason(reason, provider) {
   if (!reason) return "Indisponível neste computador";
+  if (provider === "gemini-cli" && reason === "auth_status_unknown")
+    return "Faça Login with Google na Gemini CLI e inicie com -GeminiLoginGoogle. O login é declarado, não verificado pelo catálogo.";
+  if (provider === "chatgpt-codex" && reason === "not_logged_in")
+    return "Rode codex e escolha Sign in with ChatGPT.";
   return (
     {
       cli_not_installed: "Indisponível: CLI oficial não instalado",
@@ -115,6 +119,8 @@ export function describeTaskError(error) {
         "Este plano exige aceite explícito para limite indicativo de saída.",
       model_tools_not_supported:
         "O agente exige uso de ferramentas não autorizado nesta versão.",
+      visual_context_not_supported:
+        "A captura está salva localmente. O gateway atual recebe apenas texto e não analisa imagens.",
       review_context_too_large:
         "O material somado à resposta principal ultrapassa o limite de contexto do revisor.",
       provider_quota_exceeded:

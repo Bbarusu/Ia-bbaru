@@ -13,7 +13,7 @@ const STEPS = [
     ],
     title: "Oi, esse é o Yuki",
     description:
-      "Um navegador Chromium completo pensado para estudar, pesquisar e acionar agentes de IA direto na barra lateral — inspirado no Atlas da OpenAI, mas guardando seus projetos, prints, imagens e textos localmente em SQLite.",
+      "Um navegador Chromium em desenvolvimento pensado para estudar, pesquisar e acionar agentes de IA direto na barra lateral — com interface própria, guardando seus projetos, prints, imagens e textos localmente em SQLite.",
     rowTitle: "Seu contexto fica no seu PC",
     rowSub:
       "Projetos, biblioteca multimodal e planos ficam salvos localmente e continuam lá quando você reabre o Yuki.",

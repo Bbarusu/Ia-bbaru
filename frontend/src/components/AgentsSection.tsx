@@ -80,7 +80,7 @@ export function AgentsSection({
                         ? caps
                           ? `${formatBilling(caps.billing)} · ${formatOutputLimit(caps.output_limit, m.max_output_tokens)}`
                           : "Disponível neste computador"
-                        : formatUnavailableReason(m.unavailable_reason)}
+                        : formatUnavailableReason(m.unavailable_reason, m.provider)}
                     </small>
                     {caps && (
                       <span className="agent-caps-row">
@@ -94,6 +94,7 @@ export function AgentsSection({
                         )}
                       </span>
                     )}
+                    {m.provider === "gemini-cli" && <small>Use Login with Google, sem chave de API. O catálogo depende do login declarado; o término da resposta não é confirmado.</small>}
                   </span>
                   <span className="agent-check" aria-hidden="true">
                     {isSelected ? <Check size={14} /> : <Circle size={15} />}

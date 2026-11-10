@@ -147,6 +147,27 @@
         }
       }
     },
+    "/v1/connections": {
+      "get": {
+        "summary": "Connections",
+        "operationId": "connections_v1_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/projects/{project_id}/sources": {
       "post": {
         "summary": "Add Source",
@@ -652,6 +673,30 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MediaInput": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "screenshot"
+            ],
+            "title": "Kind"
+          },
+          "data_url": {
+            "type": "string",
+            "maxLength": 640100,
+            "title": "Data Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "data_url"
+        ],
+        "title": "MediaInput"
+      },
       "ModelCapabilities": {
         "properties": {
           "output_limit": {
@@ -953,6 +998,16 @@
             "maxLength": 40000,
             "minLength": 1,
             "title": "Content"
+          },
+          "media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,

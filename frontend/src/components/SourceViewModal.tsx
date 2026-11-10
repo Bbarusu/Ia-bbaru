@@ -6,16 +6,8 @@ interface SourceViewModalProps {
   close: () => void;
 }
 
-function extractVisualAttachment(content?: string): string | null {
-  if (!content) return null;
-  const match = content.match(
-    /AnexoVisual:\s*(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+|https?:\/\/\S+)/,
-  );
-  return match ? match[1] : null;
-}
-
 export function SourceViewModal({ source, close }: SourceViewModalProps) {
-  const visualSrc = extractVisualAttachment(source.content);
+  const visualSrc = source.media?.data_url;
 
   return (
     <Dialog title={source.title} close={close}>

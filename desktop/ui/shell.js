@@ -13,7 +13,7 @@ const DEFAULT_BOOKMARKS = [
   { title: "Gemini", url: "https://gemini.google.com/" },
 ];
 
-const closedTabs = [];
+
 
 function loadBookmarks() {
   try {
@@ -111,7 +111,7 @@ function updateSiteSecurityBadge(activeTab) {
     badge.title = "Página interna isolada do Yuki (Nova aba)";
   } else if (url.startsWith("https://")) {
     badge.textContent = "🔒";
-    badge.title = `Conexão HTTPS segura (${url}) · Sandbox Chromium ativo`;
+    badge.title = `Endereço HTTPS (${url})`;
   } else {
     badge.textContent = "ⓘ";
     badge.title = `Conexão HTTP (${url}) · Sandbox Chromium ativo`;
@@ -119,6 +119,7 @@ function updateSiteSecurityBadge(activeTab) {
 }
 
 function closeSubbarTool() {
+  if (activeSubbarMode === "find") command("find", { text: "", forward: true });
   activeSubbarMode = null;
   renderSubbar(state?.tabs.find((t) => t.id === state?.activeId));
 }
@@ -168,8 +169,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     input.onkeydown = (e) => {
       if (e.key === "Escape") closeSubbarTool();
       if (e.key === "Enter" && findQuery.trim()) {
-        ownMessage = `Buscando "${findQuery}" na aba ativa…`;
-        renderMessage();
+        command("find", { text: findQuery, forward: true });
       }
     };
 
@@ -179,8 +179,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     prevBtn.textContent = "↑ Anterior";
     prevBtn.onclick = () => {
       if (findQuery.trim()) {
-        ownMessage = `Ocorrência anterior de "${findQuery}".`;
-        renderMessage();
+        command("find", { text: findQuery, forward: false });
       }
     };
 
@@ -190,12 +189,14 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     nextBtn.textContent = "↓ Próxima";
     nextBtn.onclick = () => {
       if (findQuery.trim()) {
-        ownMessage = `Próxima ocorrência de "${findQuery}".`;
-        renderMessage();
+        command("find", { text: findQuery, forward: true });
       }
     };
 
-    toolEl.append(label, input, prevBtn, nextBtn, closeBtn);
+    const count = document.createElement("span");
+    count.setAttribute("role", "status");
+    count.textContent = state?.find ? `${state.find.activeMatchOrdinal} / ${state.find.matches}` : "";
+    toolEl.append(label, input, prevBtn, nextBtn, count, closeBtn);
     setTimeout(() => input.focus(), 10);
     return;
   }
@@ -211,11 +212,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
       btn.className = "atlas-chip" + (currentZoom === step ? " active" : "");
       btn.textContent = `${step}%`;
       btn.onclick = () => {
-        currentZoom = step;
-        $("zoom-toggle").textContent = `${step}%`;
-        ownMessage = `Zoom ajustado para ${step}%.`;
-        renderMessage();
-        renderSubbarToolContent(activeTab);
+        command("zoom", step);
       };
       toolEl.appendChild(btn);
     }
@@ -269,7 +266,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     label.className = "tool-label";
     const url = activeTab?.url || "yuki://nova-aba";
     label.textContent = url.startsWith("https://")
-      ? "🔒 HTTPS verificado"
+      ? "🔒 Endereço HTTPS"
       : url.startsWith("http://")
         ? "ⓘ HTTP local/padrão"
         : "❄ Página interna Yuki";
@@ -368,9 +365,6 @@ function render(next) {
     close.setAttribute("aria-label", `Fechar ${tab.title}`);
     close.title = `Encerrar aba ${tab.title}`;
     close.onclick = () => {
-      if (tab.url) {
-        closedTabs.push({ title: tab.title, url: tab.url });
-      }
       command("close", tab.id);
     };
 
@@ -387,7 +381,9 @@ function render(next) {
   }
   $("back").disabled = !next.back;
   $("forward").disabled = !next.forward;
-  $("reopen-tab").disabled = closedTabs.length === 0;
+  $("reopen-tab").disabled = !next.canReopen;
+  currentZoom = next.zoom || 100;
+  $("zoom-toggle").textContent = `${currentZoom}%`;
   $("panel").setAttribute("aria-pressed", String(Boolean(next.panel)));
   $("panel").classList.toggle("active", Boolean(next.panel));
   $("expand").setAttribute("aria-pressed", String(Boolean(next.expanded)));
@@ -410,18 +406,8 @@ for (const id of [
 
 $("home").onclick = () => command("navigate", "");
 
-$("reopen-tab").onclick = () => {
-  const last = closedTabs.pop();
-  if (last?.url) {
-    command("new", last.url);
-  } else {
-    command("new");
-  }
-};
-
-$("minimize").onclick = () => {
-  if (state?.panel) command("panel");
-};
+$("reopen-tab").onclick = () => command("reopen");
+$("minimize").onclick = () => command("minimize");
 
 $("power").onclick = () => {
   window.close();
@@ -432,39 +418,13 @@ $("find-toggle").onclick = () => setSubbarTool("find");
 $("zoom-toggle").onclick = () => setSubbarTool("zoom");
 $("history-toggle").onclick = () => setSubbarTool("history");
 
-$("capture-print").onclick = () => {
-  if (!state?.panel) command("panel");
-  setSubbarTool("capture-media", "print");
-  ownMessage =
-    "📸 Modo Print: cole (Ctrl+V) ou anexe o print em + Material no painel do Yuki.";
-  renderMessage();
-};
-
-$("capture-image").onclick = () => {
-  if (!state?.panel) command("panel");
-  setSubbarTool("capture-media", "image");
-  ownMessage =
-    "🖼 Modo Imagem: extraia ou cole a imagem da página em + Material no painel do Yuki.";
-  renderMessage();
-};
+$("capture-print").onclick = () => command("capture.screenshot");
+$("capture-image").onclick = () => command("capture.image");
 
 document.querySelectorAll("[data-atlas]").forEach((btn) => {
   btn.addEventListener("click", () => {
     const kind = btn.getAttribute("data-atlas");
-    if (!state?.panel) command("panel");
-    if (kind === "summarize") {
-      ownMessage =
-        "✨ Atlas: painel de agentes aberto para resumir o contexto da aba ativa.";
-    } else if (kind === "print") {
-      setSubbarTool("capture-media", "print");
-      ownMessage =
-        "📸 Atlas: anexe o print da página no painel para análise do agente.";
-    } else if (kind === "image") {
-      setSubbarTool("capture-media", "image");
-      ownMessage =
-        "🖼 Atlas: anexe a imagem da página no painel para enviar ao agente.";
-    }
-    renderMessage();
+    command(kind === "summarize" ? "capture.page" : kind === "print" ? "capture.screenshot" : "capture.image");
   });
 });
 
@@ -548,3 +508,5 @@ api.focusAddress(() => {
   $("address").focus();
   $("address").select();
 });
+
+api.openTool((name) => { if (name === "find") setSubbarTool("find"); });

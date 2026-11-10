@@ -33,6 +33,7 @@ interface LibrarySectionProps {
 }
 
 function detectSourceKind(source: Source): "screenshot" | "image" | "text" {
+  if (source.media) return source.media.kind;
   const sample = `${source.title} ${source.preview || ""} ${source.content || ""}`;
   if (sample.includes("[PRINT CAPTURADO]") || /^Print:/i.test(source.title)) {
     return "screenshot";
@@ -143,6 +144,8 @@ export function LibrarySection({
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={Boolean(s.media)}
+                    title={s.media ? "Captura armazenada localmente; o gateway atual recebe apenas texto." : undefined}
                     onChange={() => toggleSource(s.id)}
                     aria-label={`Usar ${s.title} no pedido`}
                   />

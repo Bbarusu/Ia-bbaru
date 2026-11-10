@@ -1,5 +1,28 @@
 # Estado do Ia-bbaru / Yuki
 
+## Revisão de 10/11/2026 (ainda fora da main)
+
+Branch `codex/browser-capture-clis`: combina Claude `db8cee4` (código `732b0ac`) e Gemini `fd2a574`,
+com busca/zoom/minimizar/reabrir reais, captura nativa de tela/imagem, armazenamento
+raster separado do texto e diagnóstico sanitizado das CLIs. Atualizar as dependências
+Python com `python -m pip install -r requirements.txt` (Pillow foi acrescentado).
+
+Claude Code permanece integrado. ChatGPT/Codex e Gemini entram somente no protocolo
+1.1; Codex continua bloqueado por `tools=restricted`. Gemini funciona com dublê,
+mas a revisão apontou duas pendências para uso real: garantir Login with Google e
+rejeitar contribuição de modelo diferente. Ambas retornam `unknown`, sem revisão
+automática. O código das integrações não foi alterado pelo Codex.
+
+A captura guarda imagens localmente; o gateway 1.1 continua recebendo apenas texto.
+Não há análise visual pronta. A integração permanece em revisão para o Claude
+corrigir os pontos do gateway antes da incorporação na main.
+
+Referências atuais: [revisão](REVISAO_CLIS_2026_11_10.md),
+[contrato de capturas](CONTRATO_CAPTURAS.md),
+[prompt Claude](PROMPT_CLAUDE_CLIS.md), [prompt Gemini](PROMPT_GEMINI_CAPTURAS.md).
+
+## Base já integrada
+
 Atualizado em 9/11/2026. Base integrada: `main`.
 
 As PRs #4 → #5 → #1 foram integradas nessa ordem, sem conflitos. O gateway vem de

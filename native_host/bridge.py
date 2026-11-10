@@ -14,7 +14,7 @@ HOST_NAME = "ia_bbaru.bridge"
 EXTENSION_ID = "ia-bbaru@bbarusu.local"
 MAX_BYTES = 900_000
 OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
-              "sources.list", "sources.create", "sources.get", "models.list",
+              "sources.list", "sources.create", "sources.get", "models.list", "connections.list",
               "tasks.list", "tasks.plan", "tasks.get", "tasks.enqueue", "tasks.resume")
 
 
@@ -93,6 +93,8 @@ class Bridge:
                     code = None
                 if isinstance(code, str) and code in ERROR_STATUS:
                     return reply(False, {"code": code, "message": error_message(code)})
+                if code == "visual_context_not_supported":
+                    return reply(False, {"code": code, "message": "A imagem está salva, mas estes agentes recebem somente texto. Selecione materiais de texto; análise visual depende de um transporte multimodal."})
                 messages = {401: "Autorização local inválida. Confira a instalação do componente local.",
                             404: "Item não encontrado.", 409: "A tarefa já foi iniciada.",
                             422: "Confira os campos e os limites de contexto.",
@@ -108,6 +110,9 @@ class Bridge:
 
     @staticmethod
     def route(op, params):
+        if op == "connections.list":
+            Empty.model_validate(params)
+            return "GET", "/v1/connections", None, None
         if op in ("tasks.enqueue", "tasks.resume"):
             data = QueueTask.model_validate(params)
             return "POST", f"/v1/tasks/{data.task_id}/{op.split('.')[1]}", {"confirmed": data.confirmed}, None
