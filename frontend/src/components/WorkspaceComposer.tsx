@@ -79,16 +79,16 @@ export function WorkspaceComposer({
       </div>
 
       <div
-        className="atlas-composer-bar"
+        className="quick-composer-bar"
         role="group"
         aria-label="Captura rápida multimodal para o agente"
       >
-        <span className="atlas-bar-title">❄ Anexar da aba:</span>
-        <div className="atlas-bar-btns">
+        <span className="quick-bar-title">❄ Anexar da aba:</span>
+        <div className="quick-bar-btns">
           {captureSelection && (
             <button
               type="button"
-              className="atlas-mini-btn"
+              className="quick-mini-btn"
               onClick={captureSelection}
               disabled={busy}
               title="Capturar trecho de texto selecionado na aba ativa"
@@ -99,20 +99,20 @@ export function WorkspaceComposer({
           )}
           <button
             type="button"
-            className="atlas-mini-btn"
+            className="quick-mini-btn"
             onClick={() => openSource("screenshot")}
             disabled={!online || !projectId || busy}
-            title="Capturar ou colar print da tela (Ctrl+V)"
+            title="Capturar print visível da aba web"
           >
             <Camera size={12} aria-hidden="true" />
             Print
           </button>
           <button
             type="button"
-            className="atlas-mini-btn"
+            className="quick-mini-btn"
             onClick={() => openSource("image")}
             disabled={!online || !projectId || busy}
-            title="Capturar ou importar imagem da página"
+            title="Importar imagem local para o projeto"
           >
             <ImageIcon size={12} aria-hidden="true" />
             Imagem
@@ -163,7 +163,7 @@ export function WorkspaceComposer({
                 }`
               : "Adicione textos, prints ou imagens ao pedido"}
           </span>
-          <span className="atlas-agent-pill">
+          <span className="agent-status-pill">
             {activeAgentLabels.length > 0
               ? `❄ ${activeAgentLabels.join(" + ")}`
               : availableModels.length > 0

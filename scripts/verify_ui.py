@@ -126,7 +126,7 @@ def main():
         demo.screenshot(path=str(artifacts/'demo-firefox.png'),full_page=True)
         demo.get_by_role('button',name='Criar plano',exact=True).click()
         expect(demo.get_by_role('dialog')).to_be_visible()
-        expect(demo.get_by_text('Plano salvo. Esta versão ainda não inicia execuções pelo painel.')).to_be_visible()
+        expect(demo.get_by_text('Plano salvo. A execução durável não está disponível nesta conexão.')).to_be_visible()
         browser.close()
     server.shutdown()
     print('Firefox UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout, labelled demo plan.')

@@ -175,7 +175,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
 
     const prevBtn = document.createElement("button");
     prevBtn.type = "button";
-    prevBtn.className = "atlas-chip";
+    prevBtn.className = "quick-chip";
     prevBtn.textContent = "↑ Anterior";
     prevBtn.onclick = () => {
       if (findQuery.trim()) {
@@ -185,7 +185,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
 
     const nextBtn = document.createElement("button");
     nextBtn.type = "button";
-    nextBtn.className = "atlas-chip";
+    nextBtn.className = "quick-chip";
     nextBtn.textContent = "↓ Próxima";
     nextBtn.onclick = () => {
       if (findQuery.trim()) {
@@ -209,7 +209,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     for (const step of [80, 90, 100, 110, 125, 150]) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "atlas-chip" + (currentZoom === step ? " active" : "");
+      btn.className = "quick-chip" + (currentZoom === step ? " active" : "");
       btn.textContent = `${step}%`;
       btn.onclick = () => {
         command("zoom", step);
@@ -247,7 +247,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
       }
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
-      clearBtn.className = "atlas-chip";
+      clearBtn.className = "quick-chip";
       clearBtn.textContent = "Limpar";
       clearBtn.onclick = () => {
         visitHistory = [];
@@ -296,7 +296,7 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
 
     const openPanelBtn = document.createElement("button");
     openPanelBtn.type = "button";
-    openPanelBtn.className = "atlas-chip active";
+    openPanelBtn.className = "quick-chip active";
     openPanelBtn.textContent = "❄ Abrir no Painel Yuki →";
     openPanelBtn.onclick = () => {
       if (!state?.panel) command("panel");
@@ -421,9 +421,9 @@ $("history-toggle").onclick = () => setSubbarTool("history");
 $("capture-print").onclick = () => command("capture.screenshot");
 $("capture-image").onclick = () => command("capture.image");
 
-document.querySelectorAll("[data-atlas]").forEach((btn) => {
+document.querySelectorAll("[data-action]").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const kind = btn.getAttribute("data-atlas");
+    const kind = btn.getAttribute("data-action");
     command(kind === "summarize" ? "capture.page" : kind === "print" ? "capture.screenshot" : "capture.image");
   });
 });
