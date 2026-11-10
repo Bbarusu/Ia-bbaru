@@ -1,5 +1,6 @@
 """Pieces shared by the CLI adapters (Claude Code, ChatGPT/Codex CLI, Gemini CLI)."""
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -31,6 +32,8 @@ class ConnectionStatus:
     ready: bool
     reason: str | None
     next_action: str | None
+    # Why a probe failed (exit code, OS error, timeout). Local diagnostics only.
+    detail: str | None = None
 
     def as_dict(self):
         return asdict(self)
@@ -58,7 +61,7 @@ def first_line(text: str) -> str:
 def make_status(provider, **kw) -> ConnectionStatus:
     base = dict(provider=provider, installed=False, version=None, missing_flags=[],
                 logged_in=None, auth_method=None, uses_subscription=None,
-                ready=False, reason=None, next_action=None)
+                ready=False, reason=None, next_action=None, detail=None)
     base.update(kw)
     return ConnectionStatus(**base)
 
@@ -84,6 +87,13 @@ class CliAdapterBase:
             # given by the operator are resolved against the gateway's cwd.
             return [str(Path(part).resolve()) if Path(part).exists() else part
                     for part in self.settings.command]
+        if sys.platform == "win32":
+            # npm also installs an extensionless bash script next to the .cmd
+            # shim; Windows cannot run it. Prefer real Windows executables.
+            for name in (f"{self.binary}.exe", f"{self.binary}.cmd", f"{self.binary}.bat"):
+                found = shutil.which(name)
+                if found:
+                    return [found]
         found = shutil.which(self.binary)
         return [found] if found else None
 
@@ -108,13 +118,19 @@ class CliAdapterBase:
         command = self.command()
         if not command:
             return None, make_status(self.provider, reason="cli_not_installed", next_action=not_installed_action)
+        program = Path(command[-1]).name if len(command) == 1 else " ".join(Path(c).name for c in command)
         try:
             version = self.run_quick(command + ["--version"])
             helptext = self.run_quick(command + help_args)
-        except (ProcessStartError, ProcessTimeout):
-            return None, make_status(self.provider, reason="cli_not_runnable", next_action=not_installed_action)
+        except ProcessStartError as exc:
+            return None, make_status(self.provider, reason="cli_not_runnable", next_action=not_installed_action,
+                                     detail=f"{program}: não pôde ser executado ({exc})")
+        except ProcessTimeout:
+            return None, make_status(self.provider, reason="cli_not_runnable", next_action=not_installed_action,
+                                     detail=f"{program}: --version ou --help demorou mais de 20 s")
         if version.returncode != 0:
-            return None, make_status(self.provider, reason="cli_not_runnable", next_action=not_installed_action)
+            return None, make_status(self.provider, reason="cli_not_runnable", next_action=not_installed_action,
+                                     detail=f"{program} --version terminou com código {version.returncode}")
         text = helptext.stdout + helptext.stderr
         missing = [flag for flag in required_flags if flag not in text]
         installed = dict(installed=True, version=first_line(version.stdout or version.stderr),
