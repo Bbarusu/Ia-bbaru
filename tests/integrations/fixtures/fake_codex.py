@@ -28,6 +28,9 @@ def emit(event):
 
 
 def main():
+    # JSONL must stay UTF-8 regardless of Python's Windows pipe encoding.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     args = sys.argv[1:]
     if args == ["--version"]:
         print("codex-cli 9.9.9 (test double)")

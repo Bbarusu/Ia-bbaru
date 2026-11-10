@@ -121,3 +121,20 @@ A passagem mais recente do Claude, `PASSAGEM_GEMINI_NAVEGADOR.md` (`db8cee4`),
 confirma os achados N-1/N-2/N-3. Os controles básicos/capturas acima já foram
 implementados aqui; o Gemini deve incorporar esta base antes de ampliar o runtime.
 As fases restantes (PDF, sessão completa, downloads etc.) continuam no roteiro dele.
+
+## Retorno dos testes no Windows
+
+O usuário executou a PR #7: relatou 66 testes no backend e 73 no gateway,
+com 2 falhas e 1 ignorado no gateway. A captura do terminal confirma aprovação
+do smoke gráfico: navegação, isolamento, backend real, captura, preservação de
+rascunhos e persistência após reiniciar. A conferência manual da interface segue
+pendente; esse resultado não valida geração em conta real.
+
+Investigação local: executar os 17 testes de `test_cli_adapters.py` com
+`PYTHONIOENCODING=cp1252` reproduziu duas falhas de comparação de texto nas
+respostas Gemini (teste de geração e integração backend por HTTP). Os dublês
+usavam a codificação padrão do Python para escrever JSON com acentos, enquanto
+o gateway lê UTF-8, como fazem as CLIs reais. Os dublês Gemini/Codex agora
+configuram stdout/stderr como UTF-8. Os 17 testes passaram sob CP1252 após a
+correção. Falta comparar os tracebacks do usuário e repetir o gateway no Windows
+para confirmar que as duas falhas relatadas têm essa mesma causa.
