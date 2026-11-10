@@ -28,9 +28,19 @@ sistema; chave de API salva na CLI nunca usada; chaves no ambiente removidas; lo
 perdido antes da geração; saída mista de modelos recusada e não repetida; reprodução
 mínima da revisão do Codex.
 
-### Windows do usuário — pendente (item 5 do prompt)
+### Windows do usuário (item 5 do prompt)
 
-Não executado aqui. Comandos, na pasta que junta as frentes, com o navegador fechado:
+Executado pelo usuário em 10/11/2026 na pasta `W:\Projeto\Ia-bbaru-validacao-pr7`
+(PR #7 do Codex + merge desta branch, `3fe8ecd`), PowerShell, sem conta real:
+
+| Comando | Resultado no Windows |
+| --- | --- |
+| `python -m unittest discover -s tests -v` | ✅ 66 OK em 10,5 s (fila, trava do worker, mídia, ponte e fechamento do SQLite; nenhum `PermissionError`) |
+| `python -m unittest discover -s tests/integrations -v` | ✅ 81 executados: 80 OK + 1 pulado (conta real), 69,8 s. Inclui timeout com `taskkill`, resolução `.cmd` simulada e as regressões novas do Gemini. As 2 falhas de acentuação relatadas antes na PR #7 não ocorreram mais (dublês em UTF-8) |
+| `python scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ 5 modos: incompleta, concluída com revisão, login, cota e timeout; sem repetição |
+| `python -m integrations diagnose` com `IA_BBARU_GEMINI_CLI_LOGIN=google` | ⏳ executado; saída ainda não registrada (tempo do catálogo e login do Gemini verificado pela CLI real) |
+
+Comandos usados:
 
 ```powershell
 git status
