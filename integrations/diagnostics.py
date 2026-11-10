@@ -7,6 +7,7 @@ files and never calls a model, so running it consumes no quota.
 import json
 import os
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .adapters.claude_code import ClaudeCodeAdapter
@@ -23,10 +24,14 @@ PATHS = {
 
 
 def _entry(adapter, key) -> dict:
+    started = time.monotonic()
     status = adapter.status(refresh=True)
+    seconds = round(time.monotonic() - started, 1)
     legacy = adapter.v1_gate()
     return {
         **status.as_dict(),
+        # Time of a full status check; the browser bridge waits 20 s for the catalog.
+        "probe_seconds": seconds,
         "path": PATHS[key],
         "configured_models": [adapter.profile_id(m) for m in adapter.settings.models],
         "capabilities": adapter.capabilities.model_dump(),
@@ -54,7 +59,7 @@ def report(claude_settings: ClaudeCodeSettings | None = None,
         "notes": [
             "Nenhum arquivo de credencial foi lido e nenhum modelo foi chamado.",
             "As variáveis de chave de API são removidas do ambiente das CLIs, para não usar cobrança de API.",
-            "Gemini CLI: não há comando de status de login; o login é declarado com IA_BBARU_GEMINI_CLI_LOGIN=google.",
+            "Gemini CLI: IA_BBARU_GEMINI_CLI_LOGIN=google só autoriza a verificação; o login é conferido pela própria CLI, com entrada vazia (sem geração).",
         ],
     }
 

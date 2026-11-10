@@ -73,7 +73,8 @@ $env:IA_BBARU_CHATGPT_CODEX_MODELS = $ChatGptModel
 $env:IA_BBARU_CHATGPT_CODEX_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
 $env:IA_BBARU_GEMINI_CLI_MODELS = $GeminiModel
 $env:IA_BBARU_GEMINI_CLI_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
-# A Gemini CLI não tem comando de status de login: você declara que fez Login with Google.
+# -GeminiLoginGoogle autoriza o gateway a conferir o Login with Google pela própria Gemini CLI
+# (entrada vazia, sem geração). O login Google é forçado; chave de API salva na CLI não é usada.
 if ($GeminiLoginGoogle) { $env:IA_BBARU_GEMINI_CLI_LOGIN = 'google' } else { Remove-Item Env:IA_BBARU_GEMINI_CLI_LOGIN -ErrorAction SilentlyContinue }
 Remove-Item Env:IA_BBARU_REAL_TEST -ErrorAction SilentlyContinue
 

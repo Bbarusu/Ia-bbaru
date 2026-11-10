@@ -37,10 +37,14 @@ class CliAdaptersTestCase(unittest.TestCase):
                                   "OPENAI_API_KEY": "sk-must-not-reach", "GEMINI_API_KEY": "must-not-reach",
                                   "GOOGLE_API_KEY": "must-not-reach"}).start()
         self.generations = 0
+        self.probes = []
 
         def counting(args, stdin, timeout_s, env, cwd):
-            if "exec" in args[:3] and "--json" in args or "--prompt" in args:
+            # Login probes send an empty prompt and empty stdin: they are not generations.
+            if "exec" in args[:3] and "--json" in args or ("--prompt" in args and stdin.strip()):
                 self.generations += 1
+            if "--prompt" in args and not stdin.strip():
+                self.probes.append(list(args))
             return run_process(args, stdin, timeout_s, env, cwd)
 
         self.codex = OpenAICodexAdapter(OpenAICodexSettings(
@@ -111,12 +115,49 @@ class CatalogTests(CliAdaptersTestCase):
         self.assertEqual(status.reason, "cli_not_runnable")
         self.assertIn("não pôde ser executado", status.detail)
 
+    def test_gemini_login_is_verified_by_the_cli_not_declared(self):
+        status = self.gemini.status(refresh=True)
+        self.assertTrue(status.ready and status.logged_in)
+        self.assertEqual(status.auth_method, "oauth-personal")
+        # Every probe: empty prompt, a model that does not exist, no stdin.
+        self.assertGreaterEqual(len(self.probes), 2)  # self-test + login probe
+        for args in self.probes:
+            self.assertEqual(args[args.index("--prompt") + 1], "")
+            self.assertEqual(args[args.index("--model") + 1], "ia-bbaru-sonda-sem-geracao")
+        self.assertEqual(self.generations, 0)
+
+    def test_gemini_declared_but_not_logged_in_is_unavailable(self):
+        self.set_env(FAKE_GEMINI_LOGIN="none")
+        gemini = [m for m in self.client.get("/v1.1/models").json()["models"] if m["provider"] == "gemini-cli"][0]
+        self.assertFalse(gemini["available"])
+        self.assertEqual(gemini["unavailable_reason"], "not_logged_in")
+        response = self.client.post("/v1.1/generate", json=body("gemini-cli:gemini-2.5-pro"))
+        self.assertEqual(response.json()["error"]["code"], "provider_not_logged_in")
+        self.assertEqual(self.generations, 0)
+
+    def test_gemini_cli_that_ignores_the_override_is_refused(self):
+        # API key saved in the CLI itself and a version that does not apply the override.
+        self.set_env(FAKE_GEMINI_HONORS_OVERRIDE="0", FAKE_GEMINI_SAVED_AUTH="gemini-api-key")
+        status = self.gemini.status()
+        self.assertEqual((status.ready, status.reason), (False, "cli_version_unsupported"))
+        self.assertEqual(status.missing_flags, ["GEMINI_CLI_AUTH_OVERRIDE"])
+        response = self.client.post("/v1.1/generate", json=body("gemini-cli:gemini-2.5-pro"))
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.generations, 0)  # never reaches the API-key path
+
+    def test_gemini_system_settings_keep_it_unavailable(self):
+        with patch.object(GeminiCliAdapter, "system_settings_present", return_value=True):
+            status = self.gemini.status(refresh=True)
+        self.assertEqual((status.ready, status.reason), (False, "auth_status_unknown"))
+        self.assertEqual(self.probes, [])
+
     def test_gemini_login_must_be_stated(self):
         self.gemini.settings.login_confirmed = False
         model = self.client.get("/v1.1/models").json()["models"]
         gemini = [m for m in model if m["provider"] == "gemini-cli"][0]
         self.assertFalse(gemini["available"])
         self.assertEqual(gemini["unavailable_reason"], "auth_status_unknown")
+        self.assertEqual(self.probes, [])  # nothing contacts Google without the user's go-ahead
 
 
 class CodexGenerationTests(CliAdaptersTestCase):
@@ -195,6 +236,8 @@ class GeminiGenerationTests(CliAdaptersTestCase):
         self.assertIn('decision = "deny"', call["policy"])
         self.assertIn("dados nao confiaveis", call["system_md"])
         self.assertEqual(call["env"]["GOOGLE_GENAI_USE_GCA"], "true")
+        self.assertEqual(call["env"]["GEMINI_CLI_AUTH_OVERRIDE"], "oauth-personal")
+        self.assertEqual(call["auth_used"], "oauth-personal")
         for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GATEWAY_TOKEN"):
             self.assertIsNone(call["env"][name])
         self.assertNotIn("@", call["stdin"])
@@ -210,6 +253,50 @@ class GeminiGenerationTests(CliAdaptersTestCase):
             self.set_env(FAKE_GEMINI_MODE=mode)
             response = self.post(request_id=f"gemini-{index}:0")
             self.assertEqual((response.status_code, response.json()["error"]["code"]), (status, code), mode)
+
+    def test_api_key_saved_in_the_cli_is_never_used(self):
+        patch.dict("os.environ", {"GEMINI_CLI_SYSTEM_SETTINGS_PATH": "C:/qualquer/settings.json"}).start()
+        self.set_env(FAKE_GEMINI_SAVED_AUTH="gemini-api-key")
+        self.assertTrue(self.gemini.status().ready)
+        self.assertEqual(self.post().status_code, 200)
+        call = self.recorded()
+        self.assertEqual(call["auth_used"], "oauth-personal")  # forced over the saved API-key choice
+        for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_CLI_SYSTEM_SETTINGS_PATH"):
+            self.assertIsNone(call["env"][name])
+
+    def test_login_lost_before_generation_fails_without_api_fallback(self):
+        self.assertTrue(self.gemini.status().ready)
+        patch.dict("os.environ", {"FAKE_GEMINI_LOGIN": "none", "FAKE_GEMINI_SAVED_AUTH": "gemini-api-key"}).start()
+        response = self.post()  # status still cached as ready
+        self.assertEqual((response.status_code, response.json()["error"]["code"]),
+                         (503, "provider_not_authenticated"))
+        self.assertFalse(self.record.exists())  # stopped at authentication
+
+    def test_mixed_model_output_is_rejected_and_not_repeated(self):
+        self.set_env(FAKE_GEMINI_MODE="mixed")
+        first = self.post()
+        self.assertEqual((first.status_code, first.json()["error"]["code"]), (502, "provider_model_mismatch"))
+        self.set_env(FAKE_GEMINI_MODE="success")
+        again = self.post()
+        self.assertEqual(again.json(), first.json())
+        self.assertEqual(self.generations, 1)
+
+    def test_codex_review_reproduction_of_mixed_output(self):
+        from integrations.runner import ProcessResult
+        response = {"response": "fixture", "stats": {"models": {
+            "gemini-example": {"tokens": {"candidates": 1}},
+            "another-model": {"tokens": {"candidates": 40}}}, "tools": {"totalSuccess": 0}}}
+        adapter = GeminiCliAdapter(GeminiCliSettings())
+        with self.assertRaises(Exception) as caught:
+            adapter.parse("gemini-example", ProcessResult(0, json.dumps(response), ""))
+        self.assertEqual(caught.exception.code, "provider_model_mismatch")
+        del response["stats"]["models"]["another-model"]
+        self.assertEqual(adapter.parse("gemini-example", ProcessResult(0, json.dumps(response), "")).finish_reason,
+                         "unknown")
+        response["stats"]["models"] = {}
+        with self.assertRaises(Exception) as caught:
+            adapter.parse("gemini-example", ProcessResult(0, json.dumps(response), ""))
+        self.assertEqual(caught.exception.code, "provider_invalid_output")
 
     def test_json_printed_on_stderr_is_read(self):
         self.set_env(FAKE_GEMINI_MODE="json_on_stderr")
