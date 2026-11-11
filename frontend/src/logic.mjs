@@ -172,3 +172,54 @@ export function decideIncomingCapture(currentState, incoming) {
     content: incoming.text,
   };
 }
+
+/**
+ * @param {{
+ *   models?: any[];
+ *   selectedModelIds?: string[];
+ *   kind?: string;
+ *   preferredModelId?: string;
+ *   reviewerModelId?: string;
+ *   review?: boolean;
+ * }} [params]
+ */
+export function resolveEffectiveRoles({
+  models = [],
+  selectedModelIds = [],
+  kind = "study",
+  preferredModelId = "",
+  reviewerModelId = "",
+  review = false,
+} = {}) {
+  const selected = models.filter(
+    (m) => m.available && selectedModelIds.includes(m.id),
+  );
+  selected.sort((a, b) => {
+    const aMatch = Array.isArray(a.task_kinds) && a.task_kinds.includes(kind) ? 0 : 1;
+    const bMatch = Array.isArray(b.task_kinds) && b.task_kinds.includes(kind) ? 0 : 1;
+    return aMatch - bMatch;
+  });
+
+  const autoWriterId = selected[0]?.id || "";
+  const effectiveWriterId =
+    preferredModelId && selectedModelIds.includes(preferredModelId)
+      ? preferredModelId
+      : autoWriterId;
+
+  const candidateReviewers = selected.filter((m) => m.id !== effectiveWriterId);
+  const autoReviewerId = candidateReviewers[0]?.id || "";
+  const effectiveReviewerId =
+    review && reviewerModelId && candidateReviewers.some((m) => m.id === reviewerModelId)
+      ? reviewerModelId
+      : review
+        ? autoReviewerId
+        : "";
+
+  return {
+    autoWriterId,
+    effectiveWriterId,
+    autoReviewerId,
+    effectiveReviewerId,
+    candidateReviewers,
+  };
+}

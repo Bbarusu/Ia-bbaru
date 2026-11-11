@@ -12,6 +12,7 @@ import {
   describeTaskError,
   requiresLimitAcceptance,
   decideIncomingCapture,
+  resolveEffectiveRoles,
 } from "../src/logic.mjs";
 
 test("capture preserves selected text and provenance", () => {
@@ -229,4 +230,56 @@ test("decideIncomingCapture protects unsaved manual drafts, edited captures and 
     ),
     { action: "ignore" },
   );
+});
+
+test("resolveEffectiveRoles aligns candidates with kind, supports overrides and separates writer and reviewer", () => {
+  const models = [
+    { id: "claude-code:sonnet", available: true, task_kinds: ["study", "coding"] },
+    { id: "claude-code:haiku", available: true, task_kinds: ["general", "writing"] },
+    { id: "claude-code:opus", available: true, task_kinds: ["analysis"] },
+  ];
+
+  // For kind "analysis", opus matches and becomes auto writer
+  const autoRoles = resolveEffectiveRoles({
+    models,
+    selectedModelIds: ["claude-code:sonnet", "claude-code:haiku", "claude-code:opus"],
+    kind: "analysis",
+    review: true,
+  });
+  assert.equal(autoRoles.autoWriterId, "claude-code:opus");
+  assert.equal(autoRoles.effectiveWriterId, "claude-code:opus");
+  assert.equal(autoRoles.effectiveReviewerId, "claude-code:sonnet");
+
+  // With explicit preferredModelId, writer is overridden
+  const explicitWriter = resolveEffectiveRoles({
+    models,
+    selectedModelIds: ["claude-code:sonnet", "claude-code:haiku", "claude-code:opus"],
+    kind: "analysis",
+    preferredModelId: "claude-code:haiku",
+    review: true,
+  });
+  assert.equal(explicitWriter.effectiveWriterId, "claude-code:haiku");
+  // Reviewer cannot be the writer
+  assert.notEqual(explicitWriter.effectiveReviewerId, "claude-code:haiku");
+
+  // With explicit reviewerModelId, reviewer is overridden
+  const explicitReviewer = resolveEffectiveRoles({
+    models,
+    selectedModelIds: ["claude-code:sonnet", "claude-code:haiku", "claude-code:opus"],
+    kind: "analysis",
+    preferredModelId: "claude-code:opus",
+    reviewerModelId: "claude-code:haiku",
+    review: true,
+  });
+  assert.equal(explicitReviewer.effectiveWriterId, "claude-code:opus");
+  assert.equal(explicitReviewer.effectiveReviewerId, "claude-code:haiku");
+
+  // If review is false, effectiveReviewerId is empty
+  const single = resolveEffectiveRoles({
+    models,
+    selectedModelIds: ["claude-code:sonnet", "claude-code:opus"],
+    kind: "study",
+    review: false,
+  });
+  assert.equal(single.effectiveReviewerId, "");
 });

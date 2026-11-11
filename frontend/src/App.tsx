@@ -77,6 +77,8 @@ export default function App() {
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [preferredModelId, setPreferredModelId] = useState("");
+  const [reviewerModelId, setReviewerModelId] = useState("");
   const [text, setText] = useState("");
   const [draftReady, setDraftReady] = useState(false);
   const [kind, setKind] = useState("study");
@@ -155,9 +157,17 @@ export default function App() {
             data.models.some((m) => m.id === id && m.available),
           ),
         );
+        setPreferredModelId((old) =>
+          data.models.some((m) => m.id === old && m.available) ? old : "",
+        );
+        setReviewerModelId((old) =>
+          data.models.some((m) => m.id === old && m.available) ? old : "",
+        );
       } catch (e) {
         setModels([]);
         setSelectedModels([]);
+        setPreferredModelId("");
+        setReviewerModelId("");
         setModelError((e as Error).message);
       }
     } catch (e) {
@@ -166,6 +176,8 @@ export default function App() {
       setOnline(false);
       setModels([]);
       setSelectedModels([]);
+      setPreferredModelId("");
+      setReviewerModelId("");
       setConnectionError((e as Error).message);
     } finally {
       setChecking(false);
@@ -431,9 +443,14 @@ export default function App() {
   }
 
   function toggleModel(id: string) {
-    setSelectedModels((old) =>
-      old.includes(id) ? old.filter((x) => x !== id) : [...old, id],
-    );
+    setSelectedModels((old) => {
+      const next = old.includes(id)
+        ? old.filter((x) => x !== id)
+        : [...old, id];
+      if (!next.includes(preferredModelId)) setPreferredModelId("");
+      if (!next.includes(reviewerModelId)) setReviewerModelId("");
+      return next;
+    });
   }
 
   async function plan(event: FormEvent) {
@@ -470,6 +487,12 @@ export default function App() {
           allowed_model_ids: selectedModels,
           mode: review ? "review" : "single",
           allow_unenforced_output_limit: acceptedLimit,
+          ...(preferredModelId && selectedModels.includes(preferredModelId)
+            ? { preferred_model_id: preferredModelId }
+            : {}),
+          ...(review && reviewerModelId && selectedModels.includes(reviewerModelId)
+            ? { reviewer_model_id: reviewerModelId }
+            : {}),
         },
       });
       if (projectRef.current === target) setTasks((old) => [task, ...old]);
@@ -715,11 +738,16 @@ export default function App() {
                 availableModels={available}
                 selectedModels={selectedModels}
                 toggleModel={toggleModel}
+                preferredModelId={preferredModelId}
+                setPreferredModelId={setPreferredModelId}
+                reviewerModelId={reviewerModelId}
+                setReviewerModelId={setReviewerModelId}
                 review={review}
                 setReview={setReview}
                 acceptedLimit={acceptedLimit}
                 setAcceptedLimit={setAcceptedLimit}
                 goToConnections={() => setTab("connections")}
+                kind={kind}
               />
             </>
           )}

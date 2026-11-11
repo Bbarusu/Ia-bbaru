@@ -5,20 +5,33 @@ import {
   formatOutputLimit,
   formatUnavailableReason,
   requiresLimitAcceptance,
+  resolveEffectiveRoles,
 } from "../logic.mjs";
 import type { Model } from "../types";
-const TASK_LABELS: Record<string, string> = { general: "geral", study: "estudos", writing: "escrita", coding: "programação", analysis: "análise" };
+
+const TASK_LABELS: Record<string, string> = {
+  general: "geral",
+  study: "estudos",
+  writing: "escrita",
+  coding: "programação",
+  analysis: "análise",
+};
 
 interface AgentsSectionProps {
   models: Model[];
   availableModels: Model[];
   selectedModels: string[];
   toggleModel: (id: string) => void;
+  preferredModelId: string;
+  setPreferredModelId: (id: string) => void;
+  reviewerModelId: string;
+  setReviewerModelId: (id: string) => void;
   review: boolean;
   setReview: (review: boolean) => void;
   acceptedLimit: boolean;
   setAcceptedLimit: (accepted: boolean) => void;
   goToConnections: () => void;
+  kind: string;
 }
 
 export function AgentsSection({
@@ -26,14 +39,32 @@ export function AgentsSection({
   availableModels,
   selectedModels,
   toggleModel,
+  preferredModelId,
+  setPreferredModelId,
+  reviewerModelId,
+  setReviewerModelId,
   review,
   setReview,
   acceptedLimit,
   setAcceptedLimit,
   goToConnections,
+  kind,
 }: AgentsSectionProps) {
   const placeholderAgents = ["Claude Code"];
   const needsLimitConsent = requiresLimitAcceptance(selectedModels, models);
+
+  const {
+    effectiveWriterId,
+    effectiveReviewerId,
+    candidateReviewers,
+  } = resolveEffectiveRoles({
+    models,
+    selectedModelIds: selectedModels,
+    kind,
+    preferredModelId,
+    reviewerModelId,
+    review,
+  });
 
   return (
     <section className="agents-section">
@@ -42,7 +73,9 @@ export function AgentsSection({
           <h2>
             Modelos Claude <span>{models.length} configurados</span>
           </h2>
-          <p>Autorize os modelos Claude; o tipo de tarefa e sua preferência orientam a escolha.</p>
+          <p>
+            Autorize os modelos Claude; o tipo de tarefa ({TASK_LABELS[kind] || kind}) e sua preferência orientam a escolha.
+          </p>
         </div>
         <button
           type="button"
@@ -62,6 +95,11 @@ export function AgentsSection({
           ? models.map((m) => {
               const isSelected = selectedModels.includes(m.id);
               const caps = m.capabilities;
+              const matchesKind = Array.isArray(m.task_kinds) && m.task_kinds.includes(kind);
+              const isFable = m.id.toLowerCase().includes("fable");
+              const isWriter = isSelected && effectiveWriterId === m.id;
+              const isReviewer = isSelected && review && effectiveReviewerId === m.id;
+
               return (
                 <button
                   type="button"
@@ -93,10 +131,44 @@ export function AgentsSection({
                             Requer ferramentas (não elegível)
                           </span>
                         )}
+                        {matchesKind && (
+                          <span
+                            className="cap-chip match"
+                            title={`O perfil deste modelo contempla ${TASK_LABELS[kind] || kind}`}
+                          >
+                            Perfil: {TASK_LABELS[kind] || kind}
+                          </span>
+                        )}
                       </span>
                     )}
-                    <small>Perfil: {m.task_kinds.map((kind) => TASK_LABELS[kind] || kind).join(", ")}</small>
-                    {m.id.includes("fable") && <small>Confira se seu plano inclui Fable: ele pode exigir créditos adicionais.</small>}
+                    <small>
+                      Perfil: {m.task_kinds.map((k) => TASK_LABELS[k] || k).join(", ")}
+                    </small>
+                    {isFable && (
+                      <div className="fable-warning-box">
+                        ⚠️ Fable pode exigir créditos adicionais de uso no Claude Code. Não selecionado por padrão.
+                      </div>
+                    )}
+                    {isSelected && (isWriter || isReviewer) && (
+                      <div className="role-tag-container" aria-label="Papel na tarefa">
+                        {isWriter && (
+                          <span
+                            className={`role-tag ${preferredModelId === m.id ? "answer" : "auto"}`}
+                            title={preferredModelId === m.id ? "Definido manualmente como resposta principal" : "Selecionado automaticamente para a resposta principal"}
+                          >
+                            {preferredModelId === m.id ? "Resposta principal" : "Resposta principal (auto)"}
+                          </span>
+                        )}
+                        {isReviewer && (
+                          <span
+                            className={`role-tag ${reviewerModelId === m.id ? "review" : "auto-review"}`}
+                            title={reviewerModelId === m.id ? "Definido manualmente para revisão" : "Selecionado automaticamente para revisão"}
+                          >
+                            {reviewerModelId === m.id ? "Revisão" : "Revisão (auto)"}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </span>
                   <span className="agent-check" aria-hidden="true">
                     {isSelected ? <Check size={14} /> : <Circle size={15} />}
@@ -122,6 +194,65 @@ export function AgentsSection({
               </button>
             ))}
       </div>
+
+      {selectedModels.length > 0 && availableModels.length > 0 && (
+        <div
+          className="model-role-selectors"
+          role="group"
+          aria-label="Papéis dos modelos Claude autorizados"
+        >
+          <div className="role-select-group">
+            <label htmlFor="preferred-model-select">
+              Resposta principal:
+            </label>
+            <select
+              id="preferred-model-select"
+              value={preferredModelId}
+              onChange={(e) => setPreferredModelId(e.target.value)}
+            >
+              <option value="">
+                Automático (por perfil de {TASK_LABELS[kind] || kind})
+              </option>
+              {selectedModels.map((id) => {
+                const item = models.find((m) => m.id === id);
+                return (
+                  <option key={id} value={id}>
+                    {item?.label || id}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {review && (
+            <div className="role-select-group">
+              <label htmlFor="reviewer-model-select">
+                Revisor Claude:
+              </label>
+              {selectedModels.length < 2 ? (
+                <small className="small-note">
+                  Selecione pelo menos 2 modelos Claude acima para a revisão.
+                </small>
+              ) : (
+                <select
+                  id="reviewer-model-select"
+                  value={reviewerModelId}
+                  onChange={(e) => setReviewerModelId(e.target.value)}
+                >
+                  <option value="">
+                    Automático (outro modelo Claude autorizado)
+                  </option>
+                  {candidateReviewers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {needsLimitConsent && (
         <div className="limit-consent-card card">
@@ -153,7 +284,10 @@ export function AgentsSection({
           <input
             type="checkbox"
             checked={review}
-            onChange={(e) => setReview(e.target.checked)}
+            onChange={(e) => {
+              setReview(e.target.checked);
+              if (!e.target.checked) setReviewerModelId("");
+            }}
             disabled={availableModels.length < 2}
           />
           <span className="switch" aria-hidden="true" />

@@ -1125,6 +1125,109 @@ main {
   padding-left: 25px;
 }
 
+/* Claude Model Role Configuration & Selection Enhancements */
+.model-role-selectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.role-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.role-select-group label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-select-group select {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.role-select-group select:focus {
+  border-color: #9cb4d0;
+}
+
+.role-tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.3;
+}
+
+.role-tag.answer {
+  background: #dce8f6;
+  color: #0b0f17;
+  border: 1px solid #9cb4d0;
+}
+
+.role-tag.review {
+  background: #f1e8f8;
+  color: #4a154b;
+  border: 1px solid #c9b0db;
+}
+
+.role-tag.auto {
+  background: #f0f4f9;
+  color: #3d4b5f;
+  border: 1px dashed #9cb4d0;
+}
+
+.role-tag.auto-review {
+  background: #f8f4fb;
+  color: #5d406b;
+  border: 1px dashed #c9b0db;
+}
+
+.cap-chip.match {
+  color: #065f46;
+  background: #e6f7f0;
+  border-color: #a7f3d0;
+  font-weight: 550;
+}
+
+.fable-warning-box {
+  margin-top: 8px;
+  padding: 6px 9px;
+  background: #fff8eb;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #9a3412;
+}
+
 .agents-meta {
   display: flex;
   gap: 10px;
@@ -2133,6 +2236,10 @@ details summary:hover {
   .agents-grid {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+  .model-role-selectors {
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
   }
   .agent-card {
     padding: 12px 14px;

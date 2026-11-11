@@ -86,7 +86,7 @@ export function ConnectionsSection({
         </div>
 
         <div className="connection-line">
-          <span>Agentes disponíveis</span>
+          <span>Modelos Claude disponíveis</span>
           <span>{availableModels.length}</span>
         </div>
 
