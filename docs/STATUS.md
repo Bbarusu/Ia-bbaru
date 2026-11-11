@@ -15,8 +15,11 @@ Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
 - Captura de texto/print/imagem, armazenamento separado e fila durável preservados.
   Imagens continuam locais; visão no gateway ainda não está implementada.
 - Linux e Windows: backend, gateway, build e teste gráfico aprovados para esta
-  configuração. Login Claude confirmado no Windows. Ainda falta abrir pelo novo
-  inicializador e executar uma tarefa real pelo painel; ver registro abaixo.
+  configuração. Login Claude confirmado no Windows. Nova captura de tarefa no
+  painel mostra provider_error: geração real ainda não validada nesta configuração.
+- Próxima experiência solicitada: chat lateral com contexto da página, resposta
+  em destaque e envio direto. Especificação e divisão de responsabilidades em
+  [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md); ainda não implementadas.
 
 Validação desta entrega: backend 67 aprovados; gateway 61 aprovados e 1 teste
 de conta real ignorado; frontend 11 e políticas desktop 3 aprovados. Build,
@@ -56,12 +59,28 @@ Fable esteja incluído sem créditos adicionais. A referência anterior à vers�
 mínima documentada de Fable não deve sobrepor esta observação: compatibilidade
 de execução precisa de teste próprio, sem exigir atualização apenas pelo número.
 
-Próximo passo: sair da CLI interativa e iniciar o navegador com -Models "sonnet".
+Roteiro proposto antes da captura de falha abaixo: sair da CLI interativa e iniciar o navegador com -Models "sonnet".
 Criar projeto/material sintético, planejar uma tarefa sem revisão e confirmar
 uma única geração pelo painel. Observar saída, estado, modelo e persistência.
 O pedido deve usar só a palavra "laranja" de uma fonte de teste.
 Não repetir automaticamente se o resultado ficar incerto. Depois validar
 outros modelos autorizados e revisão entre dois modelos Claude.
+
+## Captura posterior e ajuste de experiência — 11/11/2026
+
+O usuário mostrou o pedido “Revise” em estado Falhou, Claude Code (sonnet),
+um material, uma tentativa, limite indicativo de 128 e código provider_error.
+Não foi informado o SHA dessa execução nem diagnóstico da CLI. Não sabemos se
+é o teste sintético sugerido acima; não atribuir a falha ao limite ou à conta.
+O reparo e uma geração real bem-sucedida continuam pendentes, apesar dos testes
+automatizados aprovados. Não repetir automaticamente resultado incerto.
+
+Também solicitou simplificar a interação conforme referências Atlas/Edge:
+conversa persistente na lateral, contexto visível e respostas claras, retirando
+planos e metadados técnicos do percurso principal. Os ajustes e critérios estão
+em [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md), com prompts atualizados
+para Gemini (frontend) e Code (gateway). Esta rodada registra a especificação;
+não implementa o novo chat nem corrige o provider_error observado.
 
 ## Histórico de decisões anteriores
 
