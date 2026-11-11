@@ -27,6 +27,9 @@ chamadas cobradas como passo implícito de instalação.
 Ao colaborar em sessões simultâneas, usar branches próprias e verificar o remoto
 antes de enviar commits. Não sobrescrever mudanças de outra sessão com force push.
 Claude trabalha em integrations/; Codex mantém extension/, backend/ e native_host/.
+Atualização de 11/11/2026: o usuário definiu Claude como novo responsável por
+frontend/ e desktop/ui/ (antes com Gemini). Propostas de interface são elaboradas
+primeiro no Canvas e só entram no código após aprovação e ajustes do usuário.
 Após a implementação inicial por Codex, o usuário pediu nova tentativa com Gemini
 na evolução de frontend/. Veja docs/INSTRUCOES_GEMINI.md. Consulte também
 docs/REVISAO_CLAUDE.md, vinculada ao commit revisado da PR #1; ela não substitui
