@@ -3,7 +3,27 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: correções da revisão do Codex nos adaptadores (10/11/2026)
+## Rodada atual: somente Claude (11/11/2026)
+
+Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
+`fa24ef3`). Respostas e pendências: [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `python -m unittest discover -s tests` | fixtures | ✅ 67 OK |
+| `python -m unittest discover -s tests/integrations` | fixtures | ✅ 75 OK + 1 pulado (o real) |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | fixtures, HTTP | ✅ 5 cenários |
+| OpenAPI 1.1 do gateway | `export_openapi` | ✅ inalterado |
+| Aliases, troca de modelo, créditos, `stream-json`, imagem | pacote oficial 2.1.322 e 2.1.307, sem gerar (`--help`, `strings`) | ✅ registrado em PASSAGEM_CLAUDE_ONLY.md |
+| Resolução de aliases e `init.tools: []` | **4 gerações não intencionais** na conta do ambiente de nuvem (não a do usuário) | ⚠️ só vale para aquela conta/versão |
+| Conta real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
+
+Mudanças: `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo; remoção das variáveis que
+redirecionam aliases; conferência estrita do `modelUsage`; nomes de modelo
+restritos aos conferíveis; perfis herdados por família; diagnóstico separa
+configuração de acesso; erros de créditos/acesso → `provider_unavailable`.
+
+## Rodada anterior: correções da revisão do Codex nos adaptadores (10/11/2026)
 
 Prompt `docs/PROMPT_CLAUDE_CLIS.md` e revisão `docs/REVISAO_CLIS_2026_11_10.md`
 (branch `codex/browser-capture-clis`, `5a55e69`). Resposta item a item:

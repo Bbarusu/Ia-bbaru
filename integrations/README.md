@@ -19,7 +19,8 @@ Esses testes reais usaram o contrato 1, **antes** das correções da revisão do
 (`docs/REVISAO_CLAUDE.md`) e do contrato 1.1. Depois das correções, o teste real pelo contrato 1.1 passou no Windows do usuário (Claude Code 2.1.307, `sonnet`, teto 64): resposta `laranja`, `usage` 913/5 e `finish_reason: stop`. Como a contagem de tokens não é mais usada, esse `stop` prova que o CLI informou `stop_reason` (`end_turn` ou `stop_sequence`).
 O fluxo backend → gateway ainda precisa ser repetido depois que o backend adotar o 1.1.
 Erros reais de cota, login expirado e timeout só foram exercitados com o dublê.
-**Onde paramos e o que o Codex precisa corrigir:** [docs/PASSAGEM_CODEX.md](docs/PASSAGEM_CODEX.md).
+**Rodada atual (somente Claude):** [docs/PASSAGEM_CLAUDE_ONLY.md](docs/PASSAGEM_CLAUDE_ONLY.md).
+**Passagem anterior ao Codex:** [docs/PASSAGEM_CODEX.md](docs/PASSAGEM_CODEX.md).
 **Navegador (revisão e roteiro para o Gemini):** [docs/PASSAGEM_GEMINI_NAVEGADOR.md](docs/PASSAGEM_GEMINI_NAVEGADOR.md).
 **Primeiro início no Windows:** [docs/PRIMEIRO_INICIO.md](docs/PRIMEIRO_INICIO.md)
 (`integrations/scripts/iniciar-ia-bbaru.ps1`).
@@ -81,20 +82,22 @@ Em bash, troque `$env:NOME = valor` por `export NOME=valor` e ative com
 | `GATEWAY_TOKEN` | — (obrigatório, ≥ 32 caracteres) | Segredo compartilhado com o backend. |
 | `IA_BBARU_GATEWAY_DB` | `data/integrations.sqlite3` | Banco de deduplicação (não versionar). |
 | `IA_BBARU_CLAUDE_CODE_BIN` | busca `claude` no PATH | Caminho explícito do executável. |
-| `IA_BBARU_CLAUDE_CODE_MODELS` | vazio → catálogo vazio | Modelos escolhidos pelo operador, separados por vírgula. |
+| `IA_BBARU_CLAUDE_CODE_MODELS` | vazio → catálogo vazio | Modelos escolhidos pelo operador, separados por vírgula. Só `sonnet`, `haiku`, `opus`, `fable` (`[1m]` só em sonnet/opus/fable) ou um nome completo `claude-...`: o modelo que respondeu precisa ser conferível. `best`, `opusplan` e `default` são recusados na inicialização. |
+| `IA_BBARU_CLAUDE_CODE_MODEL_TASK_KINDS` | perfil da família | JSON `{"modelo": ["tipo", ...]}`; ver [PASSAGEM_CLAUDE_ONLY.md](docs/PASSAGEM_CLAUDE_ONLY.md). |
 | `IA_BBARU_CLAUDE_CODE_TASK_KINDS` | os cinco tipos | Adequação configurada, não ranking. |
 | `IA_BBARU_CLAUDE_CODE_CONTEXT_CHARS` | 80000 | Limite de entrada em caracteres. |
 | `IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS` | 4096 | Teto pedido ao CLI (não garantido, ver abaixo). |
 | `IA_BBARU_CLAUDE_CODE_TIMEOUT_S` | 90 | Entre 5 e 110 s; o backend desiste em 120 s. |
 | `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` | desligado | Só contrato 1 (legado). Ver "Contratos 1 e 1.1". |
-| `IA_BBARU_CHATGPT_CODEX_*` | — | Mesmos sufixos (`BIN`, `MODELS`, `TASK_KINDS`, `CONTEXT_CHARS`, `MAX_OUTPUT_TOKENS`, `TIMEOUT_S`) para o ChatGPT pela Codex CLI. |
-| `IA_BBARU_GEMINI_CLI_*` | — | Idem para a Gemini CLI, mais `IA_BBARU_GEMINI_CLI_LOGIN=google`: autoriza o gateway a conferir o Login with Google pela própria CLI (entrada vazia, sem geração). O login Google é forçado; chave de API salva na CLI não é usada. |
 
 `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, as variáveis de
 Bedrock/Vertex/Foundry, `GATEWAY_TOKEN` e `LAUNCHER_API_TOKEN` **são removidas** do
 ambiente do processo do Claude Code. Em modo `-p`, a documentação oficial diz que
 uma `ANTHROPIC_API_KEY` presente é sempre usada no lugar da assinatura; removê-la
 evita trocar silenciosamente para cobrança de API.
+Também são removidas as variáveis que redirecionam aliases ou o catálogo de modelos
+(`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU,FABLE}_MODEL`,
+`CLAUDE_CODE_MODEL_CATALOG(_URL)` e outras; lista em `integrations/runner.py`).
 
 ## Como a chamada é feita
 
@@ -111,7 +114,10 @@ claude --print "<pedido fixo>" --output-format json --model <modelo configurado>
   JSON**; o prompt de sistema declara fontes e resposta anterior como dados não
   confiáveis. Nada disso aparece na linha de comando nem em logs.
 - `--bare` **não** é usado: segundo a documentação, ele ignora o login por assinatura.
-- Nenhum `--fallback-model`: o modelo vem só do `model_id` pedido.
+- Nenhum `--fallback-model` e `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo: a CLI
+  não pode trocar de modelo por sobrecarga, falta de acesso ou recusa. Mesmo assim, o
+  `modelUsage` do resultado é conferido: saída de outro modelo → `provider_model_mismatch`;
+  sem `modelUsage` → `provider_invalid_output` (502, finais, sem repetição).
 - Timeout derruba a árvore de processos (`taskkill /T` no Windows).
 
 ## Contratos 1 e 1.1: limite de saída e término

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .adapters.claude_code import ClaudeCodeAdapter
 from .config import ClaudeCodeSettings
+from .models import describe
 
 API_KEY_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
 PATHS = {
@@ -30,6 +31,10 @@ def _entry(adapter, key) -> dict:
         "probe_seconds": seconds,
         "path": PATHS[key],
         "configured_models": [adapter.profile_id(m) for m in adapter.settings.models],
+        # Login is global. It does not prove the right to each model, and an alias's
+        # version is resolved by the CLI at generation time.
+        "models": [{**describe(m), "task_kinds": adapter.settings.task_kinds_for(m)}
+                   for m in adapter.settings.models],
         "capabilities": adapter.capabilities.model_dump(),
         # `ready` = transport ready. 1.1 still needs the task's acceptance (and the
         # backend's tool policy); contract 1 only exists for Claude Code (legacy flag).
@@ -50,6 +55,7 @@ def report(claude_settings: ClaudeCodeSettings | None = None) -> dict:
         "api_key_variables_present": [name for name in API_KEY_VARS if os.environ.get(name)],
         "notes": [
             "Nenhum arquivo de credencial foi lido e nenhum modelo foi chamado.",
+            "Login ativo não prova acesso a cada modelo; versão do alias e acesso só aparecem após uma geração.",
             "As variáveis de chave de API são removidas do ambiente das CLIs, para não usar cobrança de API.",
         ],
     }

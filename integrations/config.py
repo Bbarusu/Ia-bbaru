@@ -8,6 +8,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .models import family, is_checkable
+
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,99}")
 ALL_TASK_KINDS = ("general", "study", "writing", "coding", "analysis")
 BACKEND_TIMEOUT_S = 120  # backend/gateway.py waits at most 120 s per call
@@ -98,13 +100,22 @@ class CliSettings:
 class ClaudeCodeSettings(CliSettings):
     env_prefix = "IA_BBARU_CLAUDE_CODE"
 
+    def validate(self):
+        super().validate()
+        for model in self.models:
+            if not is_checkable(model):
+                raise RuntimeError(
+                    f"{self.env_prefix}_MODELS aceita sonnet, haiku, opus, fable ([1m] só em sonnet/opus/fable) "
+                    "ou um nome completo claude-...; o modelo efetivo precisa ser conferível")
+
     def task_kinds_for(self, model):
         if model in self.model_task_kinds:
             return self.model_task_kinds[model]
         # Preserve the existing common TASK_KINDS override, when supplied.
         if self.task_kinds != list(ALL_TASK_KINDS):
             return self.task_kinds
-        return DEFAULT_MODEL_TASK_KINDS.get(model, self.task_kinds)
+        # "opus[1m]" and "claude-opus-5-5" get the opus profile.
+        return DEFAULT_MODEL_TASK_KINDS.get(family(model) or "", self.task_kinds)
 
 
 @dataclass
