@@ -37,6 +37,7 @@ import { NavigationRail } from "./components/NavigationRail";
 import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
 import { WorkspaceComposer } from "./components/WorkspaceComposer";
+import { ChatThread } from "./components/ChatThread";
 import { ContextGuideCard } from "./components/ContextGuideCard";
 import { AgentsSection } from "./components/AgentsSection";
 import { LibrarySection } from "./components/LibrarySection";
@@ -711,6 +712,13 @@ export default function App() {
 
           {tab === "workspace" && (
             <>
+              <ChatThread
+                tasks={tasks}
+                models={models}
+                onOpenTask={setTaskView}
+                onSuggestionClick={(s) => changeText(s)}
+              />
+
               <div className="workspace-grid">
                 <WorkspaceComposer
                   text={text}
@@ -729,6 +737,8 @@ export default function App() {
                   projectId={projectId}
                   availableModels={available}
                   selectedModels={selectedModels}
+                  capture={capture}
+                  onClearCapture={() => setCapture(null)}
                 />
                 <ContextGuideCard />
               </div>

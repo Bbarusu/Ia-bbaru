@@ -1,17 +1,19 @@
 import { type FormEvent } from "react";
 import {
   ArrowDownToLine,
-  ArrowRight,
   Camera,
+  FileText,
   Image as ImageIcon,
   Link2,
   Loader2,
   Plus,
+  Send,
   Settings2,
   ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
-import type { Model } from "../types";
+import type { Capture, Model } from "../types";
 import type { CaptureMediaKind } from "./SourceModal";
 
 interface WorkspaceComposerProps {
@@ -29,6 +31,8 @@ interface WorkspaceComposerProps {
   projectId: string;
   availableModels: Model[];
   selectedModels: string[];
+  capture?: Capture | null;
+  onClearCapture?: () => void;
 }
 
 export function WorkspaceComposer({
@@ -46,6 +50,8 @@ export function WorkspaceComposer({
   projectId,
   availableModels,
   selectedModels,
+  capture,
+  onClearCapture,
 }: WorkspaceComposerProps) {
   const promptSuggestions = [
     "Resumir pontos essenciais da página",
@@ -72,10 +78,10 @@ export function WorkspaceComposer({
           <Sparkles size={18} />
         </span>
         <div>
-          <h2>Perguntar ao Yuki</h2>
-          <p>Capture materiais da página. Os agentes atuais recebem texto.</p>
+          <h2>Conversar com Claude</h2>
+          <p>Converse com os modelos Claude. Capture trechos da página ou envie mensagens.</p>
         </div>
-        <span className="micro-badge">CONTEXTO DA ABA</span>
+        <span className="micro-badge">CLAUDE CODE</span>
       </div>
 
       <div
@@ -102,7 +108,7 @@ export function WorkspaceComposer({
             className="context-mini-btn"
             onClick={() => openSource("screenshot")}
             disabled={!online || !projectId || busy}
-            title="Capturar ou colar print da tela (Ctrl+V)"
+            title="Capturar print visível da aba web"
           >
             <Camera size={12} aria-hidden="true" />
             Print
@@ -112,7 +118,7 @@ export function WorkspaceComposer({
             className="context-mini-btn"
             onClick={() => openSource("image")}
             disabled={!online || !projectId || busy}
-            title="Capturar ou importar imagem da página"
+            title="Importar imagem local para o projeto"
           >
             <ImageIcon size={12} aria-hidden="true" />
             Imagem
@@ -120,15 +126,42 @@ export function WorkspaceComposer({
         </div>
       </div>
 
+      {capture && (
+        <div className="attached-context-chip" role="status" aria-label="Contexto anexado da página">
+          <FileText size={13} aria-hidden="true" />
+          <span className="chip-title">{capture.title || "Contexto da página"}</span>
+          <small className="chip-chars">({capture.text.length.toLocaleString("pt-BR")} carac.)</small>
+          {onClearCapture && (
+            <button
+              type="button"
+              className="chip-remove-btn"
+              onClick={onClearCapture}
+              title="Remover contexto da página"
+              aria-label="Remover contexto anexado"
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+
       <form onSubmit={plan}>
         <label htmlFor="instruction" className="sr-only">
           Descreva seu pedido
         </label>
         <textarea
           id="instruction"
-          placeholder="Pergunte sobre os textos selecionados ou peça para sintetizar seus materiais…"
+          placeholder="Pergunte sobre a página ou envie uma mensagem ao Claude… (Enter para enviar)"
           value={text}
           onChange={(e) => changeText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (canSubmit) {
+                (e.target as HTMLTextAreaElement).form?.requestSubmit();
+              }
+            }
+          }}
           disabled={!draftReady}
           maxLength={8000}
           aria-describedby="composer-chars"
@@ -167,8 +200,8 @@ export function WorkspaceComposer({
             {activeAgentLabels.length > 0
               ? `❄ ${activeAgentLabels.join(" + ")}`
               : availableModels.length > 0
-                ? "Escolha 1 agente abaixo"
-                : "Sem agente conectado"}
+                ? "Escolha 1 modelo abaixo"
+                : "Sem modelo conectado"}
           </span>
           <button
             type="button"
@@ -207,11 +240,12 @@ export function WorkspaceComposer({
             type="submit"
             disabled={!canSubmit}
             aria-label="Criar plano"
+            title="Enviar mensagem ou criar plano"
           >
             {busy ? (
               <Loader2 size={16} className="spin" aria-hidden="true" />
             ) : (
-              <ArrowRight size={16} aria-hidden="true" />
+              <Send size={15} aria-hidden="true" />
             )}{" "}
             Criar plano
           </button>
@@ -220,7 +254,7 @@ export function WorkspaceComposer({
 
       <div className="composer-foot">
         <ShieldCheck size={13} aria-hidden="true" />
-        Você escolhe exatamente quais textos, prints e imagens cada agente recebe.
+        Você escolhe exatamente quais textos, prints e imagens cada modelo recebe.
       </div>
     </section>
   );

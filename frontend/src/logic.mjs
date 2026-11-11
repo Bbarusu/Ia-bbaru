@@ -135,6 +135,7 @@ export function describeTaskError(error) {
       gateway_busy: "O gateway está ocupado. A tarefa aguardará e usará o mesmo pedido.",
       request_in_progress: "O gateway ainda está processando este pedido. Aguardando confirmação.",
       provider_timeout: "O provedor excedeu o tempo de resposta. O resultado é incerto e não haverá repetição.",
+      provider_error: "O Claude não conseguiu responder a este pedido.",
       request_outcome_uncertain: "O gateway não pode confirmar o resultado anterior. Não haverá repetição.",
       process_interrupted_outcome_unknown: "O aplicativo encerrou durante a chamada. O resultado é incerto e não haverá repetição.",
       gateway_request_failed: "A comunicação com o gateway falhou. Consulte o estado da tarefa antes de qualquer nova ação.",

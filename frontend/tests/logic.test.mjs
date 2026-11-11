@@ -152,6 +152,9 @@ test("describeTaskError translates completion_unconfirmed and other gateway erro
   assert.ok(limitReached);
   assert.match(limitReached, /limite de tokens de saída foi atingido/i);
 
+  const providerError = describeTaskError("provider_error");
+  assert.equal(providerError, "O Claude não conseguiu responder a este pedido.");
+
   assert.equal(describeTaskError(null), "");
 });
 
