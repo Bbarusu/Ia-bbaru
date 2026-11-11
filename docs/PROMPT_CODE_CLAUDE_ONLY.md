@@ -12,6 +12,11 @@ não reintroduzi-los. Claude Code continua sendo a única conexão de execução
 
 ## Prioridade nova — falha real e chat lateral (11/11/2026)
 
+Atualização Codex: leia docs/CORRECAO_PROVIDER_ERROR.md. Já há leitura de errors[],
+diagnóstico estrutural sanitizado e regressões na branch de integração. Preserve
+essas mudanças ao integrar sua conferência de modelos; a causa real ainda depende
+do diagnóstico Windows. Não duplicar uma nova implementação de logging bruto.
+
 O usuário trouxe captura de pedido “Revise” que falhou com provider_error usando
 sonnet, um material e uma tentativa. O limite exibido é 128; não há evidência
 de que ele seja a causa. Os testes Windows passaram, mas a geração desta captura

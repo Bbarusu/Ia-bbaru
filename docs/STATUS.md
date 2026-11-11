@@ -82,6 +82,19 @@ em [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md), com prompts atualizados
 para Gemini (frontend) e Code (gateway). Esta rodada registra a especificação;
 não implementa o novo chat nem corrige o provider_error observado.
 
+## Tratamento de provider_error — correção e diagnóstico
+
+Corrigida leitura de `errors[]` da CLI, antes ignorada quando a falha não vinha
+em `result`. Autenticação/cota nesses envelopes agora conservam seus códigos.
+Adicionado diagnóstico estrutural sanitizado `claude_cli_failure`, sem textos
+do usuário/provedor, e mensagem compreensível para falha ainda desconhecida.
+Nenhum retry automático novo; causa da captura e geração real ainda pendentes.
+
+Roteiro de uma única geração sintética no Windows e coordenação com os outros
+chats em [CORRECAO_PROVIDER_ERROR.md](CORRECAO_PROVIDER_ERROR.md).
+Validação local: backend 67 OK; gateway 67 OK + 1 real ignorado; frontend 11 OK;
+build e cinco cenários HTTP 1.1 aprovados. Windows ainda precisa validar esta correção.
+
 ## Histórico de decisões anteriores
 
 # Estado do Ia-bbaru / Yuki

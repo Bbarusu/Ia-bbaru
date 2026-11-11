@@ -123,6 +123,8 @@ export function describeTaskError(error) {
         "O material somado à resposta principal ultrapassa o limite de contexto do revisor.",
       provider_quota_exceeded:
         "A cota da conta no provedor foi atingida durante a geração.",
+      provider_error:
+        "O Claude não conseguiu responder a este pedido. O motivo ainda não foi identificado. Consulte o diagnóstico do gateway; o pedido não será repetido automaticamente.",
       provider_not_authenticated:
         "A sessão no provedor expirou ou não está autenticada.",
       provider_not_logged_in: "Faça login no CLI oficial e depois confirme a retomada.",

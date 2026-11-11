@@ -99,7 +99,8 @@ if ($alreadyRunning) {
     throw "Já existe um serviço na porta $Port (talvez um gateway antigo). Feche-o e rode este script de novo."
 }
 # Sem janela: um clique no console do Windows (modo "Selecionar") pausa o processo
-# quando ele escreve no log. O log vai para arquivo (só método, rota e status).
+# quando ele escreve no log. O stderr inclui diagnóstico estrutural sanitizado
+# de falhas da CLI; nunca inclui o texto bruto do provedor ou dos materiais.
 $logFile = Join-Path $stateDir 'gateway.log'
 $errFile = Join-Path $stateDir 'gateway-erros.log'
 $env:PYTHONUNBUFFERED = '1'  # linhas do log aparecem na hora

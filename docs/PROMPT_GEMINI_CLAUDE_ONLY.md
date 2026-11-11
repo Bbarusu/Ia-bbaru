@@ -16,6 +16,10 @@ com assistência Claude e seleção clara de modelos, em vez de seleção de for
 
 ## Prioridade nova — chat lateral (11/11/2026)
 
+Atualização Codex: docs/CORRECAO_PROVIDER_ERROR.md descreve a correção do parser e
+o diagnóstico seguro. Preserve a tradução provider_error em frontend/src/logic.mjs
+ao refazer o painel; a causa e o reparo da geração real ainda não estão confirmados.
+
 O usuário considera o fluxo atual complexo. As referências Atlas/Edge indicam
 conversa ao lado da página, sem modal por mensagem. Implemente a interface conforme
 AJUSTES_CHAT_LATERAL.md: reutilize o painel existente, botão evidente na barra,

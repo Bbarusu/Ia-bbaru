@@ -46,7 +46,7 @@ class RealClaudeCodeTest(unittest.TestCase):
                 "model_id": f"claude-code:{cc.models[0]}", "role": "answer",
                 "instruction": "Responda apenas com a palavra da fonte.",
                 "context": [{"id": "fonte-1", "title": "Teste", "content": "A palavra é laranja."}],
-                "previous_output": None, "max_output_tokens": 64,
+                "previous_output": None, "max_output_tokens": 128,
             })
         self.assertEqual(response.status_code, 200, response.text)
         result = GenerateResponseV11.model_validate(response.json())

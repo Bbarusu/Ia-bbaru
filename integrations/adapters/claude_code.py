@@ -24,6 +24,7 @@ from backend.contracts import ModelProfile, TokenUsage
 from .. import errors
 from ..config import ClaudeCodeSettings
 from ..contracts_v1_1 import ModelCapabilities, ModelProfileV11
+from ..failure_diagnostics import ERROR_SUBTYPES, failure_text, log_failure
 from ..prompt import CLI_ARGUMENT_PROMPT, SYSTEM_PROMPT, build_user_prompt
 from ..runner import ProcessStartError, ProcessTimeout, child_env, run_process
 from .base import (  # noqa: F401  (re-exported for existing imports)
@@ -146,7 +147,11 @@ class ClaudeCodeAdapter(CliAdapterBase):
                 raise NotStarted(errors.provider_unavailable("provider_cli_not_runnable"))
             except ProcessTimeout:
                 raise errors.provider_timeout()
-        return self.parse(model, proc)
+        try:
+            return self.parse(model, proc)
+        except errors.GatewayError as exc:
+            log_failure(request, proc, exc.code)
+            raise
 
     def parse(self, model: str, proc) -> "ProviderResult":
         try:
@@ -156,8 +161,12 @@ class ClaudeCodeAdapter(CliAdapterBase):
         except ValueError:
             raise errors.provider_error("provider_invalid_output")
         result = data.get("result")
-        if data.get("is_error") or proc.returncode != 0 or not isinstance(result, str):
-            raise classify_failure(result if isinstance(result, str) else "")
+        subtype = data.get("subtype")
+        failed_subtype = isinstance(subtype, str) and subtype in ERROR_SUBTYPES
+        if data.get("is_error") or proc.returncode != 0 or failed_subtype:
+            raise classify_failure(failure_text(data))
+        if not isinstance(result, str):
+            raise errors.provider_error("provider_invalid_output")
         if not result.strip():
             raise errors.provider_error("provider_empty_output")
         if len(result) > 100000:

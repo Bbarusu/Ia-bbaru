@@ -50,6 +50,18 @@ def main():
     if mode == "garbage":
         print("not json")
         return 1
+    if mode in {"errors_auth", "errors_quota", "errors_unknown", "errors_budget"}:
+        message = {
+            "errors_auth": "Authentication failed. Please run /login",
+            "errors_quota": "Usage limit reached",
+            "errors_unknown": "Unrecognized execution failure",
+            "errors_budget": "thinking.budget_tokens must be less than max_tokens",
+        }[mode]
+        # Synthetic examples of the errors[] envelope; not captured user output.
+        print(json.dumps({"type": "result", "subtype": "error_during_execution",
+                          "is_error": True, "errors": [message + " PRIVATE_SENTINEL"]}))
+        print("PRIVATE_STDERR_SENTINEL", file=sys.stderr)
+        return 1
     if mode == "auth_error":
         print(json.dumps({"type": "result", "subtype": "success", "is_error": True,
                           "result": "Not logged in · Please run /login", "session_id": "s-1"}))
