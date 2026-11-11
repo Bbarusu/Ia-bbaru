@@ -155,6 +155,15 @@ test("describeTaskError translates completion_unconfirmed and other gateway erro
   const providerError = describeTaskError("provider_error");
   assert.equal(providerError, "O Claude não conseguiu responder a este pedido.");
 
+  const outputLimit = describeTaskError("provider_output_limit_reached");
+  assert.match(outputLimit, /ultrapassou o limite de saída de tokens/i);
+
+  const modelMismatch = describeTaskError("provider_model_mismatch");
+  assert.match(modelMismatch, /tentou usar outro modelo diferente do autorizado/i);
+
+  const modelCredits = describeTaskError("provider_model_requires_credits");
+  assert.match(modelCredits, /exige créditos de uso adicionais/i);
+
   assert.equal(describeTaskError(null), "");
 });
 

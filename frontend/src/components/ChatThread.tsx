@@ -120,6 +120,13 @@ export function ChatThread({
                         texto e os materiais foram preservados para consulta.
                       </p>
                     )}
+                    {(t.error === "output_token_limit_reached" ||
+                      t.error === "provider_output_limit_reached") && (
+                      <p className="small-note">
+                        A resposta ultrapassou o teto de tokens de saída. Você
+                        pode aumentar o limite indicativo para esta tarefa.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -172,6 +179,16 @@ export function ChatThread({
                     {t.routing && (
                       <p className="small-note">
                         <strong>Roteamento:</strong> {t.routing.reason}
+                      </p>
+                    )}
+                    {t.execution?.steps?.[0]?.request_id ? (
+                      <p className="small-note">
+                        <strong>Request ID:</strong>{" "}
+                        <code>{t.execution.steps[0].request_id}</code>
+                      </p>
+                    ) : (
+                      <p className="small-note">
+                        <strong>ID da Tarefa:</strong> <code>{t.id}</code>
                       </p>
                     )}
                     {t.gateway_protocol_version && (

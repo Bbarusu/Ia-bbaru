@@ -165,7 +165,7 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
                     </small>
                   )}
                   {task.execution?.steps[index] && (
-                    <small>Etapa: {taskState(task.execution.steps[index].state)} · Tentativas: {task.execution.steps[index].attempts}</small>
+                    <small>Etapa: {taskState(task.execution.steps[index].state)} · Tentativas: {task.execution.steps[index].attempts} · Request ID: {task.execution.steps[index].request_id}</small>
                   )}
                 </p>
               </div>
