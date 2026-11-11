@@ -14,9 +14,12 @@ Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
   créditos adicionais. Conferir `/model` antes de configurar.
 - Captura de texto/print/imagem, armazenamento separado e fila durável preservados.
   Imagens continuam locais; visão no gateway ainda não está implementada.
-- O teste gráfico passou no Linux nesta rodada. O Windows passou na rodada
-  anterior; o novo inicializador `-Models` e a configuração dos modelos precisam
-  ser conferidos no Windows. Nenhuma geração real foi feita nesta rodada.
+- Linux e Windows: backend, gateway, build e teste gráfico aprovados para esta
+  configuração. Login Claude confirmado no Windows. Nova captura de tarefa no
+  painel mostra provider_error: geração real ainda não validada nesta configuração.
+- Próxima experiência solicitada: chat lateral com contexto da página, resposta
+  em destaque e envio direto. Especificação e divisão de responsabilidades em
+  [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md); ainda não implementadas.
 
 Validação desta entrega: backend 67 aprovados; gateway 61 aprovados e 1 teste
 de conta real ignorado; frontend 11 e políticas desktop 3 aprovados. Build,
@@ -26,6 +29,58 @@ Os testes gráficos Linux usaram Xvfb e sandbox do sistema desativada apenas no 
 Prompts atuais: [Gemini/frontend](PROMPT_GEMINI_CLAUDE_ONLY.md) e
 [Code/Claude Code](PROMPT_CODE_CLAUDE_ONLY.md).
 As propostas e achados abaixo são histórico, não instruções para reativar provedores.
+
+## Validação Windows recebida em 11/11/2026
+
+Evidência: saída de terminal e captura do seletor de modelos fornecidas pelo usuário,
+após incorporar a branch de integração (entrega fa24ef3; SHA do merge local não informado).
+
+| Verificação | Resultado |
+| --- | --- |
+| Merge | Concluído pelo Git, sem conflitos reportados |
+| Backend | 67 testes aprovados em 14,469 s |
+| Gateway | 62 executados em 43,974 s: 61 aprovados e 1 teste real ignorado |
+| Build frontend | TypeScript/Vite aprovado |
+| Chromium test:ui | Aprovado: navegação, isolamento, backend real, captura, rascunhos e persistência |
+| Claude Code | 2.1.307, instalado, sem flags faltantes |
+| Login | logged_in=true, auth_method=claude.ai, uses_subscription=true, ready=true |
+| Diagnóstico | 2,1 s; apenas claude_code; nenhuma variável de chave de API detectada |
+| Contrato | 1.1 disponível; 1 indisponível por output_limit_not_enforced, esperado |
+| Ferramentas | disabled |
+
+O aviso de depreciação Starlette/httpx não impediu os testes. O teste real foi
+ignorado de propósito; esses resultados não comprovam geração com a conta.
+
+A captura da CLI mostra plano Claude Pro, Opus 5.5 selecionado e entradas
+Sonnet 5.5, Fable 5.2, Haiku 5.5, Fable 5.1 e outros modelos. A entrada
+Default (recommended) mostra Fable 5.2. Isso confirma a apresentação desses modelos
+no seletor desta instalação, não que todos já tenham sido executados ou que
+Fable esteja incluído sem créditos adicionais. A referência anterior à versão
+mínima documentada de Fable não deve sobrepor esta observação: compatibilidade
+de execução precisa de teste próprio, sem exigir atualização apenas pelo número.
+
+Roteiro proposto antes da captura de falha abaixo: sair da CLI interativa e iniciar o navegador com -Models "sonnet".
+Criar projeto/material sintético, planejar uma tarefa sem revisão e confirmar
+uma única geração pelo painel. Observar saída, estado, modelo e persistência.
+O pedido deve usar só a palavra "laranja" de uma fonte de teste.
+Não repetir automaticamente se o resultado ficar incerto. Depois validar
+outros modelos autorizados e revisão entre dois modelos Claude.
+
+## Captura posterior e ajuste de experiência — 11/11/2026
+
+O usuário mostrou o pedido “Revise” em estado Falhou, Claude Code (sonnet),
+um material, uma tentativa, limite indicativo de 128 e código provider_error.
+Não foi informado o SHA dessa execução nem diagnóstico da CLI. Não sabemos se
+é o teste sintético sugerido acima; não atribuir a falha ao limite ou à conta.
+O reparo e uma geração real bem-sucedida continuam pendentes, apesar dos testes
+automatizados aprovados. Não repetir automaticamente resultado incerto.
+
+Também solicitou simplificar a interação conforme referências Atlas/Edge:
+conversa persistente na lateral, contexto visível e respostas claras, retirando
+planos e metadados técnicos do percurso principal. Os ajustes e critérios estão
+em [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md), com prompts atualizados
+para Gemini (frontend) e Code (gateway). Esta rodada registra a especificação;
+não implementa o novo chat nem corrige o provider_error observado.
 
 ## Histórico de decisões anteriores
 
