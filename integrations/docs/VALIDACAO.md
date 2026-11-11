@@ -17,7 +17,8 @@ Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
 | Aliases, troca de modelo, créditos, `stream-json`, imagem | pacote oficial 2.1.322 e 2.1.307, sem gerar (`--help`, `strings`) | ✅ registrado em PASSAGEM_CLAUDE_ONLY.md |
 | Resolução de aliases e `init.tools: []` | **4 gerações não intencionais** na conta do ambiente de nuvem (não a do usuário) | ⚠️ só vale para aquela conta/versão |
 | Windows do usuário, sem geração | tela `/model` + `diagnose` (código anterior a `eb94450`) | ✅ Claude Code 2.1.322 (atualizado sozinho), Claude Pro; Opus 5.5, Sonnet 5.5, Fable 5.2 (incluído até 16/11, consome cota mais rápido), Haiku 5.5; sem "Requires usage credits"; `ready: true`, 0,4 s |
-| Windows com esta branch | suítes, `diagnose` com `models` | ⏳ repetir |
+| Windows com esta branch, `diagnose` | `IA_BBARU_CLAUDE_CODE_MODELS=sonnet,haiku,opus`, sem geração | ✅ 2.1.322, `ready: true`, 0,4 s; os 3 modelos como alias da família certa, `resolved_version: null`, `access: not_verified_without_generation`; perfis sonnet estudo/programação, haiku geral/escrita, opus análise; nenhuma variável de chave de API; contrato 1 bloqueado (`output_limit_not_enforced`) |
+| Windows com esta branch, suítes e script HTTP | — | ⏳ resultado não informado |
 | Geração real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
 
 Mudanças: `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo; remoção das variáveis que
