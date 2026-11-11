@@ -20,8 +20,6 @@ from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from . import __version__, errors
 from .adapters.base import NotStarted, ProviderResult
 from .adapters.claude_code import ClaudeCodeAdapter
-from .adapters.gemini_cli import GeminiCliAdapter
-from .adapters.openai_codex import OpenAICodexAdapter
 from .config import Settings
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 from .dedup import DedupStore, payload_hash
@@ -58,9 +56,7 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     settings = settings or Settings.from_env()
     settings.validate()
     if adapters is None:
-        adapters = [adapter or ClaudeCodeAdapter(settings.claude_code),
-                    OpenAICodexAdapter(settings.openai_codex),
-                    GeminiCliAdapter(settings.gemini_cli)]
+        adapters = [adapter or ClaudeCodeAdapter(settings.claude_code)]
     by_provider = {a.provider: a for a in adapters}
 
     def each_adapter(fn):
@@ -129,12 +125,13 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
         })}
 
     def run(body, convert):
+        # A retired provider must not remain routable through a cached response.
+        adapter = adapter_for(body.model_id, body.protocol_version)
         digest = payload_hash(body.model_dump(mode="json"))
         response_model = RESPONSE_MODELS[body.protocol_version]
         replay = _existing(store, body.request_id, digest, response_model)
         if replay is not None:
             return replay
-        adapter = adapter_for(body.model_id, body.protocol_version)
         adapter.check_request(body)
         if not slots.acquire(blocking=False):
             raise errors.busy()

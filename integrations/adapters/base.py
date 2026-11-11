@@ -1,4 +1,4 @@
-"""Pieces shared by the CLI adapters (Claude Code, ChatGPT/Codex CLI, Gemini CLI)."""
+"""CLI infrastructure used by the Claude Code adapter."""
 import shutil
 import sys
 import tempfile
@@ -17,6 +17,9 @@ from ..runner import ProcessStartError, ProcessTimeout, child_env
 STATUS_TTL_S = 30
 # Re-check sooner while not ready, so a login done in the terminal shows up quickly.
 STATUS_TTL_NOT_READY_S = 5
+# `--version`/`--help` change only when the CLI is updated: reuse them between
+# status checks (a forced refresh asks again). Keeps the catalog fast on Windows.
+CLI_FACTS_TTL_S = 300
 CHARS_PER_TOKEN_RESERVE = 4
 
 
@@ -109,6 +112,8 @@ class CliAdapterBase:
             ttl = STATUS_TTL_S if self._status and self._status.ready else STATUS_TTL_NOT_READY_S
             if not refresh and self._status and time.monotonic() - self._status_at < ttl:
                 return self._status
+            if refresh:
+                self.__dict__.pop("_cli_facts", None)
             self._status = self._probe()
             self._status_at = time.monotonic()
             return self._status
@@ -118,6 +123,9 @@ class CliAdapterBase:
         command = self.command()
         if not command:
             return None, make_status(self.provider, reason="cli_not_installed", next_action=not_installed_action)
+        facts = self.__dict__.get("_cli_facts")
+        if facts and facts[0] == tuple(command) and time.monotonic() - facts[1] < CLI_FACTS_TTL_S:
+            return (command, dict(facts[2])), None
         program = Path(command[-1]).name if len(command) == 1 else " ".join(Path(c).name for c in command)
         try:
             version = self.run_quick(command + ["--version"])
@@ -138,6 +146,7 @@ class CliAdapterBase:
         if missing:
             return None, make_status(self.provider, **installed, reason="cli_version_unsupported",
                                      next_action="Atualize a CLI; esta versão não oferece as opções necessárias.")
+        self._cli_facts = (tuple(command), time.monotonic(), dict(installed))
         return (command, installed), None
 
     def profile_id(self, model: str) -> str:
@@ -152,7 +161,7 @@ class CliAdapterBase:
     def profile_fields(self, model: str) -> dict:
         return dict(
             id=self.profile_id(model), provider=self.provider, label=self.label(model),
-            task_kinds=self.settings.task_kinds,
+            task_kinds=self.settings.task_kinds_for(model),
             context_char_limit=self.settings.context_char_limit,
             max_output_tokens=self.settings.max_output_tokens,
         )

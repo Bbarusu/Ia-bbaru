@@ -1,14 +1,16 @@
-# Ia-bbaru — interface do navegador Chromium
+# Frontend do navegador Ia-bbaru
 
-Repositório: https://github.com/Bbarusu/Ia-bbaru.
-O usuário escolheu Chromium/Electron em 9/11/2026. Base atual obrigatória:
-`origin/codex/chromium-browser`. Trabalhe em `gemini/chromium-ui`.
+Leia README.md, docs/STATUS.md e docs/DIRECAO_CLAUDE_ONLY.md.
+Prompt vigente: docs/PROMPT_GEMINI_CLAUDE_ONLY.md.
+Base de integração: codex/browser-capture-clis; preserve seu trabalho local
+antes de integrá-la na sua branch gemini/chromium-ui.
 
-Leia primeiro `docs/PROMPT_GEMINI_CHROMIUM.md`, `docs/ARQUITETURA.md` e
-`docs/TESTAR_NAVEGADOR_CHROMIUM.md`. Preserve as mudanças de transporte, aceite
-1.1 e captura ao reaproveitar componentes da PR #3. Não volte à base Firefox antiga.
+Você continua como colaborador do frontend. O produto integra exclusivamente
+Claude Code; não reintroduzir sua CLI ou outros provedores. A seleção é entre
+modelos Claude configurados pelo usuário. Não presumir acesso/cota ilimitada.
 
-Gemini mantém `frontend/` e `desktop/ui/`. Codex mantém runtime, preloads, IPC,
-backend e ponte. Claude mantém `integrations/`. Não simule conexões, não exponha
-segredos e não habilite execução enquanto a ponte não declarar suporte.
-Preserve alterações locais e trabalhe em branch própria, sem force push.
+Escopo principal: frontend/ e desktop/ui/. Preserve o estilo escolhido pelo
+usuário, rascunhos, capturas reais, fila e aceites. Não simular funcionalidades.
+Mudanças de runtime/IPC precisam de contrato e coordenação. Não sobrescrever
+as ligações de busca/zoom/captura já implementadas. Use context-* / data-context.
+Não apagar dados pessoais ou histórico. Não usar force push.

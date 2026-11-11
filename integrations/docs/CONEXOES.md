@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Conexões: diagnóstico, escolha e capacidades reais
 
 Consultado em 7 de novembro de 2026. Revalidar antes de cada mudança: CLIs,
@@ -131,7 +133,7 @@ Detalhes, evidências e decisões pendentes: [PASSAGEM_CLIS.md](PASSAGEM_CLIS.md
 
 | | ChatGPT (Codex CLI) | Gemini CLI |
 | --- | --- | --- |
-| Login | `codex login status` (oficial) | Declarado pelo usuário: não há comando de status e o projeto não lê credenciais |
+| Login | `codex login status` (oficial) | Login with Google forçado (`GEMINI_CLI_AUTH_OVERRIDE`) e verificado pela própria CLI com entrada vazia; nenhum arquivo de credencial é lido |
 | Ferramentas | `restricted`: execução de comandos não pode ser desligada | `disabled`: política oficial que nega todas |
 | Término | nunca informado → `unknown` | nunca informado → `unknown` |
 | Teto de saída | nenhum | nenhum |

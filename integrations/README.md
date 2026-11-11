@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Ia-bbaru — gateway de integrações (frente do Claude)
 
 Serviço local separado do backend, em `http://127.0.0.1:8010`. Implementa o
@@ -86,7 +88,7 @@ Em bash, troque `$env:NOME = valor` por `export NOME=valor` e ative com
 | `IA_BBARU_CLAUDE_CODE_TIMEOUT_S` | 90 | Entre 5 e 110 s; o backend desiste em 120 s. |
 | `IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT` | desligado | Só contrato 1 (legado). Ver "Contratos 1 e 1.1". |
 | `IA_BBARU_CHATGPT_CODEX_*` | — | Mesmos sufixos (`BIN`, `MODELS`, `TASK_KINDS`, `CONTEXT_CHARS`, `MAX_OUTPUT_TOKENS`, `TIMEOUT_S`) para o ChatGPT pela Codex CLI. |
-| `IA_BBARU_GEMINI_CLI_*` | — | Idem para a Gemini CLI, mais `IA_BBARU_GEMINI_CLI_LOGIN=google` (você declara que fez Login with Google). |
+| `IA_BBARU_GEMINI_CLI_*` | — | Idem para a Gemini CLI, mais `IA_BBARU_GEMINI_CLI_LOGIN=google`: autoriza o gateway a conferir o Login with Google pela própria CLI (entrada vazia, sem geração). O login Google é forçado; chave de API salva na CLI não é usada. |
 
 `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, as variáveis de
 Bedrock/Vertex/Foundry, `GATEWAY_TOKEN` e `LAUNCHER_API_TOKEN` **são removidas** do

@@ -1,4 +1,14 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Revisão das CLIs e da interface — 10/11/2026
+
+Atualização posterior: os commits do Claude `64c6c36` a `47bffd5` corrigem os
+dois achados abaixo e registram aprovação dos testes no Windows. A conta individual
+do usuário, porém, recebeu recusa de login da Gemini CLI 0.67.0, com orientação
+para migrar ao Antigravity. Ver [status atualizado](STATUS.md) e
+[passagem do Claude, seção 1.2](https://github.com/Bbarusu/Ia-bbaru/blob/47bffd570d50b65e7f875a97272d4e628ca34263/integrations/docs/PASSAGEM_CLIS.md).
+Esta atualização revisa código/documentos; não incorpora esses commits nem executa
+novas gerações. Os achados e prompts originais permanecem como histórico da rodada.
 
 Base: Claude `db8cee4` (código dos adaptadores em `732b0ac`), Gemini `fd2a574`,
 main `1c72ffa`. Branch de integração: `codex/browser-capture-clis`.
@@ -121,3 +131,20 @@ A passagem mais recente do Claude, `PASSAGEM_GEMINI_NAVEGADOR.md` (`db8cee4`),
 confirma os achados N-1/N-2/N-3. Os controles básicos/capturas acima já foram
 implementados aqui; o Gemini deve incorporar esta base antes de ampliar o runtime.
 As fases restantes (PDF, sessão completa, downloads etc.) continuam no roteiro dele.
+
+## Retorno dos testes no Windows
+
+O usuário executou a PR #7: relatou 66 testes no backend e 73 no gateway,
+com 2 falhas e 1 ignorado no gateway. A captura do terminal confirma aprovação
+do smoke gráfico: navegação, isolamento, backend real, captura, preservação de
+rascunhos e persistência após reiniciar. A conferência manual da interface segue
+pendente; esse resultado não valida geração em conta real.
+
+Investigação local: executar os 17 testes de `test_cli_adapters.py` com
+`PYTHONIOENCODING=cp1252` reproduziu duas falhas de comparação de texto nas
+respostas Gemini (teste de geração e integração backend por HTTP). Os dublês
+usavam a codificação padrão do Python para escrever JSON com acentos, enquanto
+o gateway lê UTF-8, como fazem as CLIs reais. Os dublês Gemini/Codex agora
+configuram stdout/stderr como UTF-8. Os 17 testes passaram sob CP1252 após a
+correção. Falta comparar os tracebacks do usuário e repetir o gateway no Windows
+para confirmar que as duas falhas relatadas têm essa mesma causa.

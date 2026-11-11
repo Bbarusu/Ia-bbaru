@@ -1036,7 +1036,7 @@ main {
   color: #0b0f17;
 }
 
-.gemini-star {
+.model-star {
   font-size: 26px;
   line-height: 1;
 }
@@ -2439,8 +2439,8 @@ dialog.kinfo-guide-dialog {
   min-width: 0;
 }
 
-/* Yuki Composer Quick Context Bar */
-.quick-composer-bar {
+/* Claude context Composer & Multimodal Capture Studio */
+.context-composer-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2453,20 +2453,20 @@ dialog.kinfo-guide-dialog {
   border: 1px solid #d4e0ee;
 }
 
-.quick-bar-title {
+.context-bar-title {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--text);
 }
 
-.quick-bar-btns {
+.context-bar-btns {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
-.quick-mini-btn {
+.context-mini-btn {
   min-height: 24px;
   padding: 2px 10px;
   border-radius: var(--radius-pill);
@@ -2481,12 +2481,12 @@ dialog.kinfo-guide-dialog {
   cursor: pointer;
 }
 
-.quick-mini-btn:hover:not(:disabled) {
+.context-mini-btn:hover:not(:disabled) {
   background: #dce8f6;
   border-color: #9cb4d0;
 }
 
-.agent-status-pill {
+.context-agent-pill {
   font-size: 11px;
   font-weight: 600;
   color: #0b0f17;

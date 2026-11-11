@@ -69,7 +69,7 @@ const STEPS = [
     ],
     title: "Abas web isoladas dos agentes locais",
     description:
-      "Entrar no Claude, ChatGPT, Gemini ou NotebookLM pelas abas do navegador serve para você usar os sites normalmente e capturar trechos. Por segurança, o Yuki nunca lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial instalado no PC.",
+      "Entrar no Claude pelas abas do navegador serve para você usar os sites normalmente e capturar trechos. Por segurança, o Yuki nunca lê seus cookies nem sessões web: os agentes do painel só conectam pelo CLI oficial instalado no PC.",
     rowTitle: "Isolamento total nas páginas web",
     rowSub:
       "Sites abertos nas abas não têm acesso ao Node, ao seu banco de dados nem à ponte de agentes.",

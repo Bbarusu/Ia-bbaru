@@ -21,8 +21,6 @@ async function main() {
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ connections: [
         { provider: "claude-code", version: "2.1.307", installed: true, ready: true, configured_models: ["claude-code:fixture"] },
-        { provider: "chatgpt-codex", version: "0.167.0", installed: true, ready: true, configured_models: ["chatgpt-codex:fixture"] },
-        { provider: "gemini-cli", version: "0.67.0", installed: true, ready: true, configured_models: ["gemini-cli:fixture"] },
       ] }));
       return;
     }
@@ -53,7 +51,7 @@ async function main() {
           models: [
             {
               id: "fixture:study",
-              provider: "fixture",
+              provider: "claude-code",
               label: "Agente de teste local",
               available: true,
               task_kinds: ["study"],
@@ -583,8 +581,7 @@ async function main() {
     await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
     await workspace.getByRole("button", { name: "Conexões", exact: true }).first().click();
-    await expect(workspace.getByText("ChatGPT / Codex CLI · 0.167.0", { exact: true })).toBeVisible();
-    await expect(workspace.getByText("Login Google declarado; não verificado", { exact: true })).toBeVisible();
+    await expect(workspace.getByText("Claude Code · 2.1.307", { exact: true })).toBeVisible();
     const versions = await app.evaluate(() => process.versions);
     await app.close();
     app = null;

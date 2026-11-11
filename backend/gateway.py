@@ -54,7 +54,9 @@ class HttpGateway:
             schema = ModelCatalogV11 if self.protocol_version == "1.1" else ModelCatalog
             if self.protocol_version == "1.1" and raw.get("protocol_version") != "1.1":
                 raise ValueError("Gateway catalog version does not match configuration")
-            return schema.model_validate(raw)
+            catalog = schema.model_validate(raw)
+            catalog.models = [m for m in catalog.models if m.provider == "claude-code"]
+            return catalog
         except (ValueError, AttributeError) as exc:
             raise GatewayUnavailable("gateway_invalid_catalog") from exc
 
@@ -67,7 +69,7 @@ class HttpGateway:
                    "not_logged_in", "not_subscription_login", "output_limit_not_enforced"}
         for item in raw["connections"]:
             if (not isinstance(item, dict) or not isinstance(item.get("provider"), str)
-                    or item["provider"] not in {"claude-code", "chatgpt-codex", "gemini-cli"}):
+                    or item["provider"] not in {"claude-code"}):
                 continue
             raw_version = item.get("version") if isinstance(item.get("version"), str) else ""
             version = re.search(r"\b\d{1,4}\.\d{1,4}\.\d{1,6}\b", raw_version[:160])

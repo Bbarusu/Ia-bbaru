@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Claude — correções da revisão dos adaptadores
 
 Repositório https://github.com/Bbarusu/Ia-bbaru. Leia docs/REVISAO_CLIS_2026_11_10.md
