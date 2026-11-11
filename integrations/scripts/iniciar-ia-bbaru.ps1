@@ -1,16 +1,12 @@
 ﻿<#
-Inicia o Ia-bbaru com o gateway das CLIs oficiais (Claude Code; opcionalmente
-ChatGPT pela Codex CLI e Gemini CLI): primeiro início e aberturas seguintes.
+Inicia o Ia-bbaru com o gateway das CLIs oficiais (Claude Code): primeiro início e aberturas seguintes.
 
-Uso, na raiz de um checkout que junte o navegador (Codex), a interface (Gemini)
-e o gateway (Claude):
+Uso, na raiz do checkout integrado:
 
     powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1
 
-Opcional (cada provedor só aparece se receber um modelo):
-    ... -ChatGptModel NOME                       # nome mostrado por /model dentro do `codex`
-    ... -GeminiModel NOME -GeminiLoginGoogle     # nome mostrado por `gemini models list`
-  Escreva o nome sem < >: no PowerShell, < é redirecionamento.
+Modelos: -Models "sonnet,haiku,opus" (somente os autorizados na sua conta).
+-Model continua aceito como alias. Confira /model na CLI antes de adicionar modelos.
 
 O que faz:
   1. Na primeira vez, cria .venv (Python 3.12) e instala requirements.txt.
@@ -25,19 +21,16 @@ Nunca gera respostas de IA: abrir, consultar o catálogo e criar planos não con
 geração. Não lê cookies nem arquivos de credencial. Não liga a flag legada do contrato 1.
 #>
 param(
-    [string]$Model = 'sonnet',
+    [Alias('Model')][string]$Models = 'sonnet',
     [int]$MaxOutputTokens = 128,
-    [int]$Port = 8010,
-    [string]$ChatGptModel = '',
-    [string]$GeminiModel = '',
-    [switch]$GeminiLoginGoogle
+    [int]$Port = 8010
 )
 $ErrorActionPreference = 'Stop'
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $startBrowser = Join-Path $root 'scripts\start-browser.ps1'
 if (-not (Test-Path $startBrowser)) {
-    throw 'Este checkout não tem scripts\start-browser.ps1. Use a pasta que junta o navegador do Codex com o gateway.'
+    throw 'Este checkout não tem scripts\start-browser.ps1. Use a pasta do navegador integrado.'
 }
 $python = Join-Path $root '.venv\Scripts\python.exe'
 
@@ -66,16 +59,9 @@ $token = (Get-Content $tokenFile -Raw).Trim()
 # Configuração do gateway (herdada pelo processo que será aberto).
 $env:GATEWAY_TOKEN = $token
 $env:IA_BBARU_GATEWAY_DB = Join-Path $stateDir 'gateway.sqlite3'
-$env:IA_BBARU_CLAUDE_CODE_MODELS = $Model
+$env:IA_BBARU_CLAUDE_CODE_MODELS = $Models
 $env:IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
 Remove-Item Env:IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT -ErrorAction SilentlyContinue
-$env:IA_BBARU_CHATGPT_CODEX_MODELS = $ChatGptModel
-$env:IA_BBARU_CHATGPT_CODEX_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
-$env:IA_BBARU_GEMINI_CLI_MODELS = $GeminiModel
-$env:IA_BBARU_GEMINI_CLI_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
-# -GeminiLoginGoogle autoriza o gateway a conferir o Login with Google pela própria Gemini CLI
-# (entrada vazia, sem geração). O login Google é forçado; chave de API salva na CLI não é usada.
-if ($GeminiLoginGoogle) { $env:IA_BBARU_GEMINI_CLI_LOGIN = 'google' } else { Remove-Item Env:IA_BBARU_GEMINI_CLI_LOGIN -ErrorAction SilentlyContinue }
 Remove-Item Env:IA_BBARU_REAL_TEST -ErrorAction SilentlyContinue
 
 # 3. Diagnóstico (não gera resposta).
@@ -84,9 +70,7 @@ try {
     $diagnostic = (& $python -m integrations diagnose | Out-String) | ConvertFrom-Json
 } finally { Pop-Location }
 $agents = @(
-    @{ Name = 'Claude Code'; Data = $diagnostic.claude_code; Configured = $true },
-    @{ Name = 'ChatGPT (Codex CLI)'; Data = $diagnostic.chatgpt_codex; Configured = [bool]$ChatGptModel },
-    @{ Name = 'Gemini CLI'; Data = $diagnostic.gemini_cli; Configured = [bool]$GeminiModel }
+    @{ Name = 'Claude Code'; Data = $diagnostic.claude_code; Configured = $true }
 )
 foreach ($agent in $agents) {
     if (-not $agent.Configured) { continue }

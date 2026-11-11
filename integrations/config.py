@@ -2,6 +2,7 @@
 
 Nothing here is a secret except GATEWAY_TOKEN, which is never logged or returned.
 """
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -10,6 +11,13 @@ from pathlib import Path
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,99}")
 ALL_TASK_KINDS = ("general", "study", "writing", "coding", "analysis")
 BACKEND_TIMEOUT_S = 120  # backend/gateway.py waits at most 120 s per call
+# Product defaults, not measured quality rankings or entitlement checks.
+DEFAULT_MODEL_TASK_KINDS = {
+    "sonnet": ["study", "coding"],
+    "haiku": ["general", "writing"],
+    "opus": ["analysis"],
+    "fable": ["analysis"],
+}
 
 
 def _flag(name: str) -> bool:
@@ -35,15 +43,12 @@ class CliSettings:
     # aliases are resolved by the CLI and may change.
     models: list[str] = field(default_factory=list)
     task_kinds: list[str] = field(default_factory=lambda: list(ALL_TASK_KINDS))
+    model_task_kinds: dict[str, list[str]] = field(default_factory=dict)
     context_char_limit: int = 80000
     max_output_tokens: int = 4096
     timeout_s: int = 90
-    # Contract v1 promises a hard output cap. Only Claude Code may be opted in
-    # by the operator (legacy); the other CLIs are offered through 1.1 only.
+    # Legacy contract 1 requires explicit operator opt-in.
     accept_unenforced_output_limit: bool = False
-    # Operator statement that the CLI login was done (used where the CLI has no
-    # status command and credential files must not be read).
-    login_confirmed: bool = False
 
     env_prefix = "IA_BBARU_CLI"
 
@@ -55,11 +60,11 @@ class CliSettings:
             command=[command] if command else [],
             models=_list(f"{prefix}_MODELS"),
             task_kinds=_list(f"{prefix}_TASK_KINDS", ",".join(ALL_TASK_KINDS)),
+            model_task_kinds=json.loads(os.environ.get(f"{prefix}_MODEL_TASK_KINDS", "{}")),
             context_char_limit=_int(f"{prefix}_CONTEXT_CHARS", 80000),
             max_output_tokens=_int(f"{prefix}_MAX_OUTPUT_TOKENS", 4096),
             timeout_s=_int(f"{prefix}_TIMEOUT_S", 90),
             accept_unenforced_output_limit=_flag(f"{prefix}_ACCEPT_UNENFORCED_OUTPUT_LIMIT"),
-            login_confirmed=os.environ.get(f"{prefix}_LOGIN", "").strip().lower() == "google",
         )
 
     def validate(self):
@@ -67,6 +72,13 @@ class CliSettings:
         unknown = set(self.task_kinds) - set(ALL_TASK_KINDS)
         if unknown or not self.task_kinds:
             raise RuntimeError(f"{prefix}_TASK_KINDS inválido")
+        if not isinstance(self.model_task_kinds, dict):
+            raise RuntimeError(f"{prefix}_MODEL_TASK_KINDS deve ser objeto JSON")
+        for model, kinds in self.model_task_kinds.items():
+            if (model not in self.models or not isinstance(kinds, list) or not 1 <= len(kinds) <= 5
+                    or any(not isinstance(kind, str) or kind not in ALL_TASK_KINDS for kind in kinds)
+                    or len(set(kinds)) != len(kinds)):
+                raise RuntimeError(f"{prefix}_MODEL_TASK_KINDS inválido")
         if not 1000 <= self.context_char_limit <= 1_000_000:
             raise RuntimeError(f"{prefix}_CONTEXT_CHARS fora de 1000..1000000")
         if not 1 <= self.max_output_tokens <= 32768:
@@ -86,17 +98,13 @@ class CliSettings:
 class ClaudeCodeSettings(CliSettings):
     env_prefix = "IA_BBARU_CLAUDE_CODE"
 
-
-@dataclass
-class OpenAICodexSettings(CliSettings):
-    """ChatGPT plan through the official Codex CLI (`codex`)."""
-    env_prefix = "IA_BBARU_CHATGPT_CODEX"
-
-
-@dataclass
-class GeminiCliSettings(CliSettings):
-    """Google account through the official Gemini CLI (`gemini`)."""
-    env_prefix = "IA_BBARU_GEMINI_CLI"
+    def task_kinds_for(self, model):
+        if model in self.model_task_kinds:
+            return self.model_task_kinds[model]
+        # Preserve the existing common TASK_KINDS override, when supplied.
+        if self.task_kinds != list(ALL_TASK_KINDS):
+            return self.task_kinds
+        return DEFAULT_MODEL_TASK_KINDS.get(model, self.task_kinds)
 
 
 @dataclass
@@ -104,8 +112,6 @@ class Settings:
     gateway_token: str
     db_path: Path
     claude_code: ClaudeCodeSettings
-    openai_codex: OpenAICodexSettings = field(default_factory=OpenAICodexSettings)
-    gemini_cli: GeminiCliSettings = field(default_factory=GeminiCliSettings)
 
     @classmethod
     def from_env(cls):
@@ -113,12 +119,9 @@ class Settings:
             gateway_token=os.environ.get("GATEWAY_TOKEN", ""),
             db_path=Path(os.environ.get("IA_BBARU_GATEWAY_DB", "data/integrations.sqlite3")),
             claude_code=ClaudeCodeSettings.from_env(),
-            openai_codex=OpenAICodexSettings.from_env(),
-            gemini_cli=GeminiCliSettings.from_env(),
         )
 
     def validate(self):
         if len(self.gateway_token) < 32:
             raise RuntimeError("GATEWAY_TOKEN ausente ou curto (mínimo 32 caracteres)")
-        for cli in (self.claude_code, self.openai_codex, self.gemini_cli):
-            cli.validate()
+        self.claude_code.validate()

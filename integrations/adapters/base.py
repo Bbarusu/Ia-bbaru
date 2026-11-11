@@ -1,4 +1,4 @@
-"""Pieces shared by the CLI adapters (Claude Code, ChatGPT/Codex CLI, Gemini CLI)."""
+"""CLI infrastructure used by the Claude Code adapter."""
 import shutil
 import sys
 import tempfile
@@ -161,7 +161,7 @@ class CliAdapterBase:
     def profile_fields(self, model: str) -> dict:
         return dict(
             id=self.profile_id(model), provider=self.provider, label=self.label(model),
-            task_kinds=self.settings.task_kinds,
+            task_kinds=self.settings.task_kinds_for(model),
             context_char_limit=self.settings.context_char_limit,
             max_output_tokens=self.settings.max_output_tokens,
         )

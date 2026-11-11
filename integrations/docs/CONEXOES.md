@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Conexões: diagnóstico, escolha e capacidades reais
 
 Consultado em 7 de novembro de 2026. Revalidar antes de cada mudança: CLIs,

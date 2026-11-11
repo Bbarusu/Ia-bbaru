@@ -47,8 +47,8 @@ export function ConnectionsSection({
       <section className="card connection-details">
         {connections.map((connection) => (
           <div className="connection-line" key={connection.provider}>
-            <span>{({ "claude-code": "Claude Code", "chatgpt-codex": "ChatGPT / Codex CLI", "gemini-cli": "Gemini CLI" } as Record<string, string>)[connection.provider]} · {connection.version || "versão não identificada"}</span>
-            <span>{!connection.configured ? "Nenhum modelo configurado" : connection.ready ? connection.provider === "chatgpt-codex" ? "Instalado; execução bloqueada por ferramentas" : connection.provider === "gemini-cli" ? "Login Google declarado; não verificado" : "Pronto" : formatUnavailableReason(connection.reason, connection.provider)}</span>
+            <span>Claude Code · {connection.version || "versão não identificada"}</span>
+            <span>{!connection.configured ? "Nenhum modelo configurado" : connection.ready ? "Pronto" : formatUnavailableReason(connection.reason, connection.provider)}</span>
           </div>
         ))}
         {diagnosticError && <p className="small-note">{diagnosticError}</p>}

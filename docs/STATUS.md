@@ -1,3 +1,34 @@
+# Estado atual — Claude exclusivo
+
+A direção vigente é [DIRECAO_CLAUDE_ONLY.md](DIRECAO_CLAUDE_ONLY.md).
+Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
+
+- Único provedor: Claude Code oficial com a conta do usuário.
+- Catálogo somente com os modelos Claude explicitamente configurados.
+- Perfis editáveis por modelo: tipo de tarefa, contexto e preferência orientam
+  a escolha. Não há classificação automática de qualidade/dificuldade.
+- Resposta e revisão podem usar modelos Claude diferentes. Ferramentas seguem
+  desativadas; resposta sem término confirmado não inicia revisão.
+- Sonnet, Haiku, Opus e Fable são aliases documentados oficialmente. Acesso e
+  cobrança dependem da conta; Fable não é habilitado por padrão e pode exigir
+  créditos adicionais. Conferir `/model` antes de configurar.
+- Captura de texto/print/imagem, armazenamento separado e fila durável preservados.
+  Imagens continuam locais; visão no gateway ainda não está implementada.
+- O teste gráfico passou no Linux nesta rodada. O Windows passou na rodada
+  anterior; o novo inicializador `-Models` e a configuração dos modelos precisam
+  ser conferidos no Windows. Nenhuma geração real foi feita nesta rodada.
+
+Validação desta entrega: backend 67 aprovados; gateway 61 aprovados e 1 teste
+de conta real ignorado; frontend 11 e políticas desktop 3 aprovados. Build,
+teste gráfico Chromium, integração desktop/gateway e 5 cenários HTTP 1.1 aprovados.
+Os testes gráficos Linux usaram Xvfb e sandbox do sistema desativada apenas no teste.
+
+Prompts atuais: [Gemini/frontend](PROMPT_GEMINI_CLAUDE_ONLY.md) e
+[Code/Claude Code](PROMPT_CODE_CLAUDE_ONLY.md).
+As propostas e achados abaixo são histórico, não instruções para reativar provedores.
+
+## Histórico de decisões anteriores
+
 # Estado do Ia-bbaru / Yuki
 
 ## Atualização: Gemini CLI indisponível para a conta do usuário

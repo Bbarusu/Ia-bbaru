@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Ia-bbaru — gateway de integrações (frente do Claude)
 
 Serviço local separado do backend, em `http://127.0.0.1:8010`. Implementa o

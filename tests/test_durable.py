@@ -21,14 +21,14 @@ from test_backend_v11 import FixtureGateway, TOKEN
 class GatewayErrorsTests(unittest.TestCase):
     def test_connections_strip_freeform_details_and_unknown_providers(self):
         gateway = HttpGateway('http://localhost:8010', 'fixture', '1.1')
-        raw = {'connections': [{'provider': 'gemini-cli', 'version': 'Gemini 0.67.0 SECRET',
-            'ready': True, 'installed': True, 'configured_models': ['gemini-cli:fixture'],
+        raw = {'connections': [{'provider': 'claude-code', 'version': 'Claude 2.1.307 SECRET',
+            'ready': True, 'installed': True, 'configured_models': ['claude-code:fixture'],
             'reason': 'SECRET', 'detail': 'SECRET', 'next_action': 'SECRET'}, {'provider': []}]}
         with patch.object(gateway, '_request', return_value=raw):
             result = gateway.connections()
         self.assertNotIn('SECRET', str(result))
         self.assertEqual(len(result['connections']), 1)
-        self.assertEqual(result['connections'][0]['version'], '0.67.0')
+        self.assertEqual(result['connections'][0]['version'], '2.1.307')
         self.assertIsNone(result['connections'][0]['reason'])
 
     def test_allowlist_status_pairs_and_untrusted_text(self):

@@ -76,10 +76,8 @@ export function formatFinishReason(finishReason) {
 
 export function formatUnavailableReason(reason, provider) {
   if (!reason) return "Indisponível neste computador";
-  if (provider === "gemini-cli" && reason === "auth_status_unknown")
-    return "Faça Login with Google na Gemini CLI e inicie com -GeminiLoginGoogle. O login é declarado, não verificado pelo catálogo.";
-  if (provider === "chatgpt-codex" && reason === "not_logged_in")
-    return "Rode codex e escolha Sign in with ChatGPT.";
+  if (provider === "claude-code" && reason === "not_logged_in")
+    return "Indisponível: faça login na sua conta Claude pelo comando claude no terminal.";
   return (
     {
       cli_not_installed: "Indisponível: CLI oficial não instalado",

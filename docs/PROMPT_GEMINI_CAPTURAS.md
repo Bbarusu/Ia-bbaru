@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Gemini — continuar sobre o runtime integrado
 
 Repositório https://github.com/Bbarusu/Ia-bbaru. Sua entrega fd2a574 foi combinada

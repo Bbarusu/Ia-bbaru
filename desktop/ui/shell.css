@@ -462,7 +462,7 @@ input:focus-visible {
   flex-shrink: 0;
 }
 
-/* Row 3: 34px Subbar (Transparent Favorites Bar + Atlas Actions / Inline Browser Tools) */
+/* Row 3: 34px Subbar (Transparent Favorites Bar + Context Actions / Inline Browser Tools) */
 .subbar {
   height: 34px;
   display: flex;
@@ -493,12 +493,12 @@ input:focus-visible {
 .subbar-default::-webkit-scrollbar,
 .subbar-tool::-webkit-scrollbar,
 .bookmarks::-webkit-scrollbar,
-.atlas-actions::-webkit-scrollbar {
+.context-actions::-webkit-scrollbar {
   display: none;
 }
 
 .bookmarks,
-.atlas-actions {
+.context-actions {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -531,8 +531,8 @@ input:focus-visible {
   color: var(--text);
 }
 
-/* OpenAI Atlas-inspired Quick Agent Trigger Chips */
-.atlas-chip {
+/* Claude context Quick Agent Trigger Chips */
+.context-chip {
   min-height: 22px;
   padding: 2px 9px;
   border-radius: 999px;
@@ -543,13 +543,13 @@ input:focus-visible {
   font-weight: 550;
 }
 
-.atlas-chip:hover:not(:disabled) {
+.context-chip:hover:not(:disabled) {
   background: #dfeaf5;
   border-color: #b6c8de;
   color: var(--text);
 }
 
-.atlas-chip.active {
+.context-chip.active {
   background: #dce8f6;
   border-color: #9cb4d0;
   color: #0b0f17;
@@ -614,7 +614,7 @@ input:focus-visible {
 @media (max-width: 1080px) {
   .capture-mode-btn,
   .zoom-indicator,
-  .atlas-actions,
+  .context-actions,
   .subbar-divider {
     display: none;
   }

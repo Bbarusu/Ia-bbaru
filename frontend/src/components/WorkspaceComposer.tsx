@@ -79,16 +79,16 @@ export function WorkspaceComposer({
       </div>
 
       <div
-        className="atlas-composer-bar"
+        className="context-composer-bar"
         role="group"
         aria-label="Captura rápida multimodal para o agente"
       >
-        <span className="atlas-bar-title">❄ Anexar da aba:</span>
-        <div className="atlas-bar-btns">
+        <span className="context-bar-title">❄ Anexar da aba:</span>
+        <div className="context-bar-btns">
           {captureSelection && (
             <button
               type="button"
-              className="atlas-mini-btn"
+              className="context-mini-btn"
               onClick={captureSelection}
               disabled={busy}
               title="Capturar trecho de texto selecionado na aba ativa"
@@ -99,7 +99,7 @@ export function WorkspaceComposer({
           )}
           <button
             type="button"
-            className="atlas-mini-btn"
+            className="context-mini-btn"
             onClick={() => openSource("screenshot")}
             disabled={!online || !projectId || busy}
             title="Capturar ou colar print da tela (Ctrl+V)"
@@ -109,7 +109,7 @@ export function WorkspaceComposer({
           </button>
           <button
             type="button"
-            className="atlas-mini-btn"
+            className="context-mini-btn"
             onClick={() => openSource("image")}
             disabled={!online || !projectId || busy}
             title="Capturar ou importar imagem da página"
@@ -163,7 +163,7 @@ export function WorkspaceComposer({
                 }`
               : "Adicione textos, prints ou imagens ao pedido"}
           </span>
-          <span className="atlas-agent-pill">
+          <span className="context-agent-pill">
             {activeAgentLabels.length > 0
               ? `❄ ${activeAgentLabels.join(" + ")}`
               : availableModels.length > 0
