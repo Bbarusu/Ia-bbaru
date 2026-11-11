@@ -9,6 +9,12 @@ frontend; Claude faz análise documental da CLI até transferência explícita d
 uma implementação. Novo prompt: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
 Os briefings e pedidos de implementação anteriores do Claude estão substituídos.
 
+Limpeza solicitada: consolidar as quatro cópias Windows em uma instalação de
+trabalho. Inventário de leitura disponível em scripts/audit_copies.py; caminhos,
+critérios de preservação e pendências em
+[LIMPEZA_COPIAS_WINDOWS.md](LIMPEZA_COPIAS_WINDOWS.md). Aguardando inventário do
+Windows; nenhuma pasta Windows foi excluída pelo Codex.
+
 Após o roteiro de recuperação do merge 875d4b4 e testes locais, o usuário informou
 “Sem erros”. Não foi enviada nova saída detalhada nem resultado de geração real;
 essa última validação continua pendente. A atividade seguinte foi delimitar as
