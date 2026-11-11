@@ -2,6 +2,8 @@
 
 Registro de 11/11/2026, baseado nas capturas enviadas pelo usuário.
 Base: `codex/browser-capture-clis`, PR #7, repositório Bbarusu/Ia-bbaru.
+Responsáveis atualizados em [DIVISAO_RESPONSABILIDADES.md](DIVISAO_RESPONSABILIDADES.md):
+essa divisão prevalece sobre as atribuições anteriores registradas abaixo.
 **Estado: especificação para implementação.** Esta entrega documental não altera
 o funcionamento do navegador. Complementa DIRECAO_CLAUDE_ONLY.md e passa a orientar
 a próxima etapa dos prompts de frontend e integração.

@@ -2,6 +2,10 @@
 
 Trabalhe no repositório https://github.com/Bbarusu/Ia-bbaru.
 A base de integração é `codex/browser-capture-clis` (PR #7).
+Divisão vigente: docs/DIVISAO_RESPONSABILIDADES.md. Sua implementação permanece
+em frontend/ e desktop/ui/; Codex responde por contratos, backend e runtime.
+Claude está em análise documental durante a correção de execução. Não implemente
+dependências dessas frentes por conta própria; registre-as para integração.
 Leia primeiro docs/AJUSTES_CHAT_LATERAL.md, docs/DIRECAO_CLAUDE_ONLY.md,
 docs/STATUS.md e docs/CONTRATO_CAPTURAS.md.
 Preserve suas edições locais e integre esta base antes de continuar; não substitua

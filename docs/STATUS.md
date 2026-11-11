@@ -3,6 +3,17 @@
 A direção vigente é [DIRECAO_CLAUDE_ONLY.md](DIRECAO_CLAUDE_ONLY.md).
 Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
 
+Divisão vigente: [DIVISAO_RESPONSABILIDADES.md](DIVISAO_RESPONSABILIDADES.md).
+Codex conduz backend, contratos, runtime e correção de execução; Gemini mantém
+frontend; Claude faz análise documental da CLI até transferência explícita de
+uma implementação. Novo prompt: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
+Os briefings e pedidos de implementação anteriores do Claude estão substituídos.
+
+Após o roteiro de recuperação do merge 875d4b4 e testes locais, o usuário informou
+“Sem erros”. Não foi enviada nova saída detalhada nem resultado de geração real;
+essa última validação continua pendente. A atividade seguinte foi delimitar as
+responsabilidades para evitar edição concorrente do gateway.
+
 - Único provedor: Claude Code oficial com a conta do usuário.
 - Catálogo somente com os modelos Claude explicitamente configurados.
 - Perfis editáveis por modelo: tipo de tarefa, contexto e preferência orientam
@@ -27,7 +38,7 @@ teste gráfico Chromium, integração desktop/gateway e 5 cenários HTTP 1.1 apr
 Os testes gráficos Linux usaram Xvfb e sandbox do sistema desativada apenas no teste.
 
 Prompts atuais: [Gemini/frontend](PROMPT_GEMINI_CLAUDE_ONLY.md) e
-[Code/Claude Code](PROMPT_CODE_CLAUDE_ONLY.md).
+[Code/Claude Code](PROMPT_CLAUDE_ESCOPO.md).
 As propostas e achados abaixo são histórico, não instruções para reativar provedores.
 
 ## Validação Windows recebida em 11/11/2026

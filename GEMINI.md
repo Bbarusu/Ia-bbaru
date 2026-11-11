@@ -1,6 +1,8 @@
 # Frontend do navegador Ia-bbaru
 
 Leia README.md, docs/STATUS.md e docs/DIRECAO_CLAUDE_ONLY.md.
+Leia docs/DIVISAO_RESPONSABILIDADES.md; Codex integra contratos e runtime,
+Gemini mantém a interface. Documente dependências fora do seu escopo.
 Prompt vigente: docs/PROMPT_GEMINI_CLAUDE_ONLY.md.
 Base de integração: codex/browser-capture-clis; preserve seu trabalho local
 antes de integrá-la na sua branch gemini/chromium-ui.
