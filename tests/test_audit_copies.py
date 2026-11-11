@@ -27,6 +27,7 @@ class CopyAuditTests(unittest.TestCase):
             (root / "data" / "private.sqlite3").write_text("private")
             (root / ".env").write_text("private credentials")
             (root / ".env.example").write_text("sample")
+            (root / "tokens.css").write_text("/* source code, not credentials */")
             (root / "node_modules").mkdir()
             (root / "node_modules" / ".env").write_text("dependency fixture")
             result = module.inventory(root)

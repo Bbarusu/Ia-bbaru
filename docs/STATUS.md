@@ -12,8 +12,15 @@ Os briefings e pedidos de implementação anteriores do Claude estão substituí
 Limpeza solicitada: consolidar as quatro cópias Windows em uma instalação de
 trabalho. Inventário de leitura disponível em scripts/audit_copies.py; caminhos,
 critérios de preservação e pendências em
-[LIMPEZA_COPIAS_WINDOWS.md](LIMPEZA_COPIAS_WINDOWS.md). Aguardando inventário do
-Windows; nenhuma pasta Windows foi excluída pelo Codex.
+[LIMPEZA_COPIAS_WINDOWS.md](LIMPEZA_COPIAS_WINDOWS.md). Inventário Windows recebido;
+nenhuma pasta Windows foi excluída pelo Codex.
+
+Inventário recebido posteriormente: quatro worktrees limpas usando Ia-bbaru/.git,
+11 commits sem cobertura nas referências remotas locais (contagem compartilhada)
+e data/ na cópia original. Consolidação preparada em scripts/consolidate_copies.py:
+backup verificado, Git independente na cópia de validação e remoção posterior das
+três árvores antigas. Oito testes de auditoria/consolidação aprovados em fixtures
+locais; aguardando aplicação Windows. O falso positivo de tokens.css foi corrigido.
 
 Após o roteiro de recuperação do merge 875d4b4 e testes locais, o usuário informou
 “Sem erros”. Não foi enviada nova saída detalhada nem resultado de geração real;

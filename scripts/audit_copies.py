@@ -62,7 +62,8 @@ def inventory(root):
                         stack.append(path)
                 elif (path.suffix.lower() in {".db", ".sqlite", ".sqlite3", ".token", ".pem", ".key"}
                       or (path.name.startswith(".env") and path.name != ".env.example")
-                      or path.name.lower().startswith(("credentials", "token"))):
+                      or (path.suffix.lower() == ".json"
+                          and path.name.lower().startswith(("credentials", "token")))):
                     state.append(relative)
             except OSError:
                 complete = False
