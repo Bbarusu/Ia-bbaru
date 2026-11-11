@@ -9,6 +9,9 @@ spend that usage:
                  python -m unittest discover -s tests/integrations -p "test_real_*.py" -v
 
 Nothing is stored in the repository; the dedup database lives in a temp folder.
+Only the FIRST configured model is called. The output also shows which version
+the CLI resolved the alias to (from `modelUsage`), which the contract does not
+expose. A fallback or another model's output fails the test (no retry).
 """
 import os
 import tempfile
@@ -37,7 +40,15 @@ class RealClaudeCodeTest(unittest.TestCase):
             self.skipTest(f"Claude Code indisponível: {status.reason}. {status.next_action}")
         token = uuid.uuid4().hex + uuid.uuid4().hex
         with tempfile.TemporaryDirectory() as tmp:
-            app = create_app(Settings(token, Path(tmp) / "real.sqlite3", cc))
+            served = []
+
+            class Recording(ClaudeCodeAdapter):
+                def generate(self, request):
+                    result = super().generate(request)
+                    served.append(result.served_model)
+                    return result
+
+            app = create_app(Settings(token, Path(tmp) / "real.sqlite3", cc), Recording(cc))
             client = TestClient(app, headers={"Authorization": f"Bearer {token}"})
             # Contract 1.1: the opt-in variable is the consent; the task carries it.
             response = client.post("/v1.1/generate", json={
@@ -51,5 +62,6 @@ class RealClaudeCodeTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         result = GenerateResponseV11.model_validate(response.json())
         # finish "stop"/"length" = the CLI reported stop_reason; "unknown" = it did not.
-        print("\nSaída real:", result.output[:200], "| usage:", result.usage, "| finish:", result.finish_reason)
+        print("\nSaída real:", result.output[:200], "| usage:", result.usage, "| finish:", result.finish_reason,
+              "| pedido:", cc.models[0], "| servido:", served[0] if served else None)
         self.assertIn("laranja", result.output.lower())

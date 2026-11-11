@@ -95,6 +95,18 @@ chats em [CORRECAO_PROVIDER_ERROR.md](CORRECAO_PROVIDER_ERROR.md).
 Validação local: backend 67 OK; gateway 67 OK + 1 real ignorado; frontend 11 OK;
 build e cinco cenários HTTP 1.1 aprovados. Windows ainda precisa validar esta correção.
 
+## Integração das correções Claude/Codex e conflito Windows
+
+Incorporada a branch Claude até `c22beb0`, combinando em claude_code.py a leitura
+de erros, diagnóstico persistido, log estrutural e conferência de modelo servido.
+O usuário encontrou `<<<<<<< HEAD` nesse arquivo após merge local: a falha de
+importação ocorre antes da geração e não explica o provider_error original.
+O roteiro de recuperação preserva um diff local e incorpora a versão integrada;
+ver [CORRECAO_PROVIDER_ERROR.md](CORRECAO_PROVIDER_ERROR.md).
+
+Gateway integrado: 89 testes executados, 88 aprovados e 1 real ignorado. Nenhum
+teste com a conta real foi executado nesta integração. Contratos 1/1.1 mantidos.
+
 ## Histórico de decisões anteriores
 
 # Estado do Ia-bbaru / Yuki

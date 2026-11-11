@@ -7,7 +7,10 @@ What it does:
   reads, copies or forwards credential files or tokens;
 - removes ANTHROPIC_API_KEY and cloud-provider variables from the child
   environment so a run never silently switches to paid API billing;
-- checks login with the documented `claude auth status --json`.
+- checks login with the documented `claude auth status --json`;
+- forbids model substitution (CLAUDE_CODE_NO_MODEL_FALLBACK=1, no
+  --fallback-model) and rejects a run whose `modelUsage` shows output from a
+  model other than the configured one (see integrations/models.py).
 
 What it cannot guarantee (see integrations/docs/PROPOSTA_CAPACIDADES.md):
 - a hard output-token cap: CLAUDE_CODE_MAX_OUTPUT_TOKENS is best effort;
@@ -24,7 +27,9 @@ from backend.contracts import ModelProfile, TokenUsage
 from .. import errors
 from ..config import ClaudeCodeSettings
 from ..contracts_v1_1 import ModelCapabilities, ModelProfileV11
-from ..failure_diagnostics import ERROR_SUBTYPES, failure_text, log_failure
+from ..failure_diagnostics import ERROR_SUBTYPES, log_failure
+from ..failures import categorize, error_texts, signature
+from ..models import served_pattern
 from ..prompt import CLI_ARGUMENT_PROMPT, SYSTEM_PROMPT, build_user_prompt
 from ..runner import ProcessStartError, ProcessTimeout, child_env, run_process
 from .base import (  # noqa: F401  (re-exported for existing imports)
@@ -138,50 +143,96 @@ class ClaudeCodeAdapter(CliAdapterBase):
     def generate(self, request) -> "ProviderResult":
         """Call the CLI once. NotStarted means the process never ran."""
         model = self.model_for(request.model_id)
-        env = child_env({"CLAUDE_CODE_MAX_OUTPUT_TOKENS": str(request.max_output_tokens)})
+        env = child_env({
+            "CLAUDE_CODE_MAX_OUTPUT_TOKENS": str(request.max_output_tokens),
+            # Official switch (2.1.307+) against overload/access/refusal fallback.
+            # Older or newer CLIs that ignore it are still caught by served_model().
+            "CLAUDE_CODE_NO_MODEL_FALLBACK": "1",
+        })
         with tempfile.TemporaryDirectory(prefix="ia-bbaru-cc-") as cwd:
             try:
                 proc = self.runner(self.build_args(model), build_user_prompt(request),
                                    self.settings.timeout_s, env, cwd)
             except ProcessStartError:
-                raise NotStarted(errors.provider_unavailable("provider_cli_not_runnable"))
+                error = errors.provider_unavailable("provider_cli_not_runnable")
+                error.diagnostic = self._signature("not_started", model)
+                raise NotStarted(error)
             except ProcessTimeout:
-                raise errors.provider_timeout()
+                error = errors.provider_timeout()
+                error.diagnostic = self._signature("timeout", model)
+                raise error
         try:
             return self.parse(model, proc)
         except errors.GatewayError as exc:
             log_failure(request, proc, exc.code)
             raise
 
+    def _signature(self, stage, model, **kw):
+        version = self._status.version if self._status else None
+        return signature(stage, model=model, cli_version=version, **kw)
+
     def parse(self, model: str, proc) -> "ProviderResult":
+        data = None
+
+        def fail(error, stage, **kw):
+            error.diagnostic = self._signature(stage, model, proc=proc, data=data, **kw)
+            return error
+
         try:
             data = json.loads(proc.stdout)
             if not isinstance(data, dict):
                 raise ValueError
         except ValueError:
-            raise errors.provider_error("provider_invalid_output")
+            data = None
+            raise fail(errors.provider_error("provider_invalid_output"), "parse_json")
         result = data.get("result")
         subtype = data.get("subtype")
         failed_subtype = isinstance(subtype, str) and subtype in ERROR_SUBTYPES
         if data.get("is_error") or proc.returncode != 0 or failed_subtype:
-            raise classify_failure(failure_text(data))
+            category = categorize(error_texts(data))
+            raise fail(error_for(category), "result_error", category=category)
         if not isinstance(result, str):
-            raise errors.provider_error("provider_invalid_output")
+            raise fail(errors.provider_error("provider_invalid_output"), "result_shape")
         if not result.strip():
-            raise errors.provider_error("provider_empty_output")
+            raise fail(errors.provider_error("provider_empty_output"), "empty_output")
         if len(result) > 100000:
-            raise errors.provider_error("provider_output_too_large")
-        self._check_model(model, data.get("modelUsage"))
+            raise fail(errors.provider_error("provider_output_too_large"), "output_too_large")
+        try:
+            served = served_model(model, data.get("modelUsage"))
+        except errors.GatewayError as error:
+            raise fail(error, "model_check")
         return ProviderResult(output=result, usage=_usage(data.get("usage")),
-                              finish_reason=finish_reason_from(data))
+                              finish_reason=finish_reason_from(data), served_model=served)
 
-    @staticmethod
-    def _check_model(model: str, model_usage):
-        """With a full model name configured, reject a run served by another model."""
-        if not model.startswith("claude-") or not isinstance(model_usage, dict) or not model_usage:
-            return
-        if not any(str(key).startswith(model) for key in model_usage):
+
+def served_model(model: str, model_usage) -> str:
+    """The served model ID, from the CLI's own `modelUsage` keys.
+
+    - no `modelUsage` → provider_invalid_output: without it nothing shows which
+      model answered (the field is in the result schema of 2.1.307 and 2.1.322);
+    - any output tokens from a model outside the configured one →
+      provider_model_mismatch, even next to the configured model (a fallback
+      that answered part of the turn is still a fallback);
+    - entries with zero output tokens from other models are ignored;
+    - the configured model must itself appear.
+    A configured alias accepts any version of its family; which one served is
+    returned so it can be exposed once the contract has a field for it.
+    """
+    if not isinstance(model_usage, dict) or not model_usage:
+        raise errors.provider_error("provider_invalid_output")
+    pattern = served_pattern(model)
+    served = None
+    for key, usage in model_usage.items():
+        name = str(key)[:100]
+        if pattern.fullmatch(name):
+            served = served or name
+            continue
+        produced = usage.get("outputTokens") if isinstance(usage, dict) else None
+        if not isinstance(produced, int) or isinstance(produced, bool) or produced != 0:
             raise errors.provider_error("provider_model_mismatch")
+    if served is None:
+        raise errors.provider_error("provider_model_mismatch")
+    return served
 
 
 def _usage(raw) -> TokenUsage | None:
@@ -212,12 +263,37 @@ def finish_reason_from(data: dict) -> str:
 
 
 def classify_failure(text: str) -> errors.GatewayError:
-    lowered = text.lower()
-    if any(s in lowered for s in ("/login", "not logged in", "invalid api key", "authentication", "oauth")):
+    """Kept for callers that only have the result text."""
+    return error_for(categorize([text]))
+
+
+def error_for(category: str) -> errors.GatewayError:
+    """Map a sanitized category to a code the backend already accepts
+    (backend/gateway_errors.py). Categories without their own code stay
+    `provider_error`; the signature keeps the category for diagnosis and the
+    proposed codes are in docs/PASSAGEM_CLAUDE_ONLY.md (C-2, C-7)."""
+    if category == "auth":
         return errors.provider_unavailable(
             "provider_not_authenticated",
             "Abra `claude` no terminal e faça login novamente pelo fluxo oficial (/login).",
         )
-    if any(s in lowered for s in ("usage limit", "limit reached", "rate limit", "quota", "resets")):
+    if category == "quota":
         return errors.quota_exceeded()
+    if category == "usage_credits":
+        # Model needing usage credits (e.g. Fable on some plans). Never retried.
+        return errors.provider_unavailable(
+            "provider_unavailable",
+            "Este modelo exige créditos de uso na sua conta. Confira `/model` no Claude Code; "
+            "não habilite créditos só para o Ia-bbaru sem decidir isso conscientemente.",
+        )
+    if category == "model_unavailable":
+        return errors.provider_unavailable(
+            "provider_unavailable",
+            "O modelo configurado não está disponível para esta conta agora e a troca automática "
+            "está desligada. Confira `/model` no Claude Code e os modelos configurados.",
+        )
+    if category == "overloaded":
+        return errors.provider_unavailable(
+            "provider_unavailable", "O serviço do Claude está sobrecarregado. Tente mais tarde, manualmente.")
+    # output_limit_reached, context_window_exceeded, api_* and none.
     return errors.provider_error()

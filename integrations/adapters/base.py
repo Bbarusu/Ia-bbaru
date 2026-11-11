@@ -47,6 +47,9 @@ class ProviderResult:
     output: str
     usage: TokenUsage | None
     finish_reason: str  # stop | length | unknown
+    # Model the CLI reports as having served the run. Internal only: contracts
+    # 1 and 1.1 have no field for it (proposal in docs/PASSAGEM_CLAUDE_ONLY.md).
+    served_model: str | None = None
 
 
 class NotStarted(Exception):

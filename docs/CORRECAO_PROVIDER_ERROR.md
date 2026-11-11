@@ -87,11 +87,12 @@ de reiniciar pelo inicializador, que pode substituir o arquivo de log.
 
 ## Coordenação com os outros chats
 
-Claude Code: integrar esta alteração do parser e failure_diagnostics.py ao
-trabalho do gateway; manter o diagnóstico também ao conferir modelo servido.
-A branch de Claude foi consultada até `d44a6fa`: as melhorias de proteção de modelo
-e a passagem CLAUDE_ONLY não comprovam a causa desta falha. Não foram mescladas
-automaticamente nesta correção, para manter o reparo separado da revisão de modelos.
+Claude Code: a integração posterior incorporou sua branch até `c22beb0`, resolvendo
+os conflitos do parser com aa3933f. Foram preservados o diagnóstico estrutural no
+log, as assinaturas persistidas/consulta `python -m integrations failures`, a
+classificação de errors[] e a conferência de modelo servido. Isso não comprova a
+causa da falha real. Resultados malformados continuam recusados; tipos inesperados
+no diagnóstico não podem transformar a falha original em uma exceção do parser.
 
 Gemini: preservar a nova tradução de provider_error em frontend/src/logic.mjs
 ao implementar o chat. Ela informa falha sem inventar causa. Não remove nem
@@ -99,3 +100,27 @@ substitui o diagnóstico técnico, e não anuncia geração corrigida antes do t
 
 Backend: os códigos de autenticação/cota/erro já estão na allowlist do consumidor;
 nenhuma nova política de retomada ou execução foi criada.
+
+## Se o merge anterior ficou aberto no Windows
+
+O `SyntaxError` apontando `<<<<<<< HEAD` em claude_code.py é um conflito de Git,
+anterior a qualquer chamada de modelo. Não é o provider_error da geração. A branch
+de integração contém agora ambos os históricos e o arquivo combinado/testado.
+
+Para o estado informado pelo usuário (somente esse arquivo com UU), guardar uma
+cópia do diff, cancelar o merge incompleto e incorporar a integração resolvida.
+Executar uma linha por vez; se qualquer comando falhar, parar e verificar a saída:
+
+```powershell
+git diff HEAD --binary --output=../ia-bbaru-merge-backup.patch
+git merge --abort
+git fetch origin
+git merge --no-edit origin/codex/browser-capture-clis
+git status --short
+```
+
+O backup contém as diferenças locais e fica fora do repositório; não publicá-lo.
+Não usar `git reset --hard`, `--ours` ou `--theirs` como resolução. Se o Git indicar
+outros conflitos ou não conseguir cancelar, preservar os arquivos e informar o
+estado antes de prosseguir. Depois do merge concluído, repetir os seis testes
+test_claude_failures.py do roteiro acima, com o teste real desabilitado.

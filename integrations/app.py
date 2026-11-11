@@ -6,6 +6,8 @@
 - /v1/connections: experimental diagnostics, outside both contracts.
 """
 import hmac
+import hashlib
+import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -28,6 +30,7 @@ from .dedup import DedupStore, payload_hash
 # a timeout is stored as uncertain (409 forever) and every other outcome,
 # success or error, is stored and replayed. Only NotStarted frees the ID.
 UNCERTAIN_CODES = {"provider_timeout"}
+log = logging.getLogger("integrations")
 RESPONSE_MODELS = {"1": GenerateResponse, "1.1": GenerateResponseV11}
 
 
@@ -124,6 +127,18 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
             "capabilities": a.capabilities.model_dump(),
         })}
 
+    def note_failure(body, exc):
+        """Keep the sanitized signature locally and log one line, no content."""
+        if not exc.diagnostic:
+            return
+        try:
+            store.record_failure(body.request_id, exc.code, exc.diagnostic)
+        except Exception:  # diagnosis must never change the request's outcome
+            log.warning("falha ao gravar assinatura de erro")
+        log.warning("geração falhou request_fingerprint=%s codigo=%s etapa=%s categoria=%s",
+                    hashlib.sha256(body.request_id.encode()).hexdigest()[:16], exc.code, exc.diagnostic.get("stage"),
+                    exc.diagnostic.get("category"))
+
     def run(body, convert):
         # A retired provider must not remain routable through a cached response.
         adapter = adapter_for(body.model_id, body.protocol_version)
@@ -145,8 +160,10 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
                 result = convert(body, adapter.generate(body))
             except NotStarted as exc:
                 store.release(body.request_id)
+                note_failure(body, exc.error)
                 raise exc.error
             except errors.GatewayError as exc:
+                note_failure(body, exc)
                 if exc.code in UNCERTAIN_CODES:
                     store.mark_uncertain(body.request_id, exc.status, exc.body())
                 else:

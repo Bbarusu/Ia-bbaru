@@ -3,7 +3,43 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: correções da revisão do Codex nos adaptadores (10/11/2026)
+## Rodada atual: P0 `provider_error` e chat lateral (11/11/2026)
+
+Prompt atualizado (`f7206ac`) e `docs/AJUSTES_CHAT_LATERAL.md`. Detalhes na seção P0
+de [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `tests/integrations` | fixtures, incluindo `test_failures.py` (8 novos) e `-W error::ResourceWarning` | ✅ 83 OK + 1 pulado |
+| `tests` (backend) | fixtures | ✅ OK |
+| `verify_gateway_v11.py` | fixtures, HTTP | ✅ |
+| Mensagem de teto de saída e esquema `error_*` | pacote oficial 2.1.322, sem gerar | ✅ registrado |
+| Causa do `provider_error` da captura | — | ⏳ só confirmável pelo usuário, com `failures` |
+
+## Rodada anterior: somente Claude (11/11/2026)
+
+Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
+`fa24ef3`). Respostas e pendências: [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `python -m unittest discover -s tests` | fixtures | ✅ 67 OK |
+| `python -m unittest discover -s tests/integrations` | fixtures | ✅ 75 OK + 1 pulado (o real) |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | fixtures, HTTP | ✅ 5 cenários |
+| OpenAPI 1.1 do gateway | `export_openapi` | ✅ inalterado |
+| Aliases, troca de modelo, créditos, `stream-json`, imagem | pacote oficial 2.1.322 e 2.1.307, sem gerar (`--help`, `strings`) | ✅ registrado em PASSAGEM_CLAUDE_ONLY.md |
+| Resolução de aliases e `init.tools: []` | **4 gerações não intencionais** na conta do ambiente de nuvem (não a do usuário) | ⚠️ só vale para aquela conta/versão |
+| Windows do usuário, sem geração | tela `/model` + `diagnose` (código anterior a `eb94450`) | ✅ Claude Code 2.1.322 (atualizado sozinho), Claude Pro; Opus 5.5, Sonnet 5.5, Fable 5.2 (incluído até 16/11, consome cota mais rápido), Haiku 5.5; sem "Requires usage credits"; `ready: true`, 0,4 s |
+| Windows com esta branch, `diagnose` | `IA_BBARU_CLAUDE_CODE_MODELS=sonnet,haiku,opus`, sem geração | ✅ 2.1.322, `ready: true`, 0,4 s; os 3 modelos como alias da família certa, `resolved_version: null`, `access: not_verified_without_generation`; perfis sonnet estudo/programação, haiku geral/escrita, opus análise; nenhuma variável de chave de API; contrato 1 bloqueado (`output_limit_not_enforced`) |
+| Windows com esta branch, suítes e script HTTP | — | ⏳ resultado não informado |
+| Geração real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
+
+Mudanças: `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo; remoção das variáveis que
+redirecionam aliases; conferência estrita do `modelUsage`; nomes de modelo
+restritos aos conferíveis; perfis herdados por família; diagnóstico separa
+configuração de acesso; erros de créditos/acesso → `provider_unavailable`.
+
+## Rodada anterior: correções da revisão do Codex nos adaptadores (10/11/2026)
 
 Prompt `docs/PROMPT_CLAUDE_CLIS.md` e revisão `docs/REVISAO_CLIS_2026_11_10.md`
 (branch `codex/browser-capture-clis`, `5a55e69`). Resposta item a item:
