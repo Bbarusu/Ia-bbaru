@@ -2,7 +2,8 @@
 
 Trabalhe no repositório https://github.com/Bbarusu/Ia-bbaru.
 A base de integração é `codex/browser-capture-clis` (PR #7).
-Leia primeiro docs/DIRECAO_CLAUDE_ONLY.md, docs/STATUS.md e docs/CONTRATO_CAPTURAS.md.
+Leia primeiro docs/AJUSTES_CHAT_LATERAL.md, docs/DIRECAO_CLAUDE_ONLY.md,
+docs/STATUS.md e docs/CONTRATO_CAPTURAS.md.
 Preserve suas edições locais e integre esta base antes de continuar; não substitua
 o runtime por uma versão antiga. Use sua branch de trabalho.
 
@@ -12,6 +13,29 @@ como agente do produto. As integrações anteriores foram removidas.
 
 Objetivo: manter o visual Yuki/Kinfo escolhido pelo usuário e apresentar um navegador
 com assistência Claude e seleção clara de modelos, em vez de seleção de fornecedores.
+
+## Prioridade nova — chat lateral (11/11/2026)
+
+O usuário considera o fluxo atual complexo. As referências Atlas/Edge indicam
+conversa ao lado da página, sem modal por mensagem. Implemente a interface conforme
+AJUSTES_CHAT_LATERAL.md: reutilize o painel existente, botão evidente na barra,
+histórico, compositor fixo, resposta em destaque e contexto da página removível.
+Projetos/materiais/planos deixam de ser etapas obrigatórias do chat comum.
+Mantenha acesso à biblioteca e aos dados existentes.
+
+Apresente captura real, seleção e fonte usada; não simule compreensão da página,
+histórico entre turnos, streaming ou visão. Se depender de contrato novo, registre
+a dependência e o estado indisponível até integração. Combine com Codex o envio
+único com aceite persistido, continuidade, captura e preservação de rascunhos.
+
+Mova contrato, tentativas e explicação de roteamento para detalhes recolhidos.
+Seletor Claude discreto; revisão opcional. Preserve avisos que mudam a decisão.
+Remova decoração sobre textos. Erros ficam na conversa com orientação comprovada;
+provider_error não deve ser a explicação principal. Não atribua causa desconhecida
+nem ofereça retry automático de resultado incerto. A falha real está pendente com
+Code/Codex; a nova interface não pode marcá-la resolvida sem evidência.
+
+## Regras que permanecem
 
 1. Usar os modelos reais retornados pelo catálogo. Não criar quatro cartões ativos
    fixos. Sonnet, Haiku, Opus e Fable só aparecem quando configurados; login da CLI

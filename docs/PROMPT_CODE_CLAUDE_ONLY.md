@@ -2,12 +2,37 @@
 
 Repositório https://github.com/Bbarusu/Ia-bbaru.
 Base: `codex/browser-capture-clis` (PR #7). Preserve suas mudanças locais antes
-de incorporar a base. Leia docs/DIRECAO_CLAUDE_ONLY.md e docs/STATUS.md.
+de incorporar a base. Leia docs/AJUSTES_CHAT_LATERAL.md,
+docs/DIRECAO_CLAUDE_ONLY.md e docs/STATUS.md.
 Esta decisão substitui o trabalho anterior de integração de outras CLIs.
 
 O usuário quer somente Claude no aplicativo, selecionando o modelo mais adequado
 entre os que sua conta autoriza. Seus adaptadores antigos foram removidos da base;
 não reintroduzi-los. Claude Code continua sendo a única conexão de execução.
+
+## Prioridade nova — falha real e chat lateral (11/11/2026)
+
+O usuário trouxe captura de pedido “Revise” que falhou com provider_error usando
+sonnet, um material e uma tentativa. O limite exibido é 128; não há evidência
+de que ele seja a causa. Os testes Windows passaram, mas a geração desta captura
+falhou. Investigue classificação de erros e parsing da CLI antes de ampliar escopo.
+Se faltar evidência, registre exatamente os metadados sanitizados necessários;
+não peça/publice credenciais, materiais pessoais ou stderr bruto.
+
+Entregue reprodução por fixture do formato observado, correção e teste de
+regressão quando a causa for conhecida. Preserve request ID, ausência de repetição
+após despacho incerto e códigos sanitizados até o backend. Não mascarar saída
+inválida como sucesso. Validação de conta real é conduzida pelo usuário.
+
+O novo frontend será um chat lateral com contexto e continuidade. Coordene com
+Codex o conteúdo histórico recebido pelo gateway, limites de entrada e fontes;
+não crie uma sessão CLI paralela que duplique a persistência do backend. Contrato
+1.1 continua textual e sem streaming; alterações exigem proposta conjunta.
+Gemini cuida da apresentação dos erros e Codex da conversa/ponte/fila. Sua entrega
+deve identificar dependências, sem implementar endpoints presumidos ou automação
+de páginas com ferramentas habilitadas.
+
+## Base existente e próximos ajustes
 
 Já implementado:
 - Gateway/diagnóstico/inicializador apenas Claude Code; -Models aceita lista
@@ -23,10 +48,11 @@ Trabalho solicitado em integrations/ e tests/integrations/:
    instalada e os meios de verificar acesso sem geração e sem ler credenciais.
    Se não houver prova por modelo, continuar distinguindo configuração de acesso
    confirmado; não inventar um endpoint ou interpretar login global como direito.
-2. Conferir Fable e créditos: docs oficiais indicam possibilidade de cobrança
-   adicional e requisito 2.1.321+ para Fable 5.2. O Windows anteriormente tinha
-   2.1.307. Não atualizar CLI, habilitar modelos extras ou comprar créditos
-   silenciosamente. Documentar a condição necessária para teste real.
+2. Conferir Fable e créditos. O seletor Windows 2.1.307 mostra Fable 5.2;
+   a referência anterior ao requisito 2.1.321+ não invalida essa observação.
+   Distinguir modelo listado de execução confirmada e possível cobrança adicional.
+   Não exigir atualização apenas pelo número, atualizar CLI, habilitar modelos
+   extras ou comprar créditos silenciosamente. Documentar condição para teste real.
 3. Validar os perfis de tarefa e sugerir melhorias usando critérios explícitos:
    complexidade, contexto, latência e preferência/cota do usuário. Medições ainda
    não existem; não apresentar heurísticas como benchmarks.
