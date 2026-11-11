@@ -283,8 +283,8 @@ export default function App() {
     if (decision.action === "open" && decision.capture) {
       setCapture(decision.capture);
       setSourceMode(decision.capture.media?.kind || "text");
-      setTitle(decision.title);
-      setContent(decision.content);
+      setTitle(decision.title || "");
+      setContent(decision.content || "");
       setModal("source");
     }
   }

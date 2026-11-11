@@ -1,5 +1,7 @@
 export function sourceContent(title, url, text) {
-  return url ? `${title}\nOrigem: ${url}\n\n${text}` : text;
+  const safeText = text ?? "";
+  const safeTitle = title ?? "";
+  return url ? `${safeTitle}\nOrigem: ${url}\n\n${safeText}` : safeText;
 }
 
 export function taskState(status) {

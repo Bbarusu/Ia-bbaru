@@ -93,7 +93,7 @@ export function SourceModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const originUrl = capture?.url || "";
-  const formattedContent = sourceContent(title, originUrl, content);
+  const formattedContent = sourceContent(title, originUrl, content) || "";
   const charCount = formattedContent.length;
   const isOverLimit = charCount > 40000;
 
@@ -105,7 +105,7 @@ export function SourceModal({
         : `Imagem: ${file.name || "Figura da página"}`;
     const { dataUrl, width, height } = await compressImageToDataUrl(file);
     setMediaPreview(dataUrl);
-    if (!title.trim()) {
+    if (!title?.trim()) {
       setTitle(defaultTitle.slice(0, 120));
     }
     setContent(`Captura local (${width}×${height}px). Descrição: `);
@@ -113,7 +113,7 @@ export function SourceModal({
 
   async function importImage(file: File, targetMode: CaptureMediaKind) {
     setPreparing(true); setMediaError("");
-    if (!content.trim()) setContent("Preparando imagem local. Descrição: ");
+    if (!content?.trim()) setContent("Preparando imagem local. Descrição: ");
     try { await applyImageFile(file, targetMode); }
     catch (error) { setMediaError((error as Error).message); }
     finally { setPreparing(false); }
@@ -322,8 +322,8 @@ export function SourceModal({
               busy || preparing || Boolean(mediaError) ||
               !online ||
               !projectId ||
-              !title.trim() ||
-              !content.trim() ||
+              !title?.trim() ||
+              !content?.trim() ||
               isOverLimit
             }
           >

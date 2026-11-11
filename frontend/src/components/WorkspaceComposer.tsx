@@ -122,9 +122,11 @@ export function WorkspaceComposer({
               <span className="chip-title">
                 {capture.title || "Contexto da página"}
               </span>
-              <small className="chip-chars">
-                ({capture.text.length.toLocaleString("pt-BR")} carac.)
-              </small>
+              {typeof capture.text === "string" && (
+                <small className="chip-chars">
+                  ({capture.text.length.toLocaleString("pt-BR")} carac.)
+                </small>
+              )}
               {onClearCapture && (
                 <button
                   type="button"
