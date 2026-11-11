@@ -1,6 +1,7 @@
 # Proposta: entrada visual no gateway (contrato 1.2)
 
-**Estado: proposta. Nada aqui está implementado.** Os contratos 1 e 1.1 continuam
+**Estado: proposta. Nada aqui está implementado.** Atualizada em 11/11/2026
+para somente Claude Code (seção 6). Os contratos 1 e 1.1 continuam
 textuais e não enviam pixels. Pedido do Codex em `docs/PROMPT_CLAUDE_CLIS.md`:
 suporte visual só por contrato versionado, nunca por base64 dentro de
 `ContextItem.content`. Base: `docs/CONTRATO_CAPTURAS.md` (branch
@@ -95,16 +96,61 @@ termina com erro `visual_input_unconfirmed` (502), não com resposta de texto.
 - Painel: mostrar a imagem que será enviada, o agente, e o aceite desmarcado.
   Imagem enviada pode conter dados pessoais visíveis na tela.
 
-## 6. Cada CLI (a verificar antes de implementar)
+## 6. Caminho do Claude Code (único provedor desde 10/11/2026)
 
-| CLI | Caminho oficial provável | O que falta verificar |
+A direção `docs/DIRECAO_CLAUDE_ONLY.md` removeu os outros provedores; esta proposta
+vale só para o Claude Code. `transport` passa a ter um valor útil:
+`cli_stream_input`.
+
+### O que o pacote oficial mostra (2.1.322, lido sem conta e sem gerar)
+
+| Ponto | Evidência | Nível |
 | --- | --- | --- |
-| ChatGPT (Codex CLI) | `codex exec --image <arquivo>` (opção `-i, --image <FILE>...` listada no `exec --help` da 0.167.0) | Continua bloqueado por `tools: restricted`; formatos e limites aceitos; evidência no JSONL de que a imagem foi anexada |
-| Gemini CLI | menção `@arquivo` para um arquivo **dentro** da pasta temporária de trabalho | Hoje o gateway neutraliza `@` de propósito; seria preciso permitir só os caminhos criados pelo gateway; `read_many_files`/política de ferramentas não pode ser aberta; evidência nas estatísticas |
-| Claude Code | entrada `--input-format stream-json` com bloco de imagem em base64 | Exige `--output-format stream-json`; conferir se funciona com `--tools ""`, login por assinatura e sem persistir sessão; mudar o analisador de saída |
+| `--input-format stream-json` exige `--print` | texto de erro no binário: "--input-format=stream-json requires --print" | binário |
+| Saída `stream-json` com `--print` exige `--verbose` | "When using --print, --output-format=stream-json requires --verbose" | binário |
+| Mensagem de entrada | schema `SDKUserMessage`: `{"type":"user","message":<MessageParam da API>,"parent_tool_use_id":null}` | binário |
+| Imagem | bloco tipado da API `{"type":"image","source":{"type":"base64","media_type":"image/png","data":"..."}}` dentro de `message.content`, ao lado de um bloco `{"type":"text"}`. Os schemas do binário usam PNG, JPEG, GIF e WebP | binário + API |
+| Confirmação de recebimento | `--replay-user-messages` devolve na saída as mensagens lidas da entrada | `--help` |
+| Ferramentas desligadas | `--tools ""` é aceito junto com `stream-json`. O evento `system/init` lista `"tools": []` | ver nota abaixo |
+| Modelo efetivo | `system/init` traz `model` (o alias já resolvido) e `result.modelUsage` traz o modelo que gerou. Trocas aparecem como eventos `system/model_fallback` | binário + nota abaixo |
 
-Nenhum desses caminhos foi testado. Para cada CLI: conferir com o pacote oficial,
-dublê de teste e só então uma geração real autorizada pelo usuário.
+Nota: em 11/11/2026, numa verificação de aliases, uma execução **não intencional**
+no ambiente de nuvem do Claude (conta do ambiente, não a do usuário; entrada só de
+texto, sem imagem) mostrou `init.tools: []` e `init.model` resolvido nos quatro
+aliases. Isso confirma o formato de saída e as ferramentas desligadas. **Não**
+confirma o envio de imagem nem nada sobre a conta do usuário. Detalhes em
+[PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+### Como o adaptador faria (quando o contrato 1.2 for fechado)
+
+- Argumentos atuais mais `--input-format stream-json --output-format stream-json
+  --verbose --replay-user-messages`. O prompt vai inteiro pela entrada: uma única
+  mensagem `user` com o bloco de texto atual e um bloco `image` por anexo.
+- O base64 vai **só** no campo `source.data` do bloco de imagem, que é o formato
+  tipado da API. Nunca dentro do texto, de `ContextItem.content` ou de argumentos.
+- Saída: ler linha a linha, guardar `init` (modelo resolvido e `tools` vazio,
+  senão é falha), conferir que a mensagem devolvida por `--replay-user-messages`
+  tem o mesmo número de blocos `image` e os mesmos `media_type`, e usar `result`
+  como hoje (`stop_reason`, `modelUsage`, `usage`). `attachments_used` só sai
+  dessa conferência. Sem ela, `visual_input_unconfirmed`.
+- `CLAUDE_CODE_NO_MODEL_FALLBACK=1` e a checagem de `modelUsage` continuam
+  valendo. Qualquer `system/model_fallback` também é falha.
+- `input.image.supported` só fica `true` para modelos configurados pelo operador
+  como de visão. O login não prova que o modelo aceita imagem na conta.
+
+### Falta verificar (com dublê, depois com geração autorizada)
+
+1. Se `--replay-user-messages` devolve os blocos `image` completos ou resumidos.
+   Se resumir, a conferência passa a ser só de quantidade e tipo.
+2. Se `--safe-mode`, `--strict-mcp-config` e `--no-session-persistence` se
+   comportam igual em `stream-json`.
+3. Limite de tamanho por imagem aceito pela CLI/conta, para o catálogo declarar
+   o menor dos dois.
+4. Comportamento no Windows com entrada grande pela entrada padrão (o mesmo
+   caminho de hoje, só que maior).
+
+Nada disso foi implementado. Um dublê `stream-json` só faz sentido junto com as
+rotas 1.2, para não testar um formato que o contrato ainda não tem.
 
 ## 7. Ordem sugerida
 

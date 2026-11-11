@@ -15,6 +15,13 @@ STRIPPED_ENV = (
     # Claude Code: API key / cloud providers instead of the subscription.
     "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL",
+    # Claude Code: variables that redirect an alias or the model catalog, so a
+    # configured alias is resolved by the CLI itself (seen in 2.1.322).
+    "ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION", "CLAUDE_CODE_MODEL_CATALOG", "CLAUDE_CODE_MODEL_CATALOG_URL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
     # This project's own secrets.
     "GATEWAY_TOKEN", "LAUNCHER_API_TOKEN",
 )
