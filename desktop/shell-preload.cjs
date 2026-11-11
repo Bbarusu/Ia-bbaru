@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld("navigatorApp", {
   command: (action, value) =>
     ipcRenderer.invoke("browser:command", action, value),
   state: () => ipcRenderer.invoke("browser:state"),
+  openTool: (callback) => ipcRenderer.on("browser:tool", (_event, name) => callback(name)),
   focusAddress: (callback) => {
     ipcRenderer.on("browser:focus-address", () => callback());
   },

@@ -7,6 +7,7 @@ import {
   requiresLimitAcceptance,
 } from "../logic.mjs";
 import type { Model } from "../types";
+const TASK_LABELS: Record<string, string> = { general: "geral", study: "estudos", writing: "escrita", coding: "programação", analysis: "análise" };
 
 interface AgentsSectionProps {
   models: Model[];
@@ -31,7 +32,7 @@ export function AgentsSection({
   setAcceptedLimit,
   goToConnections,
 }: AgentsSectionProps) {
-  const placeholderAgents = ["ChatGPT", "Claude", "Gemini"];
+  const placeholderAgents = ["Claude Code"];
   const needsLimitConsent = requiresLimitAcceptance(selectedModels, models);
 
   return (
@@ -39,9 +40,9 @@ export function AgentsSection({
       <div className="section-title">
         <div>
           <h2>
-            Seus agentes <span>{availableModels.length} disponíveis</span>
+            Modelos Claude <span>{models.length} configurados</span>
           </h2>
-          <p>Escolha quem vai ajudar a transformar contexto em resultado.</p>
+          <p>Autorize os modelos Claude; o tipo de tarefa e sua preferência orientam a escolha.</p>
         </div>
         <button
           type="button"
@@ -55,7 +56,7 @@ export function AgentsSection({
       <div
         className="agents-grid"
         role="group"
-        aria-label="Seleção de agentes de IA"
+        aria-label="Seleção de modelos Claude"
       >
         {models.length > 0
           ? models.map((m) => {
@@ -80,7 +81,7 @@ export function AgentsSection({
                         ? caps
                           ? `${formatBilling(caps.billing)} · ${formatOutputLimit(caps.output_limit, m.max_output_tokens)}`
                           : "Disponível neste computador"
-                        : formatUnavailableReason(m.unavailable_reason)}
+                        : formatUnavailableReason(m.unavailable_reason, m.provider)}
                     </small>
                     {caps && (
                       <span className="agent-caps-row">
@@ -94,6 +95,8 @@ export function AgentsSection({
                         )}
                       </span>
                     )}
+                    <small>Perfil: {m.task_kinds.map((kind) => TASK_LABELS[kind] || kind).join(", ")}</small>
+                    {m.id.includes("fable") && <small>Confira se seu plano inclui Fable: ele pode exigir créditos adicionais.</small>}
                   </span>
                   <span className="agent-check" aria-hidden="true">
                     {isSelected ? <Check size={14} /> : <Circle size={15} />}
@@ -109,13 +112,7 @@ export function AgentsSection({
                 onClick={goToConnections}
               >
                 <span className={`agent-symbol a${index}`} aria-hidden="true">
-                  {index === 0 ? (
-                    <Command size={22} />
-                  ) : index === 1 ? (
-                    <Sparkles size={22} />
-                  ) : (
-                    <span className="gemini-star">✦</span>
-                  )}
+                  <Sparkles size={22} />
                 </span>
                 <span className="agent-description">
                   <strong>{name}</strong>
@@ -149,7 +146,7 @@ export function AgentsSection({
         <span>
           <Circle size={10} aria-hidden="true" />
           {availableModels.length > 0
-            ? "A seleção segue sua preferência e o tipo de tarefa."
+            ? "Perfis configuráveis, não um ranking de qualidade. O acesso a cada modelo depende da sua conta Claude."
             : "Nenhuma IA conectada. Seus pedidos podem ficar como rascunho."}
         </span>
         <label className="switch-label">
@@ -160,7 +157,7 @@ export function AgentsSection({
             disabled={availableModels.length < 2}
           />
           <span className="switch" aria-hidden="true" />
-          Revisão por outro agente
+          Revisão por outro modelo Claude
         </label>
       </div>
     </section>

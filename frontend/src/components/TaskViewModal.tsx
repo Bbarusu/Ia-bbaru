@@ -52,7 +52,7 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
     } finally { setSubmitting(false); }
   }
   return (
-    <Dialog title={taskState(task.status)} close={close}>
+    <Dialog title={task.error === "completion_unconfirmed" ? "Resposta recebida — término não confirmado" : taskState(task.status)} close={close}>
       <p className="task-instruction">{task.instruction}</p>
 
       {(task.gateway_protocol_version || task.allow_unenforced_output_limit) && (
@@ -148,7 +148,7 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
       {(needsRefresh || (active && pollError)) && <button type="button" className="subtle" disabled={submitting} onClick={refresh}>Consultar estado</button>}
 
       {task.error && (
-        <div className="alert error" role="alert">
+        <div className={task.error === "completion_unconfirmed" ? "alert info" : "alert error"} role={task.error === "completion_unconfirmed" ? "status" : "alert"}>
           {describeTaskError(task.error)}
         </div>
       )}

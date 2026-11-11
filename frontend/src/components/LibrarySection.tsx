@@ -3,13 +3,16 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  Camera,
   Check,
   FileText,
+  Image as ImageIcon,
   Link2,
   Plus,
   Search,
 } from "lucide-react";
 import type { Project, Source } from "../types";
+import type { CaptureMediaKind } from "./SourceModal";
 
 interface LibrarySectionProps {
   project: Project | undefined;
@@ -17,7 +20,7 @@ interface LibrarySectionProps {
   filteredSources: Source[];
   selectedSources: string[];
   toggleSource: (id: string) => void;
-  openSource: () => void;
+  openSource: (mode?: CaptureMediaKind) => void;
   openProject: () => void;
   captureSelection: () => void;
   viewSource: (source: Source) => void;
@@ -27,6 +30,18 @@ interface LibrarySectionProps {
   loadMoreSources: () => void;
   online: boolean;
   busy: boolean;
+}
+
+function detectSourceKind(source: Source): "screenshot" | "image" | "text" {
+  if (source.media) return source.media.kind;
+  const sample = `${source.title} ${source.preview || ""} ${source.content || ""}`;
+  if (sample.includes("[PRINT CAPTURADO]") || /^Print:/i.test(source.title)) {
+    return "screenshot";
+  }
+  if (sample.includes("[IMAGEM CAPTURADA]") || /^Imagem:/i.test(source.title)) {
+    return "image";
+  }
+  return "text";
 }
 
 export function LibrarySection({
@@ -55,7 +70,7 @@ export function LibrarySection({
           </h2>
           <p>
             {project
-              ? `Tudo o que você reuniu em ${project.title}.`
+              ? `Textos, prints e imagens reunidos em ${project.title}.`
               : "Crie um projeto para começar sua biblioteca."}
           </p>
         </div>
@@ -71,7 +86,23 @@ export function LibrarySection({
           <button
             type="button"
             className="subtle"
-            onClick={openSource}
+            onClick={() => openSource("screenshot")}
+            disabled={!online || !project || busy}
+          >
+            <Camera size={15} aria-hidden="true" /> Capturar print
+          </button>
+          <button
+            type="button"
+            className="subtle"
+            onClick={() => openSource("image")}
+            disabled={!online || !project || busy}
+          >
+            <ImageIcon size={15} aria-hidden="true" /> Capturar imagem
+          </button>
+          <button
+            type="button"
+            className="subtle"
+            onClick={() => openSource("text")}
             disabled={!online || !project || busy}
           >
             <Plus size={15} aria-hidden="true" /> Adicionar texto
@@ -85,7 +116,7 @@ export function LibrarySection({
           <input
             aria-label="Buscar materiais"
             value={search}
-            placeholder="Buscar neste projeto…"
+            placeholder="Buscar textos, prints ou imagens neste projeto…"
             onChange={(e) => setSearch(e.target.value)}
           />
           <span>{selectedSources.length} selecionados</span>
@@ -97,6 +128,13 @@ export function LibrarySection({
           {filteredSources.map((s) => {
             const isSelected = selectedSources.includes(s.id);
             const charCount = s.char_count || s.content?.length || 0;
+            const kind = detectSourceKind(s);
+            const kindLabel =
+              kind === "screenshot"
+                ? "Print"
+                : kind === "image"
+                  ? "Imagem"
+                  : "Texto";
             return (
               <article
                 key={s.id}
@@ -106,6 +144,8 @@ export function LibrarySection({
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={Boolean(s.media)}
+                    title={s.media ? "Captura armazenada localmente; o gateway atual recebe apenas texto." : undefined}
                     onChange={() => toggleSource(s.id)}
                     aria-label={`Usar ${s.title} no pedido`}
                   />
@@ -114,7 +154,13 @@ export function LibrarySection({
                   </span>
                 </label>
                 <span className="file-icon" aria-hidden="true">
-                  <FileText size={19} />
+                  {kind === "screenshot" ? (
+                    <Camera size={19} />
+                  ) : kind === "image" ? (
+                    <ImageIcon size={19} />
+                  ) : (
+                    <FileText size={19} />
+                  )}
                 </span>
                 <button
                   type="button"
@@ -126,7 +172,7 @@ export function LibrarySection({
                 </button>
                 <div className="source-bottom">
                   <span>
-                    Texto · {charCount.toLocaleString("pt-BR")} caracteres
+                    {kindLabel} · {charCount.toLocaleString("pt-BR")} caracteres
                   </span>
                   <ArrowUpRight size={14} aria-hidden="true" />
                 </div>
@@ -138,6 +184,8 @@ export function LibrarySection({
         <div className="empty-library card">
           <div className="empty-files" aria-hidden="true">
             <FileText size={23} />
+            <Camera size={21} />
+            <ImageIcon size={21} />
             <Link2 size={20} />
             <BookOpen size={22} />
           </div>
@@ -149,12 +197,12 @@ export function LibrarySection({
           <p>
             {search
               ? "Experimente outro termo."
-              : "Adicione uma anotação ou selecione um trecho de uma página no navegador."}
+              : "Capture um trecho, print da tela ou imagem da página no navegador."}
           </p>
           <button
             type="button"
             className="text-button"
-            onClick={project ? openSource : openProject}
+            onClick={project ? () => openSource("text") : openProject}
             disabled={!online}
           >
             {project

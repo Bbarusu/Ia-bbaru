@@ -74,8 +74,10 @@ export function formatFinishReason(finishReason) {
   );
 }
 
-export function formatUnavailableReason(reason) {
+export function formatUnavailableReason(reason, provider) {
   if (!reason) return "Indisponível neste computador";
+  if (provider === "claude-code" && reason === "not_logged_in")
+    return "Indisponível: faça login na sua conta Claude pelo comando claude no terminal.";
   return (
     {
       cli_not_installed: "Indisponível: CLI oficial não instalado",
@@ -115,10 +117,14 @@ export function describeTaskError(error) {
         "Este plano exige aceite explícito para limite indicativo de saída.",
       model_tools_not_supported:
         "O agente exige uso de ferramentas não autorizado nesta versão.",
+      visual_context_not_supported:
+        "A captura está salva localmente. O gateway atual recebe apenas texto e não analisa imagens.",
       review_context_too_large:
         "O material somado à resposta principal ultrapassa o limite de contexto do revisor.",
       provider_quota_exceeded:
         "A cota da conta no provedor foi atingida durante a geração.",
+      provider_error:
+        "O Claude não conseguiu responder a este pedido. O motivo ainda não foi identificado. Consulte o diagnóstico do gateway; o pedido não será repetido automaticamente.",
       provider_not_authenticated:
         "A sessão no provedor expirou ou não está autenticada.",
       provider_not_logged_in: "Faça login no CLI oficial e depois confirme a retomada.",

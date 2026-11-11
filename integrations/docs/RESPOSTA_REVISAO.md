@@ -95,3 +95,34 @@ backend `d593e76` e não pediu nova correção no gateway.
   depois de combinar as branches) e qualquer geração real nesta rodada.
 - Pendente: os mesmos passos no Windows do usuário e, depois, o teste prático 1.1
   com a conta. Comandos em [TESTE_PRATICO_1_1.md](TESTE_PRATICO_1_1.md).
+
+
+## Rodada de 10/11/2026: revisão dos adaptadores (`docs/REVISAO_CLIS_2026_11_10.md`)
+
+Pedido em `docs/PROMPT_CLAUDE_CLIS.md` (branch `codex/browser-capture-clis`). Só
+`integrations/` e `tests/integrations/` mudaram. Sem conta real, sem geração.
+
+| Item | Situação |
+| --- | --- |
+| 1. Gemini: não anunciar login/cobrança só pela declaração | ✅ **Corrigido.** Login with Google é forçado (`GEMINI_CLI_AUTH_OVERRIDE=oauth-personal`), o mecanismo é auto-testado a cada versão e o login é verificado pela própria CLI com entrada vazia. A declaração só autoriza a verificação. Chave de API salva na CLI e chaves no ambiente não são usadas; sem garantia → indisponível com `auth_status_unknown`, `not_logged_in` ou `cli_version_unsupported`. Detalhes em [PASSAGEM_CLIS.md](PASSAGEM_CLIS.md), seção 1.1 |
+| 2. Gemini: saída mista de modelos | ✅ **Corrigido.** Identidade exata: qualquer token de saída de outro modelo → `provider_model_mismatch` (502, final, gravado, sem repetição). Sem estatísticas de modelo → `provider_invalid_output`. A reprodução da revisão virou teste |
+| 3. Codex CLI: manter `tools: restricted` | ✅ Mantido. Nenhum aceite habilita ferramentas; o backend continua recusando no plano (teste por HTTP) |
+| 4. `unknown`, saída parcial, sem revisão automática | ✅ Mantido. ChatGPT e Gemini sempre `unknown`; nada fabrica `stop` |
+| 5. Windows: `.exe`/`.cmd`, tempo do catálogo, processos e SQLite | ⏳ Só o usuário pode executar. Comandos e critérios em [VALIDACAO.md](VALIDACAO.md). Para ajudar: `diagnose` mostra `probe_seconds` por CLI, e `--version`/`--help` passam a ser reaproveitados por 5 minutos entre verificações |
+| Suporte visual | 📄 Só proposta: [PROPOSTA_ENTRADA_VISUAL.md](PROPOSTA_ENTRADA_VISUAL.md) (contrato 1.2 com anexos tipados, capacidades de entrada por modelo, vínculo por projeto, aceite e caminho de cada CLI). Nenhum pixel é enviado; nada de base64 em `ContextItem.content` |
+
+Pontos para o Codex conferir:
+
+- **`GEMINI_CLI_AUTH_OVERRIDE` é uma variável interna da Gemini CLI** (usada no
+  relançamento), não documentada. Por isso o auto-teste: se uma versão deixar de
+  aplicá-la, o provedor fica indisponível em vez de cair no tipo de login salvo.
+- **A verificação de login faz a CLI contatar o Google** (renovar o token) a cada
+  atualização de estado: 30 s quando pronto, 5 s quando indisponível. Não é geração.
+- **Ganchos (`hooks`) do usuário na Gemini CLI** não podem ser desligados por opção.
+  Um gancho de início de sessão que injete contexto tornaria a entrada da sonda não
+  vazia; por isso a sonda pede um modelo inexistente. Risco residual documentado.
+- **Regra de modelo exata pode recusar execuções reais** se a CLI usar um modelo
+  auxiliar que produza saída. É a regra pedida; só uma geração real autorizada mostra
+  se acontece.
+- O texto do painel "Login Google declarado; não verificado" (frontend do Codex) fica
+  desatualizado: com `ready: true`, o login foi verificado pela CLI.

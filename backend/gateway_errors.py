@@ -26,6 +26,7 @@ def error_message(code):
     if code in {"provider_not_logged_in", "provider_not_authenticated", "provider_not_subscription_login"}:
         return "Confira o login por assinatura no CLI oficial do provedor."
     return {
+        "provider_error": "O Claude não conseguiu responder. Consulte o diagnóstico do gateway; não haverá repetição automática.",
         "provider_quota_exceeded": "A cota do provedor foi atingida. Aguarde sua renovação.",
         "gateway_busy": "O gateway está ocupado. A tarefa aguardará na fila.",
         "request_in_progress": "O gateway ainda está processando esta etapa.",
