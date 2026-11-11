@@ -583,14 +583,12 @@ export default function App() {
           <div className="page-heading">
             <div>
               <div className="eyebrow">
-                <span aria-hidden="true" /> SEU ESPAÇO DE TRABALHO
+                <span aria-hidden="true" /> IA-BBARU BROWSER · CLAUDE
               </div>
               <h1>
                 {tab === "workspace" ? (
                   <>
-                    Boas ideias merecem
-                    <br />
-                    <span>o contexto certo.</span>
+                    Chat com <span>Claude</span>
                   </>
                 ) : tab === "library" ? (
                   "Sua biblioteca."
@@ -602,7 +600,7 @@ export default function App() {
               </h1>
               <p>
                 {tab === "workspace"
-                  ? "Reúna seus materiais. Escolha seus agentes. Dê o próximo passo."
+                  ? "Converse sobre a página ativa ou explore seus materiais."
                   : tab === "library"
                     ? "Os materiais que acompanham seu pensamento."
                     : tab === "history"
@@ -711,15 +709,15 @@ export default function App() {
           )}
 
           {tab === "workspace" && (
-            <>
-              <ChatThread
-                tasks={tasks}
-                models={models}
-                onOpenTask={setTaskView}
-                onSuggestionClick={(s) => changeText(s)}
-              />
+            <div className="atlas-workspace-view">
+              <div className="atlas-chat-container">
+                <ChatThread
+                  tasks={tasks}
+                  models={models}
+                  onOpenTask={setTaskView}
+                  onSuggestionClick={(s) => changeText(s)}
+                />
 
-              <div className="workspace-grid">
                 <WorkspaceComposer
                   text={text}
                   changeText={changeText}
@@ -740,29 +738,87 @@ export default function App() {
                   capture={capture}
                   onClearCapture={() => setCapture(null)}
                 />
-                <ContextGuideCard />
               </div>
 
-              <AgentsSection
-                models={models}
-                availableModels={available}
-                selectedModels={selectedModels}
-                toggleModel={toggleModel}
-                preferredModelId={preferredModelId}
-                setPreferredModelId={setPreferredModelId}
-                reviewerModelId={reviewerModelId}
-                setReviewerModelId={setReviewerModelId}
-                review={review}
-                setReview={setReview}
-                acceptedLimit={acceptedLimit}
-                setAcceptedLimit={setAcceptedLimit}
-                goToConnections={() => setTab("connections")}
-                kind={kind}
-              />
-            </>
+              <div className="atlas-secondary-panels">
+                <details className="atlas-accordion" open>
+                  <summary>
+                    <div className="accordion-summary-title">
+                      <Settings2 size={15} aria-hidden="true" />
+                      <span>Modelos Claude</span>
+                    </div>
+                    <span className="accordion-badge">
+                      {available.length > 0
+                        ? `${available.length} ativo(s)`
+                        : "Sem conexão"}
+                    </span>
+                  </summary>
+                  <div className="accordion-body">
+                    <AgentsSection
+                      models={models}
+                      availableModels={available}
+                      selectedModels={selectedModels}
+                      toggleModel={toggleModel}
+                      preferredModelId={preferredModelId}
+                      setPreferredModelId={setPreferredModelId}
+                      reviewerModelId={reviewerModelId}
+                      setReviewerModelId={setReviewerModelId}
+                      review={review}
+                      setReview={setReview}
+                      acceptedLimit={acceptedLimit}
+                      setAcceptedLimit={setAcceptedLimit}
+                      goToConnections={() => setTab("connections")}
+                      kind={kind}
+                    />
+                  </div>
+                </details>
+
+                <details className="atlas-accordion" open>
+                  <summary>
+                    <div className="accordion-summary-title">
+                      <BookOpen size={15} aria-hidden="true" />
+                      <span>Materiais do Projeto</span>
+                    </div>
+                    <span className="accordion-badge">
+                      {sources.length} {sources.length === 1 ? "item" : "itens"}
+                    </span>
+                  </summary>
+                  <div className="accordion-body">
+                    <LibrarySection
+                      project={project}
+                      sources={sources}
+                      filteredSources={filteredSources}
+                      selectedSources={selectedSources}
+                      toggleSource={toggleSource}
+                      openSource={openSource}
+                      openProject={openProject}
+                      captureSelection={() =>
+                        selectCapture().catch((error) => setError(error.message))
+                      }
+                      viewSource={(source) =>
+                        act(async () =>
+                          setSourceView(
+                            await request<Source>("sources.get", {
+                              project_id: projectId,
+                              source_id: source.id,
+                            }),
+                          ),
+                        )
+                      }
+                      search={search}
+                      setSearch={setSearch}
+                      sourceNext={sourceNext}
+                      loadMoreSources={() => more("sources")}
+                      online={online}
+                      busy={busy}
+                    />
+                  </div>
+                </details>
+              </div>
+            </div>
           )}
 
-          {(tab === "workspace" || tab === "library") && (
+          {tab === "library" && (
             <LibrarySection
               project={project}
               sources={sources}

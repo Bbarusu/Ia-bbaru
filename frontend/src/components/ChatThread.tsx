@@ -35,8 +35,81 @@ export function ChatThread({
     });
   }
 
+  // Welcome state (Atlas / Edge Copilot clean onboarding)
   if (tasks.length === 0) {
-    return null;
+    return (
+      <div className="atlas-welcome-card" role="region" aria-label="Boas-vindas ao chat">
+        <div className="atlas-welcome-icon" aria-hidden="true">
+          <Sparkles size={24} />
+        </div>
+        <h3>Como posso ajudar hoje?</h3>
+        <p className="atlas-welcome-sub">
+          Pergunte sobre a página ativa, explore conceitos ou peça ajuda aos modelos Claude.
+        </p>
+
+        <div className="atlas-starter-grid">
+          <button
+            type="button"
+            className="atlas-starter-card"
+            onClick={() =>
+              onSuggestionClick(
+                "Resuma os pontos essenciais desta página em tópicos claros.",
+              )
+            }
+          >
+            <div className="starter-card-content">
+              <strong>✨ Resumir esta página</strong>
+              <small>Visão geral rápida e tópicos principais</small>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="atlas-starter-card"
+            onClick={() =>
+              onSuggestionClick(
+                "Identifique os principais argumentos e conclusões do material.",
+              )
+            }
+          >
+            <div className="starter-card-content">
+              <strong>🔍 Principais pontos</strong>
+              <small>Extrai argumentos e conclusões centrais</small>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="atlas-starter-card"
+            onClick={() =>
+              onSuggestionClick(
+                "Explique os termos mais complexos deste conteúdo em linguagem simples.",
+              )
+            }
+          >
+            <div className="starter-card-content">
+              <strong>💡 Explicar termos</strong>
+              <small>Simplifica conceitos técnicos difíceis</small>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="atlas-starter-card"
+            onClick={() =>
+              onSuggestionClick(
+                "Crie perguntas frequentes para testar a compreensão deste tema.",
+              )
+            }
+          >
+            <div className="starter-card-content">
+              <strong>✍ Questões de estudo</strong>
+              <small>Perguntas para fixação do conteúdo</small>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Render tasks in chronological order (oldest to newest for natural chat flow)
@@ -55,7 +128,7 @@ export function ChatThread({
 
         return (
           <div key={t.id} className="chat-turn">
-            {/* User message */}
+            {/* User message (Right bubble) */}
             <div className="chat-msg user">
               <div className="chat-msg-header">
                 <span className="chat-avatar user" aria-hidden="true">
@@ -84,7 +157,7 @@ export function ChatThread({
               </div>
             </div>
 
-            {/* Assistant reply */}
+            {/* Assistant reply (Left bubble) */}
             <div className="chat-msg assistant">
               <div className="chat-msg-header">
                 <span className="chat-avatar assistant" aria-hidden="true">
@@ -100,7 +173,7 @@ export function ChatThread({
                 {isRunning && (
                   <div className="chat-loading" role="status">
                     <Loader2 size={16} className="spin" aria-hidden="true" />
-                    <span>Aguardando resposta do Claude…</span>
+                    <span>Claude está pensando…</span>
                   </div>
                 )}
 
@@ -169,7 +242,7 @@ export function ChatThread({
                   </div>
                 )}
 
-                {/* Collapsible Technical Details */}
+                {/* Collapsible Technical Details (Discreet) */}
                 <details className="chat-tech-details">
                   <summary>
                     <span>Detalhes técnicos</span>
