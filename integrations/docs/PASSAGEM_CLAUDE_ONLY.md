@@ -2,9 +2,90 @@
 
 Pedido: `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`,
 `fa24ef3`, PR #7). Direção: `docs/DIRECAO_CLAUDE_ONLY.md`. Data: 11/11/2026.
-A branch `claude/vibrant-meitner-ksbzgf` foi avançada (fast-forward) até `fa24ef3`.
-Não havia mudança local pendente. Só `integrations/` e `tests/integrations/` mudaram.
-Nenhum adaptador antigo foi reintroduzido.
+A branch `claude/vibrant-meitner-ksbzgf` foi avançada (fast-forward) até `fa24ef3`
+e depois recebeu `f7206ac` por merge (prompt atualizado e
+`docs/AJUSTES_CHAT_LATERAL.md`). Não havia mudança local pendente. Só
+`integrations/` e `tests/integrations/` mudaram. Nenhum adaptador antigo foi
+reintroduzido.
+
+## P0 — `provider_error` da captura “Revise” (sonnet, 1 material, limite 128)
+
+**Causa da execução do usuário: ainda não comprovada.** Não há SHA, request ID nem
+saída daquela execução. Ela rodou com o gateway de `fa24ef3`, anterior às mudanças
+desta branch.
+
+Onde o gateway produzia `provider_error` (código anterior): qualquer JSON válido
+da CLI com `is_error`, código de saída ≠ 0 ou sem `result` em texto, quando o
+texto não tinha palavras de login ou cota. Três lacunas, todas corrigidas [F]:
+
+1. **Teto de saída atingido** [P]. Na 2.1.322, quando o modelo para por
+   `max_tokens`, a CLI **troca o turno por um erro**: "API Error: Claude's response
+   exceeded the N output token maximum. To configure this behavior, set the
+   CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable." (`apiError:
+   "max_output_tokens"`). A resposta parcial **não** vem no resultado. Com teto 128
+   e um pedido “Revise”, essa é a **hipótese principal**, ainda não confirmada.
+   Consequência: na 2.1.322, `finish_reason: "length"` não deve mais aparecer pela
+   CLI. O caminho real é este erro.
+2. **Subtipos `error_*`** (`error_during_execution`, `error_max_turns`, ...) não
+   têm `result`; as mensagens ficam em `errors`. O gateway ignorava `errors`, então
+   até um login expirado virava `provider_error`. Agora `result` e `errors` são lidos.
+3. **Erros da API** ("API Error: 400/529 …"): sobrecarga agora é
+   `provider_unavailable`. Pedido inválido continua `provider_error`, com a
+   categoria guardada.
+
+Nada é mascarado como sucesso: os códigos continuam os que o backend já aceita
+(`backend/gateway_errors.py`). Um código desconhecido faria o backend registrar
+`gateway_request_failed`, que é **incerto**, e isso seria pior. A categoria
+específica fica numa **assinatura sanitizada**:
+
+- gravada no banco local do gateway (`failure_signatures`, as últimas 200);
+- uma linha no log: `request_id`, código, etapa, categoria.
+
+Campos: etapa, modelo pedido, versão da CLI, código de saída, tamanhos de
+stdout/stderr, subtipo, `is_error`, se havia texto, quantidade de `errors`,
+`stop_reason`, `api_error`, `terminal_reason` (só identificadores conferidos),
+número do status HTTP, modelos servidos e categoria. **Nunca** texto da CLI,
+stderr, pedido, fontes ou credenciais. Os testes usam um texto-canário e provam
+que ele não sai na resposta, no banco nem no log.
+
+Consulta, somente leitura e segura com o gateway ligado:
+```powershell
+$env:IA_BBARU_GATEWAY_DB = "$env:LOCALAPPDATA\Ia-bbaru-gateway\gateway.sqlite3"
+python -m integrations failures --limit 3
+```
+
+**Para confirmar (conduzido pelo usuário, uma geração por passo, sem repetir):**
+1. Com esta branch, iniciar com `-Models "sonnet"` e criar uma tarefa sintética
+   (fonte "A palavra é laranja.", pedido "Responda só com a palavra da fonte"),
+   **limite 1024**. Esperado: sucesso, `served` sonnet.
+2. Repetir o tipo de pedido da captura (“Revise”) com fonte sintética e **limite
+   128**. Rodar `failures` e colar a saída. Se a categoria for
+   `output_limit_reached`, a causa está confirmada. Se for outra, a assinatura
+   mostra qual.
+
+Recomendação para o Codex/Gemini (C-7, C-8): 128 é pouco para revisão ou chat. O
+painel deve propor um limite padrão maior e, com C-7, explicar "a resposta passou
+do limite de N tokens; aumente o limite", sem repetir sozinho.
+
+## Chat lateral — o que o gateway oferece e o que depende do Codex
+
+- O gateway **continua sem sessão própria**. Cada geração é um processo
+  `claude -p` novo, com `--no-session-persistence`, em pasta temporária vazia. A
+  continuidade vem só do que o backend envia. Não haverá `--resume`/`--continue`
+  nem uma conversa paralela da CLI.
+- Contrato 1.1 sem mudança: a requisição já tem `instruction`, `context[]`
+  (id, título, conteúdo) e `previous_output`. O histórico do chat pode ir hoje como
+  itens de `context` que o backend monta (por exemplo, título "Conversa — turno 3,
+  usuário"). O prompt de sistema já trata fontes e resposta anterior como dados
+  não confiáveis. Isso vale para texto de página e histórico.
+- Limites: `context_char_limit` (padrão 80.000 caracteres) cobre instrução, fontes
+  e histórico juntos. Acima disso o gateway responde `context_too_large` **antes**
+  de iniciar a CLI, sem gastar o `request_id`. Cortar ou resumir histórico é
+  decisão do backend, visível ao usuário. O gateway não corta em silêncio.
+- `streaming: false` continua. Uma resposta parcial em tempo real exigiria
+  `stream-json` e um contrato novo (proposta conjunta; ver a proposta visual).
+- O `request_id` por turno já garante uma única geração: duplo clique ou perda de
+  resposta HTTP repetem o resultado gravado, e timeout fica incerto para sempre.
 
 ## Níveis de evidência usados aqui
 
@@ -64,9 +145,13 @@ Implementado:
 - O gateway agora classifica essas mensagens e "There's an issue with the selected
   model… may not have access" como `provider_unavailable` (503), com orientação para
   conferir `/model`. Não são tratadas como cota e não há nova tentativa. [F]
-- Fable 5.2 exige CLI 2.1.321+ (doc oficial). Na 2.1.307 do usuário, `fable`
-  resolveria para Fable 5.1 pelo padrão embutido [P]. Não atualizei nada nem
-  habilitei modelo ou crédito.
+- A doc oficial cita 2.1.321+ para Fable 5.2, e o padrão **embutido** da 2.1.307
+  para o alias `fable` é 5.1 [P]. Mas a resolução também usa um registro de
+  modelos de fora do binário, e o seletor do Windows mostrou Fable 5.2 (e 5.1).
+  Conclusão: **nem o número da versão nem o seletor confirmam a execução.** Só uma
+  geração mostra o modelo servido (`modelUsage`, impresso pelo teste real).
+  "Listado" ≠ "executado" ≠ "sem cobrança extra". Não exigir atualização só pelo
+  número. Não atualizei nada nem habilitei modelo ou crédito.
 
 ### Windows do usuário, 11/11/2026 [R, sem geração]
 
@@ -95,7 +180,8 @@ Consequências:
 - O requisito de versão para Fable 5.2 (2.1.321+) agora está atendido no Windows.
 
 **Condição para um teste real com Fable** (decisão do usuário, nesta ordem):
-1. Claude Code 2.1.321+ (`claude --version`). Atendido: 2.1.322 em 11/11.
+1. Anotar `claude --version`. Não é pré-requisito pelo número; na captura de 11/11
+   a CLI já estava em 2.1.322, e o registro anterior do STATUS dizia 2.1.307.
 2. Abrir `claude` → `/model` e ver se Fable aparece e se mostra "Requires usage
    credits". Se mostrar, **não** configurar `fable` sem aceitar conscientemente o
    gasto de créditos.
@@ -220,12 +306,18 @@ claude --version
 | C-4 | Codex | Revisor de nível igual ou superior ao da resposta (ou escolha do usuário) | Item 3: hoje opus responde e haiku revisa |
 | C-5 | Codex | Gravar a duração de cada etapa | Ter medição de latência antes de usá-la como critério |
 | C-6 | Codex | Explicar no painel/diagnóstico que login ≠ acesso por modelo, e mostrar o erro `provider_model_mismatch` como "a CLI tentou usar outro modelo; nada foi aceito" | Itens 1 e 4 |
+| C-7 | Codex | Código `provider_output_limit_reached` (502, final) no consumidor, com mensagem "a resposta passou do limite de N tokens". O gateway passa a emiti-lo assim que o backend aceitar; hoje é `provider_error` + categoria | P0 |
+| C-8 | Codex | Limite padrão maior que 128 para revisão/chat, e aceite do limite indicativo na configuração inicial, conforme AJUSTES_CHAT_LATERAL.md | P0 |
+| C-9 | Codex | Montar o histórico do chat em `context[]` com ids estáveis por turno, respeitar `context_char_limit` e avisar quando cortar | Chat lateral |
+| C-10 | Codex | Mostrar `request_id` do turno nos "Detalhes" do erro, para cruzar com `python -m integrations failures` | P0 |
 | G-1 | Frontend | Seletor explícito rápido / normal / profundo, se C-3/C-4 forem aceitos | Item 3 |
+| G-2 | Gemini | `provider_error`: "O Claude não conseguiu responder a este pedido." Com C-7, mostrar a ação "aumentar limite". Sem sugerir login ou cota sem código específico | P0 |
 
 Prompt pronto para o Codex:
 
 > Leia `integrations/docs/PASSAGEM_CLAUDE_ONLY.md` na branch
-> `claude/vibrant-meitner-ksbzgf`. Avalie C-1 a C-6. Para C-1 e C-2, decida a versão
+> `claude/vibrant-meitner-ksbzgf`. Comece pela seção P0 e por C-7, C-8 e C-10;
+> depois C-9 (chat lateral) e C-1 a C-6. Para C-1, C-2 e C-7, decida a versão
 > do contrato e atualize schemas, OpenAPI e testes dos dois lados. O Claude adapta
 > o gateway depois, sem emitir campo novo para consumidor do contrato 1. Não
 > reintroduza outros provedores. Não use conta real nem gere conteúdo na revisão.

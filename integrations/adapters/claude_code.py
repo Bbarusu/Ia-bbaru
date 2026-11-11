@@ -27,6 +27,7 @@ from backend.contracts import ModelProfile, TokenUsage
 from .. import errors
 from ..config import ClaudeCodeSettings
 from ..contracts_v1_1 import ModelCapabilities, ModelProfileV11
+from ..failures import categorize, error_texts, signature
 from ..models import served_pattern
 from ..prompt import CLI_ARGUMENT_PROMPT, SYSTEM_PROMPT, build_user_prompt
 from ..runner import ProcessStartError, ProcessTimeout, child_env, run_process
@@ -152,26 +153,47 @@ class ClaudeCodeAdapter(CliAdapterBase):
                 proc = self.runner(self.build_args(model), build_user_prompt(request),
                                    self.settings.timeout_s, env, cwd)
             except ProcessStartError:
-                raise NotStarted(errors.provider_unavailable("provider_cli_not_runnable"))
+                error = errors.provider_unavailable("provider_cli_not_runnable")
+                error.diagnostic = self._signature("not_started", model)
+                raise NotStarted(error)
             except ProcessTimeout:
-                raise errors.provider_timeout()
+                error = errors.provider_timeout()
+                error.diagnostic = self._signature("timeout", model)
+                raise error
         return self.parse(model, proc)
 
+    def _signature(self, stage, model, **kw):
+        version = self._status.version if self._status else None
+        return signature(stage, model=model, cli_version=version, **kw)
+
     def parse(self, model: str, proc) -> "ProviderResult":
+        data = None
+
+        def fail(error, stage, **kw):
+            error.diagnostic = self._signature(stage, model, proc=proc, data=data, **kw)
+            return error
+
         try:
             data = json.loads(proc.stdout)
             if not isinstance(data, dict):
                 raise ValueError
         except ValueError:
-            raise errors.provider_error("provider_invalid_output")
+            data = None
+            raise fail(errors.provider_error("provider_invalid_output"), "parse_json")
         result = data.get("result")
         if data.get("is_error") or proc.returncode != 0 or not isinstance(result, str):
-            raise classify_failure(result if isinstance(result, str) else "")
+            # An error turn keeps its text in `result`; error_* subtypes have
+            # no `result` and list messages in `errors` (2.1.322 schema).
+            category = categorize(error_texts(data))
+            raise fail(error_for(category), "result_error", category=category)
         if not result.strip():
-            raise errors.provider_error("provider_empty_output")
+            raise fail(errors.provider_error("provider_empty_output"), "empty_output")
         if len(result) > 100000:
-            raise errors.provider_error("provider_output_too_large")
-        served = served_model(model, data.get("modelUsage"))
+            raise fail(errors.provider_error("provider_output_too_large"), "output_too_large")
+        try:
+            served = served_model(model, data.get("modelUsage"))
+        except errors.GatewayError as error:
+            raise fail(error, "model_check")
         return ProviderResult(output=result, usage=_usage(data.get("usage")),
                               finish_reason=finish_reason_from(data), served_model=served)
 
@@ -234,29 +256,37 @@ def finish_reason_from(data: dict) -> str:
 
 
 def classify_failure(text: str) -> errors.GatewayError:
-    lowered = text.lower()
-    # Model-specific refusals (seen in 2.1.322): a model that needs usage credits
-    # (e.g. Fable on some plans), substitution blocked by
-    # CLAUDE_CODE_NO_MODEL_FALLBACK, or a model the account cannot use. None of
-    # them is billed to API credits here and none is retried.
-    if "usage credits" in lowered or "requires usage credits" in lowered:
+    """Kept for callers that only have the result text."""
+    return error_for(categorize([text]))
+
+
+def error_for(category: str) -> errors.GatewayError:
+    """Map a sanitized category to a code the backend already accepts
+    (backend/gateway_errors.py). Categories without their own code stay
+    `provider_error`; the signature keeps the category for diagnosis and the
+    proposed codes are in docs/PASSAGEM_CLAUDE_ONLY.md (C-2, C-7)."""
+    if category == "auth":
+        return errors.provider_unavailable(
+            "provider_not_authenticated",
+            "Abra `claude` no terminal e faça login novamente pelo fluxo oficial (/login).",
+        )
+    if category == "quota":
+        return errors.quota_exceeded()
+    if category == "usage_credits":
+        # Model needing usage credits (e.g. Fable on some plans). Never retried.
         return errors.provider_unavailable(
             "provider_unavailable",
             "Este modelo exige créditos de uso na sua conta. Confira `/model` no Claude Code; "
             "não habilite créditos só para o Ia-bbaru sem decidir isso conscientemente.",
         )
-    if ("model substitution is disabled" in lowered or "forbids model substitution" in lowered
-            or "issue with the selected model" in lowered or "may not have access" in lowered):
+    if category == "model_unavailable":
         return errors.provider_unavailable(
             "provider_unavailable",
             "O modelo configurado não está disponível para esta conta agora e a troca automática "
             "está desligada. Confira `/model` no Claude Code e os modelos configurados.",
         )
-    if any(s in lowered for s in ("/login", "not logged in", "invalid api key", "authentication", "oauth")):
+    if category == "overloaded":
         return errors.provider_unavailable(
-            "provider_not_authenticated",
-            "Abra `claude` no terminal e faça login novamente pelo fluxo oficial (/login).",
-        )
-    if any(s in lowered for s in ("usage limit", "limit reached", "rate limit", "quota", "resets")):
-        return errors.quota_exceeded()
+            "provider_unavailable", "O serviço do Claude está sobrecarregado. Tente mais tarde, manualmente.")
+    # output_limit_reached, context_window_exceeded, api_* and none.
     return errors.provider_error()

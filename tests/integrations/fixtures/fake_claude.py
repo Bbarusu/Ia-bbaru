@@ -6,6 +6,11 @@ Its output imitates the documented shape of `claude -p --output-format json`
   success (default) | auth_error | usage_limit | sleep | garbage | over_cap
   | max_tokens | no_stop_reason | null_stop_reason | refusal
   | fallback | mixed | idle_other_model | no_model_usage | credits | model_access
+  | output_limit_error | execution_error | execution_error_auth | api_400 | overloaded
+  | exit_nonzero_with_result
+The failure shapes follow the result schema and messages of 2.1.322 (read from
+the official package, not observed in a user run). Every error text carries
+the canary FAKE_CANARY so tests can prove it never leaves the gateway.
 modelUsage is keyed like 2.1.322: an alias resolves to the FAKE_ALIASES version
 of its family (or FAKE_CLAUDE_SERVED, when set); a full name to itself.
 FAKE_CLAUDE_LOGIN: claude.ai (default) | api_key | none
@@ -24,6 +29,9 @@ FLAGS = ("--print", "--output-format", "--model", "--system-prompt", "--tools",
 
 FAKE_ALIASES = {"sonnet": "claude-sonnet-5-5", "haiku": "claude-haiku-5-5",
                 "opus": "claude-opus-5-5", "fable": "claude-fable-5-2"}
+
+
+FAKE_CANARY = "conteudo-sensivel-canario-7f3a"
 
 
 def usage_entry(output_tokens):
@@ -72,6 +80,28 @@ def main():
         print(json.dumps({"type": "result", "subtype": "success", "is_error": True,
                           "result": "Claude usage limit reached. Your limit resets 5pm", "session_id": "s-2"}))
         return 1
+    cap_text = os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "4096")
+    failures = {
+        # 2.1.322 turns a reply cut at max_tokens into this API error turn.
+        "output_limit_error": {"subtype": "success", "stop_reason": "max_tokens", "api_error": "max_output_tokens",
+                               "result": f"API Error: Claude's response exceeded the {cap_text} output token maximum. "
+                                         "To configure this behavior, set the CLAUDE_CODE_MAX_OUTPUT_TOKENS environment "
+                                         f"variable. {FAKE_CANARY}"},
+        # error_* subtypes have no `result`, only `errors`.
+        "execution_error": {"subtype": "error_during_execution", "stop_reason": None,
+                            "errors": [f"Unexpected failure {FAKE_CANARY}"]},
+        "execution_error_auth": {"subtype": "error_during_execution", "stop_reason": None,
+                                 "errors": [f"Not logged in · Please run /login {FAKE_CANARY}"]},
+        "api_400": {"subtype": "success", "stop_reason": None,
+                    "result": 'API Error: 400 {"type":"error","error":{"type":"invalid_request_error",'
+                              f'"message":"{FAKE_CANARY}"}}}}'},
+        "overloaded": {"subtype": "success", "stop_reason": None,
+                       "result": f'API Error: 529 {{"type":"error","error":{{"type":"overloaded_error","message":"{FAKE_CANARY}"}}}}'},
+    }
+    if mode in failures:
+        print(json.dumps({"type": "result", "is_error": True, "session_id": "s-5", "num_turns": 1,
+                          "modelUsage": {}, **failures[mode]}))
+        return 1
     if mode in ("credits", "model_access"):
         text = {"credits": "Your model policy only allows Fable, which requires usage credits · /model to set it up",
                 "model_access": "There's an issue with the selected model (x). It may not exist or you may not have access to it."}[mode]
@@ -102,7 +132,7 @@ def main():
     if mode == "no_stop_reason":
         del payload["stop_reason"]
     print(json.dumps(payload))
-    return 0
+    return 1 if mode == "exit_nonzero_with_result" else 0
 
 
 if __name__ == "__main__":

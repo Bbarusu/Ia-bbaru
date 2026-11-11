@@ -3,7 +3,20 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: somente Claude (11/11/2026)
+## Rodada atual: P0 `provider_error` e chat lateral (11/11/2026)
+
+Prompt atualizado (`f7206ac`) e `docs/AJUSTES_CHAT_LATERAL.md`. Detalhes na seção P0
+de [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `tests/integrations` | fixtures, incluindo `test_failures.py` (8 novos) e `-W error::ResourceWarning` | ✅ 83 OK + 1 pulado |
+| `tests` (backend) | fixtures | ✅ OK |
+| `verify_gateway_v11.py` | fixtures, HTTP | ✅ |
+| Mensagem de teto de saída e esquema `error_*` | pacote oficial 2.1.322, sem gerar | ✅ registrado |
+| Causa do `provider_error` da captura | — | ⏳ só confirmável pelo usuário, com `failures` |
+
+## Rodada anterior: somente Claude (11/11/2026)
 
 Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
 `fa24ef3`). Respostas e pendências: [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).

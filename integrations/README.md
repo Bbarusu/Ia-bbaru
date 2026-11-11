@@ -222,6 +222,11 @@ caminho local é devolvido.
 | 503 | `provider_cli_not_installed`, `provider_not_logged_in`, `provider_not_subscription_login`, `provider_output_limit_not_enforced`, `provider_not_authenticated`, ... |
 | 504 | `provider_timeout` (a chamada pode ter consumido cota) |
 
+Cada falha de geração grava uma assinatura **sanitizada** (sem texto da
+CLI, pedido, fontes ou stderr) no banco do gateway. Consulta somente leitura:
+`python -m integrations failures --limit 3`. Ver a seção P0 de
+[PASSAGEM_CLAUDE_ONLY.md](docs/PASSAGEM_CLAUDE_ONLY.md).
+
 A classificação de login expirado e limite de uso usa o texto devolvido pelo CLI
 (heurística, testada só com o dublê).
 
