@@ -29,6 +29,12 @@ repetição automática. Contratos 1/1.1 e aceite por tarefa não mudaram.
 
 ## Validar primeiro sem conta real
 
+**Atualização da tentativa real Windows:** o teste opcional retornou HTTP 429,
+provider_quota_exceeded/categoria quota, em 2,885 s, com limite solicitado de 128.
+A classificação atual é limite de uso reportado pela CLI; a resposta bem-sucedida
+continua pendente. Conferir a janela/cota no Claude Code e só retomar quando houver
+disponibilidade. Esse resultado não prova a causa do provider_error original.
+
 Validação local desta entrega: backend 67 aprovados; gateway 68 executados,
 67 aprovados e 1 teste real ignorado; frontend 11 aprovados e build concluído.
 Verificação HTTP 1.1 aprovada nos cinco cenários com dublês (sucesso/revisão,
