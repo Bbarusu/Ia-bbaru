@@ -1,5 +1,7 @@
 export function sourceContent(title, url, text) {
-  return url ? `${title}\nOrigem: ${url}\n\n${text}` : text;
+  const safeText = text ?? "";
+  const safeTitle = title ?? "";
+  return url ? `${safeTitle}\nOrigem: ${url}\n\n${safeText}` : safeText;
 }
 
 export function taskState(status) {
@@ -74,8 +76,10 @@ export function formatFinishReason(finishReason) {
   );
 }
 
-export function formatUnavailableReason(reason) {
+export function formatUnavailableReason(reason, provider) {
   if (!reason) return "Indisponível neste computador";
+  if (provider === "claude-code" && reason === "not_logged_in")
+    return "Indisponível: faça login na sua conta Claude pelo comando claude no terminal.";
   return (
     {
       cli_not_installed: "Indisponível: CLI oficial não instalado",
@@ -115,6 +119,8 @@ export function describeTaskError(error) {
         "Este plano exige aceite explícito para limite indicativo de saída.",
       model_tools_not_supported:
         "O agente exige uso de ferramentas não autorizado nesta versão.",
+      visual_context_not_supported:
+        "A captura está salva localmente. O gateway atual recebe apenas texto e não analisa imagens.",
       review_context_too_large:
         "O material somado à resposta principal ultrapassa o limite de contexto do revisor.",
       provider_quota_exceeded:
@@ -131,6 +137,13 @@ export function describeTaskError(error) {
       gateway_busy: "O gateway está ocupado. A tarefa aguardará e usará o mesmo pedido.",
       request_in_progress: "O gateway ainda está processando este pedido. Aguardando confirmação.",
       provider_timeout: "O provedor excedeu o tempo de resposta. O resultado é incerto e não haverá repetição.",
+      provider_error: "O Claude não conseguiu responder a este pedido.",
+      provider_output_limit_reached: "A resposta ultrapassou o limite de saída de tokens. Aumente o limite indicativo para esta tarefa.",
+      provider_model_requires_credits: "O modelo Claude selecionado exige créditos de uso adicionais na sua conta.",
+      provider_model_unavailable: "O modelo Claude selecionado não está disponível no momento. Verifique os modelos disponíveis no CLI.",
+      provider_model_mismatch: "A CLI tentou usar outro modelo diferente do autorizado; nenhuma resposta foi aceita.",
+      provider_output_too_large: "A resposta retornada pelo provedor ultrapassou o tamanho máximo permitido.",
+      provider_invalid_output: "A resposta do provedor não pôde ser interpretada corretamente.",
       request_outcome_uncertain: "O gateway não pode confirmar o resultado anterior. Não haverá repetição.",
       process_interrupted_outcome_unknown: "O aplicativo encerrou durante a chamada. O resultado é incerto e não haverá repetição.",
       gateway_request_failed: "A comunicação com o gateway falhou. Consulte o estado da tarefa antes de qualquer nova ação.",
@@ -166,5 +179,56 @@ export function decideIncomingCapture(currentState, incoming) {
     capture: incoming,
     title: incoming.title,
     content: incoming.text,
+  };
+}
+
+/**
+ * @param {{
+ *   models?: any[];
+ *   selectedModelIds?: string[];
+ *   kind?: string;
+ *   preferredModelId?: string;
+ *   reviewerModelId?: string;
+ *   review?: boolean;
+ * }} [params]
+ */
+export function resolveEffectiveRoles({
+  models = [],
+  selectedModelIds = [],
+  kind = "study",
+  preferredModelId = "",
+  reviewerModelId = "",
+  review = false,
+} = {}) {
+  const selected = models.filter(
+    (m) => m.available && selectedModelIds.includes(m.id),
+  );
+  selected.sort((a, b) => {
+    const aMatch = Array.isArray(a.task_kinds) && a.task_kinds.includes(kind) ? 0 : 1;
+    const bMatch = Array.isArray(b.task_kinds) && b.task_kinds.includes(kind) ? 0 : 1;
+    return aMatch - bMatch;
+  });
+
+  const autoWriterId = selected[0]?.id || "";
+  const effectiveWriterId =
+    preferredModelId && selectedModelIds.includes(preferredModelId)
+      ? preferredModelId
+      : autoWriterId;
+
+  const candidateReviewers = selected.filter((m) => m.id !== effectiveWriterId);
+  const autoReviewerId = candidateReviewers[0]?.id || "";
+  const effectiveReviewerId =
+    review && reviewerModelId && candidateReviewers.some((m) => m.id === reviewerModelId)
+      ? reviewerModelId
+      : review
+        ? autoReviewerId
+        : "";
+
+  return {
+    autoWriterId,
+    effectiveWriterId,
+    autoReviewerId,
+    effectiveReviewerId,
+    candidateReviewers,
   };
 }

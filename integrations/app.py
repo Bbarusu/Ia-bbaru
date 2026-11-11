@@ -6,7 +6,9 @@
 - /v1/connections: experimental diagnostics, outside both contracts.
 """
 import hmac
+import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,7 +19,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 
 from . import __version__, errors
-from .adapters.claude_code import CAPABILITIES, ClaudeCodeAdapter, NotStarted, ProviderResult
+from .adapters.base import NotStarted, ProviderResult
+from .adapters.claude_code import ClaudeCodeAdapter
 from .config import Settings
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 from .dedup import DedupStore, payload_hash
@@ -26,6 +29,7 @@ from .dedup import DedupStore, payload_hash
 # a timeout is stored as uncertain (409 forever) and every other outcome,
 # success or error, is stored and replayed. Only NotStarted frees the ID.
 UNCERTAIN_CODES = {"provider_timeout"}
+log = logging.getLogger("integrations")
 RESPONSE_MODELS = {"1": GenerateResponse, "1.1": GenerateResponseV11}
 
 
@@ -50,10 +54,26 @@ def to_v11(request: GenerateRequestV11, result: ProviderResult) -> GenerateRespo
 
 
 def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | None = None,
-               max_concurrency: int = 1) -> FastAPI:
+               max_concurrency: int = 1, adapters: list | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     settings.validate()
-    adapter = adapter or ClaudeCodeAdapter(settings.claude_code)
+    if adapters is None:
+        adapters = [adapter or ClaudeCodeAdapter(settings.claude_code)]
+    by_provider = {a.provider: a for a in adapters}
+
+    def each_adapter(fn):
+        """Probe providers in parallel: each status check spawns a few CLI
+        commands, and the browser bridge waits at most 20 s for the catalog."""
+        with ThreadPoolExecutor(max_workers=max(1, len(adapters))) as pool:
+            return list(pool.map(fn, adapters))
+
+    def adapter_for(model_id: str, version: str):
+        """Route by the `<provider>:` prefix. Contract 1 only reaches adapters
+        that can honour it; the others answer as an unknown model there."""
+        found = by_provider.get(model_id.split(":", 1)[0])
+        if found is None or (version == "1" and not found.supports_v1):
+            raise errors.unknown_model()
+        return found
     store = DedupStore(settings.db_path)
     slots = threading.BoundedSemaphore(max_concurrency)
     token = settings.gateway_token.encode()
@@ -90,24 +110,37 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     # Catalogs are built from operator configuration + local status. No model call.
     @app.get("/v1/models", response_model=ModelCatalog, dependencies=protected)
     def models():
-        return ModelCatalog(models=adapter.profiles())
+        return ModelCatalog(models=[p for a in adapters for p in a.profiles()])
 
     @app.get("/v1.1/models", response_model=ModelCatalogV11, dependencies=protected)
     def models_v11():
-        return ModelCatalogV11(models=adapter.profiles_v11())
+        return ModelCatalogV11(models=[p for group in each_adapter(lambda a: a.profiles_v11()) for p in group])
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():
         """Experimental, outside the contracts: diagnostics and real capabilities."""
-        status = adapter.status(refresh=True)
-        return {"connections": [{
-            **status.as_dict(),
-            "contract_1_available": adapter.v1_gate().ready,
-            "configured_models": [adapter.profile_id(m) for m in settings.claude_code.models],
-            "capabilities": CAPABILITIES.model_dump(),
-        }]}
+        return {"connections": each_adapter(lambda a: {
+            **a.status(refresh=True).as_dict(),
+            "contract_1_available": a.v1_gate().ready,
+            "configured_models": [a.profile_id(m) for m in a.settings.models],
+            "capabilities": a.capabilities.model_dump(),
+        })}
+
+    def note_failure(body, exc):
+        """Keep the sanitized signature locally and log one line, no content."""
+        if not exc.diagnostic:
+            return
+        try:
+            store.record_failure(body.request_id, exc.code, exc.diagnostic)
+        except Exception:  # diagnosis must never change the request's outcome
+            log.warning("falha ao gravar assinatura de erro")
+        log.warning("geração falhou request_id=%s codigo=%s etapa=%s categoria=%s",
+                    body.request_id, exc.code, exc.diagnostic.get("stage"),
+                    exc.diagnostic.get("category"))
 
     def run(body, convert):
+        # A retired provider must not remain routable through a cached response.
+        adapter = adapter_for(body.model_id, body.protocol_version)
         digest = payload_hash(body.model_dump(mode="json"))
         response_model = RESPONSE_MODELS[body.protocol_version]
         replay = _existing(store, body.request_id, digest, response_model)
@@ -126,16 +159,21 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
                 result = convert(body, adapter.generate(body))
             except NotStarted as exc:
                 store.release(body.request_id)
+                note_failure(body, exc.error)
                 raise exc.error
             except errors.GatewayError as exc:
+                note_failure(body, exc)
                 if exc.code in UNCERTAIN_CODES:
                     store.mark_uncertain(body.request_id, exc.status, exc.body())
                 else:
                     store.complete(body.request_id, exc.status, exc.body())
                 raise
             except Exception:
-                store.mark_uncertain(body.request_id, 502, errors.provider_error().body())
-                raise errors.provider_error("gateway_internal_error")
+                # The provider may already have run: report the outcome as
+                # uncertain from the first answer, as every repeat will (409).
+                uncertain = errors.request_outcome_uncertain()
+                store.mark_uncertain(body.request_id, uncertain.status, uncertain.body())
+                raise uncertain
             store.complete(body.request_id, 200, result.model_dump(mode="json"))
             return result
         finally:

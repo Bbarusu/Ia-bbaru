@@ -5,19 +5,33 @@ import {
   formatOutputLimit,
   formatUnavailableReason,
   requiresLimitAcceptance,
+  resolveEffectiveRoles,
 } from "../logic.mjs";
 import type { Model } from "../types";
+
+const TASK_LABELS: Record<string, string> = {
+  general: "geral",
+  study: "estudos",
+  writing: "escrita",
+  coding: "programação",
+  analysis: "análise",
+};
 
 interface AgentsSectionProps {
   models: Model[];
   availableModels: Model[];
   selectedModels: string[];
   toggleModel: (id: string) => void;
+  preferredModelId: string;
+  setPreferredModelId: (id: string) => void;
+  reviewerModelId: string;
+  setReviewerModelId: (id: string) => void;
   review: boolean;
   setReview: (review: boolean) => void;
   acceptedLimit: boolean;
   setAcceptedLimit: (accepted: boolean) => void;
   goToConnections: () => void;
+  kind: string;
 }
 
 export function AgentsSection({
@@ -25,23 +39,43 @@ export function AgentsSection({
   availableModels,
   selectedModels,
   toggleModel,
+  preferredModelId,
+  setPreferredModelId,
+  reviewerModelId,
+  setReviewerModelId,
   review,
   setReview,
   acceptedLimit,
   setAcceptedLimit,
   goToConnections,
+  kind,
 }: AgentsSectionProps) {
-  const placeholderAgents = ["ChatGPT", "Claude", "Gemini"];
+  const placeholderAgents = ["Claude Code"];
   const needsLimitConsent = requiresLimitAcceptance(selectedModels, models);
+
+  const {
+    effectiveWriterId,
+    effectiveReviewerId,
+    candidateReviewers,
+  } = resolveEffectiveRoles({
+    models,
+    selectedModelIds: selectedModels,
+    kind,
+    preferredModelId,
+    reviewerModelId,
+    review,
+  });
 
   return (
     <section className="agents-section">
       <div className="section-title">
         <div>
           <h2>
-            Seus agentes <span>{availableModels.length} disponíveis</span>
+            Modelos Claude <span>{models.length} configurados</span>
           </h2>
-          <p>Escolha quem vai ajudar a transformar contexto em resultado.</p>
+          <p>
+            Autorize os modelos Claude; o tipo de tarefa ({TASK_LABELS[kind] || kind}) e sua preferência orientam a escolha.
+          </p>
         </div>
         <button
           type="button"
@@ -55,12 +89,17 @@ export function AgentsSection({
       <div
         className="agents-grid"
         role="group"
-        aria-label="Seleção de agentes de IA"
+        aria-label="Seleção de modelos Claude"
       >
         {models.length > 0
           ? models.map((m) => {
               const isSelected = selectedModels.includes(m.id);
               const caps = m.capabilities;
+              const matchesKind = Array.isArray(m.task_kinds) && m.task_kinds.includes(kind);
+              const isFable = m.id.toLowerCase().includes("fable");
+              const isWriter = isSelected && effectiveWriterId === m.id;
+              const isReviewer = isSelected && review && effectiveReviewerId === m.id;
+
               return (
                 <button
                   type="button"
@@ -80,7 +119,7 @@ export function AgentsSection({
                         ? caps
                           ? `${formatBilling(caps.billing)} · ${formatOutputLimit(caps.output_limit, m.max_output_tokens)}`
                           : "Disponível neste computador"
-                        : formatUnavailableReason(m.unavailable_reason)}
+                        : formatUnavailableReason(m.unavailable_reason, m.provider)}
                     </small>
                     {caps && (
                       <span className="agent-caps-row">
@@ -92,7 +131,43 @@ export function AgentsSection({
                             Requer ferramentas (não elegível)
                           </span>
                         )}
+                        {matchesKind && (
+                          <span
+                            className="cap-chip match"
+                            title={`O perfil deste modelo contempla ${TASK_LABELS[kind] || kind}`}
+                          >
+                            Perfil: {TASK_LABELS[kind] || kind}
+                          </span>
+                        )}
                       </span>
+                    )}
+                    <small>
+                      Perfil: {m.task_kinds.map((k) => TASK_LABELS[k] || k).join(", ")}
+                    </small>
+                    {isFable && (
+                      <div className="fable-warning-box">
+                        ⚠️ Fable pode exigir créditos adicionais de uso no Claude Code. Não selecionado por padrão.
+                      </div>
+                    )}
+                    {isSelected && (isWriter || isReviewer) && (
+                      <div className="role-tag-container" aria-label="Papel na tarefa">
+                        {isWriter && (
+                          <span
+                            className={`role-tag ${preferredModelId === m.id ? "answer" : "auto"}`}
+                            title={preferredModelId === m.id ? "Definido manualmente como resposta principal" : "Selecionado automaticamente para a resposta principal"}
+                          >
+                            {preferredModelId === m.id ? "Resposta principal" : "Resposta principal (auto)"}
+                          </span>
+                        )}
+                        {isReviewer && (
+                          <span
+                            className={`role-tag ${reviewerModelId === m.id ? "review" : "auto-review"}`}
+                            title={reviewerModelId === m.id ? "Definido manualmente para revisão" : "Selecionado automaticamente para revisão"}
+                          >
+                            {reviewerModelId === m.id ? "Revisão" : "Revisão (auto)"}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </span>
                   <span className="agent-check" aria-hidden="true">
@@ -109,13 +184,7 @@ export function AgentsSection({
                 onClick={goToConnections}
               >
                 <span className={`agent-symbol a${index}`} aria-hidden="true">
-                  {index === 0 ? (
-                    <Command size={22} />
-                  ) : index === 1 ? (
-                    <Sparkles size={22} />
-                  ) : (
-                    <span className="gemini-star">✦</span>
-                  )}
+                  <Sparkles size={22} />
                 </span>
                 <span className="agent-description">
                   <strong>{name}</strong>
@@ -125,6 +194,65 @@ export function AgentsSection({
               </button>
             ))}
       </div>
+
+      {selectedModels.length > 0 && availableModels.length > 0 && (
+        <div
+          className="model-role-selectors"
+          role="group"
+          aria-label="Papéis dos modelos Claude autorizados"
+        >
+          <div className="role-select-group">
+            <label htmlFor="preferred-model-select">
+              Resposta principal:
+            </label>
+            <select
+              id="preferred-model-select"
+              value={preferredModelId}
+              onChange={(e) => setPreferredModelId(e.target.value)}
+            >
+              <option value="">
+                Automático (por perfil de {TASK_LABELS[kind] || kind})
+              </option>
+              {selectedModels.map((id) => {
+                const item = models.find((m) => m.id === id);
+                return (
+                  <option key={id} value={id}>
+                    {item?.label || id}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {review && (
+            <div className="role-select-group">
+              <label htmlFor="reviewer-model-select">
+                Revisor Claude:
+              </label>
+              {selectedModels.length < 2 ? (
+                <small className="small-note">
+                  Selecione pelo menos 2 modelos Claude acima para a revisão.
+                </small>
+              ) : (
+                <select
+                  id="reviewer-model-select"
+                  value={reviewerModelId}
+                  onChange={(e) => setReviewerModelId(e.target.value)}
+                >
+                  <option value="">
+                    Automático (outro modelo Claude autorizado)
+                  </option>
+                  {candidateReviewers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {needsLimitConsent && (
         <div className="limit-consent-card card">
@@ -149,18 +277,21 @@ export function AgentsSection({
         <span>
           <Circle size={10} aria-hidden="true" />
           {availableModels.length > 0
-            ? "A seleção segue sua preferência e o tipo de tarefa."
+            ? "Perfis configuráveis, não um ranking de qualidade. O acesso a cada modelo depende da sua conta Claude."
             : "Nenhuma IA conectada. Seus pedidos podem ficar como rascunho."}
         </span>
         <label className="switch-label">
           <input
             type="checkbox"
             checked={review}
-            onChange={(e) => setReview(e.target.checked)}
+            onChange={(e) => {
+              setReview(e.target.checked);
+              if (!e.target.checked) setReviewerModelId("");
+            }}
             disabled={availableModels.length < 2}
           />
           <span className="switch" aria-hidden="true" />
-          Revisão por outro agente
+          Revisão por outro modelo Claude
         </label>
       </div>
     </section>

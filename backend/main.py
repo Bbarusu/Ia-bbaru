@@ -17,6 +17,7 @@ from .gateway import GatewayUnavailable, HttpGateway
 from .gateway_errors import ERROR_STATUS
 from .store import Store
 from .worker import DurableWorker
+from .media import MediaInput, validate_media
 
 
 def now():
@@ -36,6 +37,7 @@ class ProjectInput(StrictModel):
 
 class SourceInput(ProjectInput):
     content: str = Field(min_length=1, max_length=40000)
+    media: MediaInput | None = None
 
 
 class TaskInput(StrictModel):
@@ -128,6 +130,13 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             conn.execute("INSERT INTO projects VALUES (:id,:title,:created_at)", project)
         return project
 
+    @app.get("/v1/connections", dependencies=protected)
+    def connections():
+        try:
+            return gateway.connections()
+        except (GatewayUnavailable, AttributeError):
+            raise HTTPException(503, "gateway_diagnostics_unavailable") from None
+
     @app.get("/v1/projects", dependencies=protected)
     def list_projects(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
         with store.connect() as conn:
@@ -137,10 +146,18 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
     @app.post("/v1/projects/{project_id}/sources", status_code=201, dependencies=protected)
     def add_source(project_id: str, data: SourceInput):
         project_exists(project_id)
+        try:
+            media = validate_media(data.media) if data.media else None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         source = {"id": str(uuid4()), "project_id": project_id,
                   "title": data.title, "content": data.content, "created_at": now()}
         with store.connect() as conn:
             conn.execute("INSERT INTO sources VALUES (:id,:project_id,:title,:content,:created_at)", source)
+            if media:
+                conn.execute("INSERT INTO source_media VALUES (?,?)", (source["id"], json.dumps(media)))
+        if media:
+            source["media"] = media
         return source
 
     @app.get("/v1/projects/{project_id}/sources", dependencies=protected)
@@ -151,6 +168,10 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             rows = conn.execute("SELECT * FROM sources WHERE project_id=? ORDER BY created_at, id LIMIT ? OFFSET ?",
                                 (project_id, limit + 1, offset)).fetchall()
             items = [dict(r) for r in rows[:limit]]
+            for item in items:
+                media_row = conn.execute("SELECT body FROM source_media WHERE source_id=?", (item["id"],)).fetchone()
+                if media_row:
+                    item["media"] = {k: v for k, v in json.loads(media_row["body"]).items() if k != "data_url"}
             if summary:
                 for item in items:
                     content = item.pop("content")
@@ -164,7 +185,12 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             row = conn.execute("SELECT * FROM sources WHERE id=? AND project_id=?", (source_id, project_id)).fetchone()
         if not row:
             raise HTTPException(404, "source_not_found")
-        return dict(row)
+        source = dict(row)
+        with store.connect() as conn:
+            media_row = conn.execute("SELECT body FROM source_media WHERE source_id=?", (source_id,)).fetchone()
+        if media_row:
+            source["media"] = json.loads(media_row["body"])
+        return source
 
     @app.post("/v1/projects/{project_id}/tasks", status_code=201, dependencies=protected)
     def create_task(project_id: str, data: TaskInput):
@@ -178,6 +204,9 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                                    (source_id, project_id)).fetchone()
                 if row is None:
                     raise HTTPException(422, "source_not_in_project")
+                if (conn.execute("SELECT 1 FROM source_media WHERE source_id=?", (source_id,)).fetchone()
+                        or "AnexoVisual:" in row["content"]):
+                    raise HTTPException(422, "visual_context_not_supported")
                 context.append(dict(row))
         chars = len(data.instruction) + sum(len(s["content"]) + len(s["title"]) for s in context)
         if chars > 80000:

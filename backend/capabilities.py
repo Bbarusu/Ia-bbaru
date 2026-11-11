@@ -30,6 +30,8 @@ def plan_step(role, model):
 
 
 def preflight_error(task, catalog, steps):
+    if any("AnexoVisual:" in item["content"] for item in task.get("context", [])):
+        return "visual_context_not_supported"
     if catalog.protocol_version != task.get("gateway_protocol_version", "1"):
         return "gateway_protocol_changed_replan_required"
     available = {model.id: model for model in catalog.models if model.available}

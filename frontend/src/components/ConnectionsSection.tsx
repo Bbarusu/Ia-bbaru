@@ -5,9 +5,11 @@ import {
   formatOutputLimit,
   formatUnavailableReason,
 } from "../logic.mjs";
-import type { Model } from "../types";
+import type { Model, Connection } from "../types";
 
 interface ConnectionsSectionProps {
+  connections: Connection[];
+  diagnosticError: string;
   inFirefox: boolean;
   inDesktop: boolean;
   demo: boolean;
@@ -24,6 +26,8 @@ interface ConnectionsSectionProps {
 }
 
 export function ConnectionsSection({
+  connections,
+  diagnosticError,
   inFirefox,
   inDesktop,
   demo,
@@ -41,6 +45,13 @@ export function ConnectionsSection({
   return (
     <div className="connections-grid">
       <section className="card connection-details">
+        {connections.map((connection) => (
+          <div className="connection-line" key={connection.provider}>
+            <span>Claude Code · {connection.version || "versão não identificada"}</span>
+            <span>{!connection.configured ? "Nenhum modelo configurado" : connection.ready ? "Pronto" : formatUnavailableReason(connection.reason, connection.provider)}</span>
+          </div>
+        ))}
+        {diagnosticError && <p className="small-note">{diagnosticError}</p>}
         <h2>Conexão com seu computador</h2>
         <p>Seu espaço usa um componente local para acessar os projetos.</p>
 
@@ -75,7 +86,7 @@ export function ConnectionsSection({
         </div>
 
         <div className="connection-line">
-          <span>Agentes disponíveis</span>
+          <span>Modelos Claude disponíveis</span>
           <span>{availableModels.length}</span>
         </div>
 

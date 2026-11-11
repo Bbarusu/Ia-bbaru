@@ -1,3 +1,5 @@
+> Direção vigente: [Claude exclusivo](https://github.com/Bbarusu/Ia-bbaru/blob/codex/browser-capture-clis/docs/DIRECAO_CLAUDE_ONLY.md). As referências abaixo a outros provedores são histórico; não reinstalar suas integrações.
+
 # Conexões: diagnóstico, escolha e capacidades reais
 
 Consultado em 7 de novembro de 2026. Revalidar antes de cada mudança: CLIs,
@@ -122,6 +124,19 @@ informações que o contrato 1.1 já tem:
 Verificado no Linux com o navegador real e este gateway (dublê do CLI): sem login,
 o cartão fica desabilitado e mostra "Indisponível", mas o **motivo não aparece** no
 painel, embora venha no catálogo. Exibir `unavailable_reason` é do frontend (Gemini).
+
+## 5. ChatGPT (Codex CLI) e Gemini CLI
+
+Adaptadores implementados em 10/11/2026, **só no contrato 1.1**, conferidos contra os
+pacotes oficiais `@openai/codex` 0.167.0 e `@google/gemini-cli` 0.67.0, sem conta real.
+Detalhes, evidências e decisões pendentes: [PASSAGEM_CLIS.md](PASSAGEM_CLIS.md).
+
+| | ChatGPT (Codex CLI) | Gemini CLI |
+| --- | --- | --- |
+| Login | `codex login status` (oficial) | Login with Google forçado (`GEMINI_CLI_AUTH_OVERRIDE`) e verificado pela própria CLI com entrada vazia; nenhum arquivo de credencial é lido |
+| Ferramentas | `restricted`: execução de comandos não pode ser desligada | `disabled`: política oficial que nega todas |
+| Término | nunca informado → `unknown` | nunca informado → `unknown` |
+| Teto de saída | nenhum | nenhum |
 
 ## Fontes oficiais consultadas
 

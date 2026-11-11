@@ -12,6 +12,9 @@ class GatewayError(Exception):
         self.code = code
         self.message = message
         self.next_action = next_action
+        # Sanitized signature (integrations/failures.py). Stored locally; never
+        # part of the HTTP body.
+        self.diagnostic: dict | None = None
 
     def body(self) -> dict:
         error = {"code": self.code, "message": self.message}

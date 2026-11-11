@@ -11,7 +11,7 @@ import {
   Unplug,
   Workflow,
 } from "lucide-react";
-import type { Capture, Model, Page, Project, Source, Tab, Task } from "./types";
+import type { Capture, Connection, Media, Model, Page, Project, Source, Tab, Task } from "./types";
 import {
   clearCapture,
   demo,
@@ -37,13 +37,14 @@ import { NavigationRail } from "./components/NavigationRail";
 import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
 import { WorkspaceComposer } from "./components/WorkspaceComposer";
+import { ChatThread } from "./components/ChatThread";
 import { ContextGuideCard } from "./components/ContextGuideCard";
 import { AgentsSection } from "./components/AgentsSection";
 import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
 import { ProjectModal } from "./components/ProjectModal";
-import { SourceModal } from "./components/SourceModal";
+import { SourceModal, type CaptureMediaKind } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
@@ -77,6 +78,8 @@ export default function App() {
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [preferredModelId, setPreferredModelId] = useState("");
+  const [reviewerModelId, setReviewerModelId] = useState("");
   const [text, setText] = useState("");
   const [draftReady, setDraftReady] = useState(false);
   const [kind, setKind] = useState("study");
@@ -94,6 +97,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const [modal, setModal] = useState<"project" | "source" | null>(null);
+  const [sourceMode, setSourceMode] = useState<CaptureMediaKind>("text");
   const [guideOpen, setGuideOpen] = useState(false);
   const [capture, setCapture] = useState<Capture | null>(null);
   const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
@@ -101,6 +105,8 @@ export default function App() {
   const [taskView, setTaskView] = useState<Task | null>(null);
   const [executionEnabled, setExecutionEnabled] = useState(false);
   const [pollError, setPollError] = useState("");
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [diagnosticError, setDiagnosticError] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [search, setSearch] = useState("");
@@ -152,9 +158,17 @@ export default function App() {
             data.models.some((m) => m.id === id && m.available),
           ),
         );
+        setPreferredModelId((old) =>
+          data.models.some((m) => m.id === old && m.available) ? old : "",
+        );
+        setReviewerModelId((old) =>
+          data.models.some((m) => m.id === old && m.available) ? old : "",
+        );
       } catch (e) {
         setModels([]);
         setSelectedModels([]);
+        setPreferredModelId("");
+        setReviewerModelId("");
         setModelError((e as Error).message);
       }
     } catch (e) {
@@ -163,6 +177,8 @@ export default function App() {
       setOnline(false);
       setModels([]);
       setSelectedModels([]);
+      setPreferredModelId("");
+      setReviewerModelId("");
       setConnectionError((e as Error).message);
     } finally {
       setChecking(false);
@@ -202,6 +218,15 @@ export default function App() {
   useEffect(() => {
     connect();
   }, []);
+
+  useEffect(() => {
+    if (tab !== "connections" || !online || !inDesktop || checking) return;
+    let active = true;
+    request<{ connections: Connection[] }>("connections.list").then((data) => {
+      if (active) { setConnections(data.connections); setDiagnosticError(""); }
+    }).catch(() => { if (active) setDiagnosticError("Diagnóstico das CLIs indisponível. O catálogo acima continua independente."); });
+    return () => { active = false; };
+  }, [tab, online, checking]);
 
   useEffect(() => {
     let active = true;
@@ -257,8 +282,9 @@ export default function App() {
     }
     if (decision.action === "open" && decision.capture) {
       setCapture(decision.capture);
-      setTitle(decision.title);
-      setContent(decision.content);
+      setSourceMode(decision.capture.media?.kind || "text");
+      setTitle(decision.title || "");
+      setContent(decision.content || "");
       setModal("source");
     }
   }
@@ -302,8 +328,18 @@ export default function App() {
     setModal("project");
   }
 
-  function openSource() {
+  function openSource(mode: CaptureMediaKind = "text") {
+    if (mode === "screenshot" && inDesktop) {
+      void (async () => {
+        setError("");
+        const result = await localBridge.runtime.sendMessage({ type: "capture.screenshot" });
+        if (!result?.ok) throw new Error(result?.error?.message || "Não foi possível capturar a página.");
+        // The runtime publishes the capture through the existing draft-safe path.
+      })().catch((error) => setError(error.message));
+      return;
+    }
     setCapture(null);
+    setSourceMode(mode);
     setTitle("");
     setContent("");
     setModal("source");
@@ -322,7 +358,7 @@ export default function App() {
     });
   }
 
-  async function saveSource(event: FormEvent) {
+  async function saveSource(event: FormEvent, media?: Media) {
     event.preventDefault();
     const target = projectId;
     if (!target) {
@@ -342,6 +378,7 @@ export default function App() {
         project_id: target,
         title: title.trim(),
         content: body,
+        ...(media ? { media } : {}),
       });
       if (projectRef.current === target) {
         setSources((old) => [
@@ -349,7 +386,7 @@ export default function App() {
           { ...source, preview: body.slice(0, 160), char_count: body.length },
         ]);
         setSelectedSources((old) =>
-          old.length < 20 ? [...old, source.id] : old,
+          old.length < 20 && !source.media ? [...old, source.id] : old,
         );
       }
       if (reviewedCapture) {
@@ -407,9 +444,14 @@ export default function App() {
   }
 
   function toggleModel(id: string) {
-    setSelectedModels((old) =>
-      old.includes(id) ? old.filter((x) => x !== id) : [...old, id],
-    );
+    setSelectedModels((old) => {
+      const next = old.includes(id)
+        ? old.filter((x) => x !== id)
+        : [...old, id];
+      if (!next.includes(preferredModelId)) setPreferredModelId("");
+      if (!next.includes(reviewerModelId)) setReviewerModelId("");
+      return next;
+    });
   }
 
   async function plan(event: FormEvent) {
@@ -446,6 +488,12 @@ export default function App() {
           allowed_model_ids: selectedModels,
           mode: review ? "review" : "single",
           allow_unenforced_output_limit: acceptedLimit,
+          ...(preferredModelId && selectedModels.includes(preferredModelId)
+            ? { preferred_model_id: preferredModelId }
+            : {}),
+          ...(review && reviewerModelId && selectedModels.includes(reviewerModelId)
+            ? { reviewer_model_id: reviewerModelId }
+            : {}),
         },
       });
       if (projectRef.current === target) setTasks((old) => [task, ...old]);
@@ -535,14 +583,12 @@ export default function App() {
           <div className="page-heading">
             <div>
               <div className="eyebrow">
-                <span aria-hidden="true" /> SEU ESPAÇO DE TRABALHO
+                <span aria-hidden="true" /> IA-BBARU BROWSER · CLAUDE
               </div>
               <h1>
                 {tab === "workspace" ? (
                   <>
-                    Boas ideias merecem
-                    <br />
-                    <span>o contexto certo.</span>
+                    Chat com <span>Claude</span>
                   </>
                 ) : tab === "library" ? (
                   "Sua biblioteca."
@@ -554,7 +600,7 @@ export default function App() {
               </h1>
               <p>
                 {tab === "workspace"
-                  ? "Reúna seus materiais. Escolha seus agentes. Dê o próximo passo."
+                  ? "Converse sobre a página ativa ou explore seus materiais."
                   : tab === "library"
                     ? "Os materiais que acompanham seu pensamento."
                     : tab === "history"
@@ -663,14 +709,24 @@ export default function App() {
           )}
 
           {tab === "workspace" && (
-            <>
-              <div className="workspace-grid">
+            <div className="atlas-workspace-view">
+              <div className="atlas-chat-container">
+                <ChatThread
+                  tasks={tasks}
+                  models={models}
+                  onOpenTask={setTaskView}
+                  onSuggestionClick={(s) => changeText(s)}
+                />
+
                 <WorkspaceComposer
                   text={text}
                   changeText={changeText}
                   draftReady={draftReady}
                   selectedSourcesCount={selectedSources.length}
                   openSource={openSource}
+                  captureSelection={() =>
+                    selectCapture().catch((error) => setError(error.message))
+                  }
                   kind={kind}
                   setKind={setKind}
                   plan={plan}
@@ -679,25 +735,90 @@ export default function App() {
                   projectId={projectId}
                   availableModels={available}
                   selectedModels={selectedModels}
+                  capture={capture}
+                  onClearCapture={() => setCapture(null)}
                 />
-                <ContextGuideCard />
               </div>
 
-              <AgentsSection
-                models={models}
-                availableModels={available}
-                selectedModels={selectedModels}
-                toggleModel={toggleModel}
-                review={review}
-                setReview={setReview}
-                acceptedLimit={acceptedLimit}
-                setAcceptedLimit={setAcceptedLimit}
-                goToConnections={() => setTab("connections")}
-              />
-            </>
+              <div className="atlas-secondary-panels">
+                <details className="atlas-accordion" open>
+                  <summary>
+                    <div className="accordion-summary-title">
+                      <Settings2 size={15} aria-hidden="true" />
+                      <span>Modelos Claude</span>
+                    </div>
+                    <span className="accordion-badge">
+                      {available.length > 0
+                        ? `${available.length} ativo(s)`
+                        : "Sem conexão"}
+                    </span>
+                  </summary>
+                  <div className="accordion-body">
+                    <AgentsSection
+                      models={models}
+                      availableModels={available}
+                      selectedModels={selectedModels}
+                      toggleModel={toggleModel}
+                      preferredModelId={preferredModelId}
+                      setPreferredModelId={setPreferredModelId}
+                      reviewerModelId={reviewerModelId}
+                      setReviewerModelId={setReviewerModelId}
+                      review={review}
+                      setReview={setReview}
+                      acceptedLimit={acceptedLimit}
+                      setAcceptedLimit={setAcceptedLimit}
+                      goToConnections={() => setTab("connections")}
+                      kind={kind}
+                    />
+                  </div>
+                </details>
+
+                <details className="atlas-accordion" open>
+                  <summary>
+                    <div className="accordion-summary-title">
+                      <BookOpen size={15} aria-hidden="true" />
+                      <span>Materiais do Projeto</span>
+                    </div>
+                    <span className="accordion-badge">
+                      {sources.length} {sources.length === 1 ? "item" : "itens"}
+                    </span>
+                  </summary>
+                  <div className="accordion-body">
+                    <LibrarySection
+                      project={project}
+                      sources={sources}
+                      filteredSources={filteredSources}
+                      selectedSources={selectedSources}
+                      toggleSource={toggleSource}
+                      openSource={openSource}
+                      openProject={openProject}
+                      captureSelection={() =>
+                        selectCapture().catch((error) => setError(error.message))
+                      }
+                      viewSource={(source) =>
+                        act(async () =>
+                          setSourceView(
+                            await request<Source>("sources.get", {
+                              project_id: projectId,
+                              source_id: source.id,
+                            }),
+                          ),
+                        )
+                      }
+                      search={search}
+                      setSearch={setSearch}
+                      sourceNext={sourceNext}
+                      loadMoreSources={() => more("sources")}
+                      online={online}
+                      busy={busy}
+                    />
+                  </div>
+                </details>
+              </div>
+            </div>
           )}
 
-          {(tab === "workspace" || tab === "library") && (
+          {tab === "library" && (
             <LibrarySection
               project={project}
               sources={sources}
@@ -707,7 +828,7 @@ export default function App() {
               openSource={openSource}
               openProject={openProject}
               captureSelection={() =>
-                act(async () => receiveCapture(await selectCapture()))
+                selectCapture().catch((error) => setError(error.message))
               }
               viewSource={(source) =>
                 act(async () =>
@@ -745,6 +866,8 @@ export default function App() {
 
           {tab === "connections" && (
             <ConnectionsSection
+              connections={connections}
+              diagnosticError={diagnosticError}
               inFirefox={inFirefox}
               inDesktop={inDesktop}
               demo={demo}
@@ -784,7 +907,7 @@ export default function App() {
 
       {modal === "source" && (
         <SourceModal
-          key={capture?.id ?? "source-manual"}
+          key={`${capture?.id ?? "source-manual"}-${sourceMode}`}
           capture={capture}
           queuedCapture={queuedCapture}
           projects={projects}
@@ -801,6 +924,7 @@ export default function App() {
           busy={busy}
           online={online}
           error={error}
+          initialMode={sourceMode}
         />
       )}
 

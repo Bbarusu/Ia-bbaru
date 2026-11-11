@@ -52,104 +52,17 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
     } finally { setSubmitting(false); }
   }
   return (
-    <Dialog title={taskState(task.status)} close={close}>
+    <Dialog title={task.error === "completion_unconfirmed" ? "Resposta recebida — término não confirmado" : taskState(task.status)} close={close}>
       <p className="task-instruction">{task.instruction}</p>
 
-      {(task.gateway_protocol_version || task.allow_unenforced_output_limit) && (
-        <div className="task-meta-pills">
-          {task.gateway_protocol_version && (
-            <span className="cap-chip">
-              Contrato v{task.gateway_protocol_version}
-            </span>
-          )}
-          {task.allow_unenforced_output_limit && (
-            <span className="cap-chip">
-              Limite indicativo aceito para esta tarefa
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="plan-list">
-        {task.plan.map((step, index) => {
-          const caps = step.capabilities;
-          return (
-            <div key={index}>
-              <span>{index + 1}</span>
-              <p>
-                <strong>
-                  {step.role === "answer" ? "Resposta principal" : "Revisão"}
-                </strong>
-                <small>
-                  {models.find((m) => m.id === step.model_id)?.label ||
-                    step.model_id}
-                </small>
-                {caps && (
-                  <small className="step-caps">
-                    {formatBilling(caps.billing)} ·{" "}
-                    {formatOutputLimit(
-                      caps.output_limit,
-                      step.max_output_tokens,
-                    )}{" "}
-                    · {formatCancellation(caps.cancellation)} ·{" "}
-                    {formatFinishReason(caps.finish_reason)}
-                  </small>
-                )}
-                {task.execution?.steps[index] && (
-                  <small>Etapa: {taskState(task.execution.steps[index].state)} · Tentativas: {task.execution.steps[index].attempts}</small>
-                )}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {task.routing && <p className="small-note">{task.routing.reason}</p>}
-
-      {Boolean(task.context?.length) && (
-        <details className="task-context-details">
-          <summary>
-            Materiais usados neste plano ({task.context!.length})
-          </summary>
-          {task.context!.map((source) => (
-            <details key={source.id} className="task-source-subdetails">
-              <summary>{source.title}</summary>
-              <pre className="result-text">{source.content}</pre>
-            </details>
-          ))}
-        </details>
-      )}
-
-      {task.status === "planned" && !executionEnabled && (
-        <div className="alert info">
-          <ShieldCheck size={18} aria-hidden="true" />
-          <span>
-            Plano salvo. A execução durável não está disponível nesta conexão.
-          </span>
-        </div>
-      )}
-
-      {canStart && (
-        <div className="execution-controls">
-          <p className="small-note">O pedido e os materiais deste plano serão enviados aos agentes selecionados e poderão consumir a cota da sua conta.</p>
-          <label className="execution-consent">
-            <input type="checkbox" checked={confirmed} disabled={submitting}
-              onChange={(event) => setConfirmed(event.target.checked)} />
-            <span>Autorizo executar esta tarefa com minha conta</span>
-          </label>
-          <button type="button" className="primary" disabled={!confirmed || submitting || needsRefresh} onClick={enqueue}>
-            {task.status === "blocked" ? "Retomar após corrigir" : "Executar tarefa"}
-          </button>
-        </div>
-      )}
-      {active && <p className="small-note" role="status">{taskState(task.status)}. Pode fechar este painel; mantenha o aplicativo aberto para continuar a execução.</p>}
-      {task.status === "uncertain" && <p className="small-note">A geração pode ter consumido cota. Confira o resultado no provedor. Esta tarefa não será repetida.</p>}
-      {(error || (active && pollError)) && <p className="alert error" role="alert">{error || pollError}</p>}
-      {(needsRefresh || (active && pollError)) && <button type="button" className="subtle" disabled={submitting} onClick={refresh}>Consultar estado</button>}
-
       {task.error && (
-        <div className="alert error" role="alert">
-          {describeTaskError(task.error)}
+        <div className={task.error === "completion_unconfirmed" ? "alert info" : "alert error"} role={task.error === "completion_unconfirmed" ? "status" : "alert"}>
+          <strong>{describeTaskError(task.error)}</strong>
+          {task.error === "provider_error" && (
+            <p className="small-note" style={{ marginTop: "4px" }}>
+              O Claude não conseguiu responder a este pedido. O seu texto e os materiais foram preservados.
+            </p>
+          )}
         </div>
       )}
 
@@ -177,6 +90,105 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
             <pre className="result-text">{r.output}</pre>
           </details>
         ))}
+
+      {task.status === "planned" && !executionEnabled && (
+        <div className="alert info">
+          <ShieldCheck size={18} aria-hidden="true" />
+          <span>
+            Plano salvo. A execução durável não está disponível nesta conexão.
+          </span>
+        </div>
+      )}
+
+      {canStart && (
+        <div className="execution-controls">
+          <p className="small-note">O pedido e os materiais deste plano serão enviados aos agentes selecionados e poderão consumir a cota da sua conta.</p>
+          <label className="execution-consent">
+            <input type="checkbox" checked={confirmed} disabled={submitting}
+              onChange={(event) => setConfirmed(event.target.checked)} />
+            <span>Autorizo executar esta tarefa com minha conta</span>
+          </label>
+          <button type="button" className="primary" disabled={!confirmed || submitting || needsRefresh} onClick={enqueue}>
+            {task.status === "blocked" ? "Retomar após corrigir" : "Executar tarefa"}
+          </button>
+        </div>
+      )}
+
+      {active && <p className="small-note" role="status">{taskState(task.status)}. Pode fechar este painel; mantenha o aplicativo aberto para continuar a execução.</p>}
+      {task.status === "uncertain" && <p className="small-note">A geração pode ter consumido cota. Confira o resultado no provedor. Esta tarefa não será repetida.</p>}
+      {(error || (active && pollError)) && <p className="alert error" role="alert">{error || pollError}</p>}
+      {(needsRefresh || (active && pollError)) && <button type="button" className="subtle" disabled={submitting} onClick={refresh}>Consultar estado</button>}
+
+      <details className="tech-details" open style={{ marginTop: "16px" }}>
+        <summary style={{ cursor: "pointer", fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", marginBottom: "8px" }}>
+          Detalhes do plano e garantias técnicas
+        </summary>
+
+        {(task.gateway_protocol_version || task.allow_unenforced_output_limit) && (
+          <div className="task-meta-pills">
+            {task.gateway_protocol_version && (
+              <span className="cap-chip">
+                Contrato v{task.gateway_protocol_version}
+              </span>
+            )}
+            {task.allow_unenforced_output_limit && (
+              <span className="cap-chip">
+                Limite indicativo aceito para esta tarefa
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="plan-list">
+          {task.plan.map((step, index) => {
+            const caps = step.capabilities;
+            return (
+              <div key={index}>
+                <span>{index + 1}</span>
+                <p>
+                  <strong>
+                    {step.role === "answer" ? "Resposta principal" : "Revisão"}
+                  </strong>
+                  <small>
+                    {models.find((m) => m.id === step.model_id)?.label ||
+                      step.model_id}
+                  </small>
+                  {caps && (
+                    <small className="step-caps">
+                      {formatBilling(caps.billing)} ·{" "}
+                      {formatOutputLimit(
+                        caps.output_limit,
+                        step.max_output_tokens,
+                      )}{" "}
+                      · {formatCancellation(caps.cancellation)} ·{" "}
+                      {formatFinishReason(caps.finish_reason)}
+                    </small>
+                  )}
+                  {task.execution?.steps[index] && (
+                    <small>Etapa: {taskState(task.execution.steps[index].state)} · Tentativas: {task.execution.steps[index].attempts} · Request ID: {task.execution.steps[index].request_id}</small>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {task.routing && <p className="small-note">{task.routing.reason}</p>}
+
+        {Boolean(task.context?.length) && (
+          <details className="task-context-details">
+            <summary>
+              Materiais usados neste plano ({task.context!.length})
+            </summary>
+            {task.context!.map((source) => (
+              <details key={source.id} className="task-source-subdetails">
+                <summary>{source.title}</summary>
+                <pre className="result-text">{source.content}</pre>
+              </details>
+            ))}
+          </details>
+        )}
+      </details>
     </Dialog>
   );
 }
