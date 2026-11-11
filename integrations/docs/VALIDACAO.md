@@ -16,7 +16,9 @@ Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
 | OpenAPI 1.1 do gateway | `export_openapi` | ✅ inalterado |
 | Aliases, troca de modelo, créditos, `stream-json`, imagem | pacote oficial 2.1.322 e 2.1.307, sem gerar (`--help`, `strings`) | ✅ registrado em PASSAGEM_CLAUDE_ONLY.md |
 | Resolução de aliases e `init.tools: []` | **4 gerações não intencionais** na conta do ambiente de nuvem (não a do usuário) | ⚠️ só vale para aquela conta/versão |
-| Conta real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
+| Windows do usuário, sem geração | tela `/model` + `diagnose` (código anterior a `eb94450`) | ✅ Claude Code 2.1.322 (atualizado sozinho), Claude Pro; Opus 5.5, Sonnet 5.5, Fable 5.2 (incluído até 16/11, consome cota mais rápido), Haiku 5.5; sem "Requires usage credits"; `ready: true`, 0,4 s |
+| Windows com esta branch | suítes, `diagnose` com `models` | ⏳ repetir |
+| Geração real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
 
 Mudanças: `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo; remoção das variáveis que
 redirecionam aliases; conferência estrita do `modelUsage`; nomes de modelo

@@ -13,7 +13,7 @@ Nenhum adaptador antigo foi reintroduzido.
 | **[F]** | Dublê de teste (`fake_claude.py`), sem CLI real nem conta |
 | **[P]** | Pacote oficial `@anthropic-ai/claude-code` lido **sem gerar**: `--help` e textos do binário (`strings`). Versões 2.1.322 (atual no npm, igual byte a byte ao binário instalado neste contêiner) e 2.1.307 (a do Windows do usuário, só lida, nunca executada) |
 | **[N]** | Execução **não intencional** no contêiner de nuvem do Claude, com a conta **do ambiente** (ver abaixo) |
-| **[R]** | Conta real do usuário. **Nenhuma nesta rodada** |
+| **[R]** | Conta real do usuário, **sem geração**: tela `/model` e `diagnose` no Windows (11/11/2026). Nenhuma geração real nesta rodada |
 
 ### Registro honesto: 4 gerações não intencionais [N]
 
@@ -68,8 +68,34 @@ Implementado:
   resolveria para Fable 5.1 pelo padrão embutido [P]. Não atualizei nada nem
   habilitei modelo ou crédito.
 
+### Windows do usuário, 11/11/2026 [R, sem geração]
+
+O Claude Code do usuário se atualizou sozinho para **2.1.322** ("Updated to
+latest"). Na tela inicial e em `/model`, com plano **Claude Pro**:
+
+- Modelos listados: Default (recommended) = **Fable 5.2**, Opus 5.5 (o atual
+  dele), Sonnet 5.5, Fable 5.2, Haiku 5.5 e "More models". Nenhum mostrou
+  "Requires usage credits".
+- Aviso da CLI: "Fable 5.2 … is included in your plan **until November 16**. It
+  draws down usage faster than Opus 5.5."
+- `diagnose`: `ready: true`, login `claude.ai`, assinatura, verificação em 0,4 s,
+  1.1 disponível e contrato 1 bloqueado por `output_limit_not_enforced` (como
+  esperado). Esse JSON **não** tem o campo `models`, então veio do código
+  anterior a `eb94450`. É preciso repetir com esta branch.
+
+Consequências:
+- A tela é a lista **desta conta e desta versão**, não uma prova de acesso por
+  geração. A versão que cada alias resolve só aparece no teste real (pedido/servido).
+- Fable está incluído **só até 16/11/2026** e consome a cota mais rápido. Depois
+  dessa data pode passar a exigir créditos. Reforça C-3: Fable nunca escolhido
+  automaticamente, e o painel precisa avisar "consome cota mais rápido; incluído
+  até 16/11".
+- "Default (recommended)" = Fable não afeta o gateway: ele sempre passa
+  `--model` com o modelo configurado. Rodar `claude` sem `--model` usaria Fable.
+- O requisito de versão para Fable 5.2 (2.1.321+) agora está atendido no Windows.
+
 **Condição para um teste real com Fable** (decisão do usuário, nesta ordem):
-1. Decidir se atualiza o Claude Code para 2.1.321+ (`claude --version`).
+1. Claude Code 2.1.321+ (`claude --version`). Atendido: 2.1.322 em 11/11.
 2. Abrir `claude` → `/model` e ver se Fable aparece e se mostra "Requires usage
    credits". Se mostrar, **não** configurar `fable` sem aceitar conscientemente o
    gasto de créditos.
@@ -85,9 +111,11 @@ e categorias.
 **Corrigido:** `opus[1m]` ou `claude-opus-5-5` caíam em "todas as categorias".
 Agora herdam o perfil da família.
 
-Referência do próprio fornecedor (textos da CLI 2.1.322, **não medições**) [P]:
-haiku "Fastest for quick answers"; sonnet "Most efficient for everyday tasks";
-opus "Most capable for ambitious work"; fable "For your toughest challenges".
+Referência do próprio fornecedor (textos, **não medições**). A tela `/model` da
+conta do usuário [R] diz: Opus 5.5 "For complex work and everyday tasks"; Sonnet 5.5
+"Most efficient for simpler tasks"; Fable 5.2 "For your toughest challenges";
+Haiku 5.5 "Fastest for quick answers". Uma tabela interna do binário [P] traz textos
+diferentes (por exemplo, sonnet "everyday tasks"). Vale a tela da conta.
 
 | Critério | Hoje | Sugestão (nada medido; preferências editáveis) |
 | --- | --- | --- |
@@ -96,7 +124,7 @@ opus "Most capable for ambitious work"; fable "For your toughest challenges".
 | Latência | Não considerada | Gravar o tempo de cada etapa no backend para ter medição real depois. Não ordenar por velocidade sem isso |
 | Cota / preferência | Ordem autorizada + preferência explícita | `fable` **nunca** escolhido automaticamente: só por `preferred_model_id`, por causa de créditos. Mostrar no painel "pode exigir créditos" |
 | Revisão | Modelo diferente do da resposta | Em análise, o plano de teste escolheu opus para responder e **haiku para revisar**. Sugestão: revisor de nível igual ou superior, ou o próprio usuário escolhe |
-| Padrões | sonnet estudo/programação; haiku geral/escrita | Considerar sonnet também em geral/escrita (descrição "everyday") e haiku só em geral |
+| Padrões | sonnet estudo/programação; haiku geral/escrita | Pela tela da conta, Opus é o modelo "everyday" e Sonnet o de tarefas mais simples. Mas Opus gasta mais cota. Sugestão a decidir com o usuário: haiku geral; sonnet estudo/escrita; opus programação/análise; fable só explícito. Não aplicado |
 
 Nenhuma dessas sugestões foi aplicada aos padrões: são decisões de produto
 (usuário/Codex). Só a herança por família foi corrigida.
