@@ -245,8 +245,8 @@ export function chatActivityLabel(status) {
     {
       queued: "Preparando o pedido…",
       waiting: "Aguardando o gateway local…",
-      running: "Aguardando o Claude…",
-      in_flight: "Aguardando o Claude…",
+      running: "Claude está pensando…",
+      in_flight: "Claude está pensando…",
     }[status] || "Aguardando…"
   );
 }
@@ -286,7 +286,7 @@ export function describeChatError(error) {
   if (!error) return null;
   if (error === "provider_error")
     return {
-      tone: "error",
+      tone: "warn",
       message: "O Claude não conseguiu responder a este pedido.",
       hint: "Seu texto e os materiais continuam preservados. O pedido não será repetido automaticamente.",
     };
@@ -379,4 +379,30 @@ export function validateChatDraft({ text, modelIds, online }) {
   if (!Array.isArray(modelIds) || !modelIds.length)
     return "Nenhum modelo Claude disponível. Veja Conexões.";
   return null;
+}
+
+/** Nome curto do modelo para a pílula e o cabeçalho da resposta (ex.: "Sonnet"). */
+export function shortModelName(model) {
+  if (!model) return "Claude";
+  const match = /^Claude Code \(([^)]+)\)/i.exec(model.label || "");
+  if (match) {
+    const alias = match[1].trim();
+    return alias.charAt(0).toUpperCase() + alias.slice(1);
+  }
+  return model.label || model.id || "Claude";
+}
+
+/**
+ * Troca, só na exibição, os ids das fontes citadas pelo Claude pelo título da
+ * fonte. O gateway pede que o modelo cite o id; para quem lê, o título diz mais.
+ */
+export function readableAnswer(output, context) {
+  let text = typeof output === "string" ? output : "";
+  if (!Array.isArray(context)) return text;
+  for (const source of context) {
+    if (!source || typeof source.id !== "string" || source.id.length < 8) continue;
+    const title = (source.title || "fonte").trim() || "fonte";
+    text = text.split(source.id).join(`“${title}”`);
+  }
+  return text;
 }

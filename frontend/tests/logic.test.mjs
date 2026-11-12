@@ -237,6 +237,8 @@ import {
   chatTurnPhase,
   chatTurns,
   describeChatError,
+  readableAnswer,
+  shortModelName,
   eligibleChatModels,
   resolveChatModelIds,
   validateChatDraft,
@@ -309,7 +311,7 @@ test("chat: fase do turno vem do estado real da tarefa", () => {
   assert.equal(chatTurnPhase({ status: "interrupted" }), "failed");
   assert.equal(chatTurnPhase({ status: "novo" }), "unknown");
   assert.equal(chatActivityLabel("queued"), "Preparando o pedido…");
-  assert.equal(chatActivityLabel("running"), "Aguardando o Claude…");
+  assert.equal(chatActivityLabel("running"), "Claude está pensando…");
 });
 
 test("chat: provider_error não sugere causa não comprovada nem expõe o código", () => {
@@ -337,4 +339,23 @@ test("chat: envio não exige projeto, mas exige conexão, texto e modelo", () =>
   assert.match(validateChatDraft({ text: "  ", modelIds: ["m"], online: true }), /Escreva/);
   assert.match(validateChatDraft({ text: "x".repeat(8001), modelIds: ["m"], online: true }), /8\.000/);
   assert.match(validateChatDraft({ text: "Oi", modelIds: [], online: true }), /Nenhum modelo/);
+});
+
+test("chat: nome curto do modelo vem do alias do Claude Code", () => {
+  assert.equal(shortModelName({ id: "claude-code:sonnet", label: "Claude Code (sonnet) - assinatura" }), "Sonnet");
+  assert.equal(shortModelName({ id: "fixture:study", label: "Agente de teste local" }), "Agente de teste local");
+  assert.equal(shortModelName(undefined), "Claude");
+});
+
+test("chat: ids de fontes citados viram o título só na exibição", () => {
+  const id = "3ca05830-926f-47ca-96d8-0ccfe7399a4d";
+  const context = [{ id, title: "Aula de teste", content: "x" }];
+  assert.equal(
+    readableAnswer(`Resumo do trecho (fonte: ${id}).`, context),
+    "Resumo do trecho (fonte: “Aula de teste”).",
+  );
+  // Um id incompleto não é adivinhado.
+  assert.equal(readableAnswer("-47ca-96d8-0ccfe7399a4d).", context), "-47ca-96d8-0ccfe7399a4d).");
+  assert.equal(readableAnswer(null, context), "");
+  assert.equal(readableAnswer("sem fontes", undefined), "sem fontes");
 });

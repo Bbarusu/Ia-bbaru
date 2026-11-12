@@ -172,3 +172,50 @@ Firefox), `scripts/audit_copies.py` e `scripts/consolidate_copies.py`.
 Evidências após a remoção: `python -m unittest discover -s tests` 75 de 75;
 frontend 15 de 15 (os 3 testes do `background.js` saíram com a extensão); build
 aprovado; `desktop` 3 de 3; teste gráfico Chromium e `verify_ui.py` aprovados.
+
+## Alinhamento ao design aprovado no canvas (12/11/2026)
+
+O usuário apontou diferenças entre o app e a proposta do canvas ("Proposta · chat
+lateral"). Ajustado para seguir a proposta:
+
+- **Painel (até 700 px):** um topo de 44 px com pílula do modelo (ponto de
+  conexão), pílula do projeto, nova conversa, menu "Mais opções" (Chat,
+  Biblioteca, Atividade, Conexões, Novo projeto, Conhecendo o Yuki) e ampliar.
+  Saem a barra superior, as abas e o título "Chat com Claude" do painel.
+- **Página ampla:** mantém a barra lateral e a barra superior; acima da conversa,
+  pílula do modelo e "Nova conversa".
+- **Estado inicial:** marca Yuki, "Como posso ajudar hoje?" e quatro sugestões
+  com ✨ 🔍 💡 ✍; atalhos acima do campo.
+- **Confirmação dentro da conversa:** a mensagem aparece como balão e, abaixo, o
+  cartão "Enviar ao Claude?" com os mesmos dois aceites por mensagem.
+- **Resposta:** avatar ❄, nome do modelo curto (ex.: Sonnet), texto alinhado ao
+  nome, "Copiar", "Tentar novamente" e "Detalhes técnicos" à direita.
+- **Espera:** três pontos e "Claude está pensando…" (fila: "Preparando o pedido…").
+- **Erro:** cartão com "Tentar novamente"; `provider_error` em âmbar, como no canvas.
+- **Fontes citadas:** quando o Claude cita o id de uma fonte do turno, a
+  interface mostra o título (só na exibição; o texto salvo não muda).
+
+Diferenças mantidas de propósito em relação ao canvas:
+- "Resumir esta página" virou "Resumir a seleção": o app só envia o trecho
+  selecionado, não lê a página inteira (dependência 4).
+- Sem "Sempre enviar neste projeto": o aceite continua por mensagem (dependência 1).
+- Os dois aceites aparecem no cartão de confirmação.
+- "Tentar novamente" recoloca o texto no campo; o reenvio pede os aceites de novo.
+
+Testes: frontend 17 de 17; build; desktop 3 de 3; teste gráfico Chromium e
+`verify_ui.py` aprovados. Os testes passaram a abrir Biblioteca, Conexões e
+"Novo projeto" pelo menu "Mais opções" no painel.
+
+### Primeira geração real (12/11/2026, Windows, conta do usuário)
+
+Executada pelo usuário com este frontend e `-Models "sonnet"`, uma mensagem com
+um trecho de página anexado. Estado "Concluída", 1 tentativa, término informado
+pelo provedor, contrato 1.1. A interface funcionou (projeto criado no envio,
+contexto enviado e exibido, resposta na conversa sem diálogo).
+
+Achado para o Codex: o texto exibido como resposta foi apenas
+"-48dc-b51a-4c4ebcb0da4e).", o final de um identificador. O prompt do gateway pede
+"cite o id da fonte" (`integrations/prompt.py`), o que sugere uma frase que
+terminava citando o id. A interface mostra `task.output` inteiro, então a saída
+parece ter chegado cortada ao backend. Falta confirmar com o texto completo do
+diálogo de detalhes da tarefa, já solicitado ao usuário.

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, Copy, FileText, Loader2, PencilLine } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, Copy, RotateCcw } from "lucide-react";
 import { request } from "../transport";
 import {
   chatActivityLabel,
@@ -8,10 +8,15 @@ import {
   describeTaskError,
   formatFinishReason,
   formatOutputLimit,
+  readableAnswer,
+  shortModelName,
   taskState,
 } from "../logic.mjs";
 import type { Model, Task } from "../types";
 import { YukiMark } from "./YukiMark";
+
+export type Starter = { label: string; hint: string; run: () => void };
+export type PendingMessage = { text: string; contextTitles: string[] };
 
 interface ChatThreadProps {
   turns: Task[];
@@ -21,22 +26,43 @@ interface ChatThreadProps {
   pollError: string;
   uncertainEnqueue: string[];
   openTask: (task: Task) => void;
-  reuseInstruction: (text: string) => void;
-  starters: { label: string; hint: string; run: () => void }[];
-  canAttachSelection: boolean;
-  openGuide: () => void;
-}
-
-function modelLabel(task: Task, models: Model[]) {
-  const id = task.plan?.[0]?.model_id;
-  if (!id) return "Claude";
-  return models.find((m) => m.id === id)?.label || id;
+  retry: (text: string) => void;
+  starters: Starter[];
+  welcomeText: string;
+  pending: PendingMessage | null;
+  confirm: ReactNode;
 }
 
 function timeLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function Avatar() {
+  return (
+    <span className="turn-avatar" aria-hidden="true">
+      ❄
+    </span>
+  );
+}
+
+function UserMessage({ text, contextTitles }: { text: string; contextTitles: string[] }) {
+  return (
+    <div className="turn-user">
+      <p>{text}</p>
+      {contextTitles.length > 0 && (
+        <div className="turn-sources" aria-label="Contexto enviado">
+          {contextTitles.map((title, index) => (
+            <span key={`${title}-${index}`} className="source-chip" title={title}>
+              <span aria-hidden="true">🌐 </span>
+              {title}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Confirmação por tarefa, igual à do diálogo de detalhes, mas dentro da conversa. */
@@ -94,11 +120,12 @@ function TurnConsent({
   }
 
   return (
-    <div className="turn-consent">
+    <div className="chat-card">
+      <strong>{blocked ? "Pedido parado até a correção" : "Pedido salvo, ainda não enviado"}</strong>
       <p>
         {blocked
-          ? "Este pedido está parado até a correção acima. Ele ainda não foi enviado de novo."
-          : "Pedido salvo e ainda não enviado. O envio usa a cota da sua conta Claude."}
+          ? "Corrija o problema indicado e retome. Ele ainda não foi enviado de novo."
+          : "O envio usa a cota da sua conta Claude."}
       </p>
       <label className="consent-check">
         <input
@@ -109,17 +136,17 @@ function TurnConsent({
         />
         <span>Autorizo executar esta tarefa com minha conta</span>
       </label>
-      <div className="turn-consent-actions">
+      <div className="chat-card-actions">
         <button
           type="button"
-          className="primary"
+          className="dark-button"
           disabled={!confirmed || submitting || needsRefresh}
           onClick={enqueue}
         >
           {blocked ? "Retomar após corrigir" : "Executar tarefa"}
         </button>
         {needsRefresh && (
-          <button type="button" className="subtle" disabled={submitting} onClick={refresh}>
+          <button type="button" className="outline-button" disabled={submitting} onClick={refresh}>
             Consultar estado
           </button>
         )}
@@ -148,6 +175,8 @@ function TurnDetails({
       <dl>
         <dt>Estado</dt>
         <dd>{taskState(task.status)}</dd>
+        <dt>Enviado</dt>
+        <dd>{timeLabel(task.created_at)}</dd>
         {task.error && (
           <>
             <dt>Diagnóstico</dt>
@@ -200,24 +229,23 @@ export function ChatThread({
   pollError,
   uncertainEnqueue,
   openTask,
-  reuseInstruction,
+  retry,
   starters,
-  canAttachSelection,
-  openGuide,
+  welcomeText,
+  pending,
+  confirm,
 }: ChatThreadProps) {
   const [copiedId, setCopiedId] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
-  const lastKey = turns.length
-    ? `${turns[turns.length - 1].id}:${turns[turns.length - 1].status}`
-    : "";
+  const lastKey = `${turns.length ? `${turns[turns.length - 1].id}:${turns[turns.length - 1].status}` : ""}:${pending ? "p" : ""}`;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [lastKey]);
 
-  async function copy(task: Task) {
+  async function copy(task: Task, text: string) {
     try {
-      await navigator.clipboard.writeText(task.output || "");
+      await navigator.clipboard.writeText(text);
       setCopiedId(task.id);
       setTimeout(() => setCopiedId((old) => (old === task.id ? "" : old)), 1800);
     } catch {
@@ -225,18 +253,15 @@ export function ChatThread({
     }
   }
 
-  if (!turns.length) {
+  if (!turns.length && !pending) {
     return (
       <div className="chat-thread chat-empty">
         <div className="chat-welcome">
-          <YukiMark />
+          <span className="welcome-mark">
+            <YukiMark />
+          </span>
           <h2>Como posso ajudar hoje?</h2>
-          <p>
-            Converse com o Claude ao lado da página.
-            {canAttachSelection
-              ? " Para perguntar sobre um trecho, selecione o texto na aba e anexe."
-              : ""}
-          </p>
+          <p>{welcomeText}</p>
           <div className="chat-starters">
             {starters.map((starter) => (
               <button type="button" key={starter.label} onClick={starter.run}>
@@ -245,9 +270,6 @@ export function ChatThread({
               </button>
             ))}
           </div>
-          <button type="button" className="text-button" onClick={openGuide}>
-            Conhecendo o Yuki
-          </button>
         </div>
       </div>
     );
@@ -257,113 +279,133 @@ export function ChatThread({
     <div className="chat-thread" role="log" aria-label="Conversa com o Claude">
       {turns.map((task) => {
         const phase = chatTurnPhase(task);
-        const info = describeChatError(task.error);
-        const label = modelLabel(task, models);
-        const partial =
+        const info =
+          describeChatError(task.error) ||
+          (phase === "uncertain"
+            ? describeChatError("request_outcome_uncertain")
+            : phase === "failed"
+              ? describeChatError("pedido_nao_concluido")
+              : null);
+        const model = models.find((m) => m.id === task.plan?.[0]?.model_id);
+        const modelName = model ? shortModelName(model) : task.plan?.[0]?.model_id || "";
+        const rawAnswer =
           task.output ||
           (phase !== "answered" ? task.results?.[task.results.length - 1]?.output : "") ||
           "";
+        const answer = readableAnswer(rawAnswer, task.context);
+        const finished = phase !== "working" && phase !== "awaiting_consent" && phase !== "blocked";
+        const isError = Boolean(info && info.tone !== "info" && !answer);
         return (
           <article key={task.id} className="chat-turn">
-            <div className="turn-user">
-              <p>{task.instruction}</p>
-              {Boolean(task.context?.length) && (
-                <div className="turn-sources" aria-label="Contexto enviado">
-                  {task.context!.map((source) => (
-                    <span key={source.id} className="source-chip" title={source.title}>
-                      <FileText size={11} aria-hidden="true" />
-                      {source.title}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <time dateTime={task.created_at}>{timeLabel(task.created_at)}</time>
-            </div>
+            <UserMessage
+              text={task.instruction}
+              contextTitles={(task.context || []).map((source) => source.title)}
+            />
 
-            <div className="turn-assistant">
-              <div className="turn-author">
-                <YukiMark size="sm" />
-                <strong>Claude</strong>
-                <span>{label}</span>
+            {phase === "working" && (
+              <div className="turn-working" role="status">
+                <Avatar />
+                <span className="thinking-dots" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span>{chatActivityLabel(task.status)}</span>
+                {pollError && (
+                  <p className="turn-error-line" role="alert">
+                    {pollError}
+                  </p>
+                )}
               </div>
+            )}
 
-              {phase === "working" && (
-                <p className="turn-working" role="status">
-                  <Loader2 size={15} className="spin" aria-hidden="true" />
-                  {chatActivityLabel(task.status)}
-                </p>
-              )}
-              {phase === "working" && pollError && (
-                <p className="turn-error-line" role="alert">
-                  {pollError}
-                </p>
-              )}
-
-              {info && (
-                <div
-                  className={`turn-notice ${info.tone}`}
-                  role={info.tone === "info" ? "status" : "alert"}
-                >
+            {isError && info && (
+              <div className="turn-error">
+                <Avatar />
+                <div className={`chat-card ${info.tone}`} role="alert">
                   <strong>{info.message}</strong>
                   <p>{info.hint}</p>
-                </div>
-              )}
-              {!info && phase === "uncertain" && (
-                <div className="turn-notice warn" role="alert">
-                  <strong>Não foi possível confirmar o resultado deste pedido.</strong>
-                  <p>A geração pode ter usado sua cota. O pedido não será repetido automaticamente.</p>
-                </div>
-              )}
-              {!info && phase === "failed" && (
-                <div className="turn-notice error" role="alert">
-                  <strong>Este pedido não foi concluído.</strong>
-                  <p>Seu texto continua preservado.</p>
-                </div>
-              )}
-
-              {partial && <div className="turn-answer">{partial}</div>}
-
-              {(phase === "awaiting_consent" || phase === "blocked") &&
-                (executionEnabled ? (
-                  <TurnConsent
-                    task={task}
-                    updateTask={updateTask}
-                    startUncertain={uncertainEnqueue.includes(task.id)}
-                  />
-                ) : (
-                  <div className="turn-notice info" role="status">
-                    <strong>Pedido salvo. Nenhuma resposta foi gerada.</strong>
-                    <p>Esta conexão não executa pedidos pelo painel.</p>
+                  <div className="chat-card-actions">
+                    <button
+                      type="button"
+                      className="outline-button"
+                      title="Coloca o texto no campo de mensagem; nada é enviado sem a sua confirmação"
+                      onClick={() => retry(task.instruction)}
+                    >
+                      Tentar novamente
+                    </button>
+                    <TurnDetails task={task} models={models} openTask={openTask} />
                   </div>
-                ))}
-
-              <div className="turn-actions">
-                {task.output && (
-                  <button type="button" onClick={() => copy(task)}>
-                    {copiedId === task.id ? (
-                      <Check size={13} aria-hidden="true" />
-                    ) : (
-                      <Copy size={13} aria-hidden="true" />
-                    )}
-                    {copiedId === task.id ? "Copiado" : "Copiar"}
-                  </button>
-                )}
-                {(phase === "failed" || phase === "incomplete") && (
-                  <button
-                    type="button"
-                    title="Coloca o texto no campo de mensagem; nada é enviado sem a sua confirmação"
-                    onClick={() => reuseInstruction(task.instruction)}
-                  >
-                    <PencilLine size={13} aria-hidden="true" />
-                    Editar e enviar de novo
-                  </button>
-                )}
-                <TurnDetails task={task} models={models} openTask={openTask} />
+                </div>
               </div>
-            </div>
+            )}
+
+            {!isError && phase !== "working" && (
+              <div className="turn-assistant">
+                <div className="turn-author">
+                  <Avatar />
+                  <strong>Claude</strong>
+                  <span>{modelName}</span>
+                </div>
+
+                {info && (
+                  <div className={`chat-card ${info.tone}`} role={info.tone === "info" ? "status" : "alert"}>
+                    <strong>{info.message}</strong>
+                    <p>{info.hint}</p>
+                  </div>
+                )}
+
+                {answer && <div className="turn-answer">{answer}</div>}
+
+                {(phase === "awaiting_consent" || phase === "blocked") &&
+                  (executionEnabled ? (
+                    <TurnConsent
+                      task={task}
+                      updateTask={updateTask}
+                      startUncertain={uncertainEnqueue.includes(task.id)}
+                    />
+                  ) : (
+                    <div className="chat-card info" role="status">
+                      <strong>Pedido salvo. Nenhuma resposta foi gerada.</strong>
+                      <p>Esta conexão não executa pedidos pelo painel.</p>
+                    </div>
+                  ))}
+
+                <div className="turn-actions">
+                  {answer && (
+                    <button type="button" onClick={() => copy(task, answer)}>
+                      {copiedId === task.id ? (
+                        <Check size={13} aria-hidden="true" />
+                      ) : (
+                        <Copy size={13} aria-hidden="true" />
+                      )}
+                      {copiedId === task.id ? "Copiado" : "Copiar"}
+                    </button>
+                  )}
+                  {finished && (
+                    <button
+                      type="button"
+                      title="Coloca o texto no campo de mensagem; nada é enviado sem a sua confirmação"
+                      onClick={() => retry(task.instruction)}
+                    >
+                      <RotateCcw size={13} aria-hidden="true" />
+                      Tentar novamente
+                    </button>
+                  )}
+                  <TurnDetails task={task} models={models} openTask={openTask} />
+                </div>
+              </div>
+            )}
           </article>
         );
       })}
+
+      {pending && (
+        <article className="chat-turn pending-turn">
+          <UserMessage text={pending.text} contextTitles={pending.contextTitles} />
+          {confirm}
+        </article>
+      )}
       <div ref={endRef} />
     </div>
   );

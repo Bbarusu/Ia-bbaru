@@ -6,13 +6,15 @@ import {
   ChevronDown,
   FileText,
   Image as ImageIcon,
-  Link2,
   Loader2,
   Plus,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
-import type { Capture, Model } from "../types";
+import type { Capture } from "../types";
 import type { CaptureMediaKind } from "./SourceModal";
+
+export type QuickAction = { label: string; run: () => void };
 
 interface ChatComposerProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -23,9 +25,6 @@ interface ChatComposerProps {
   canSubmit: boolean;
   busy: boolean;
   online: boolean;
-  eligibleModels: Model[];
-  chatModel: string;
-  setChatModel: (id: string) => void;
   kind: string;
   setKind: (kind: string) => void;
   capture: Capture | null;
@@ -35,6 +34,7 @@ interface ChatComposerProps {
   attachSelection: () => void;
   openSource: (mode?: CaptureMediaKind) => void;
   hasEarlierTurns: boolean;
+  quickActions: QuickAction[];
 }
 
 export function ChatComposer({
@@ -46,9 +46,6 @@ export function ChatComposer({
   canSubmit,
   busy,
   online,
-  eligibleModels,
-  chatModel,
-  setChatModel,
   kind,
   setKind,
   capture,
@@ -58,10 +55,11 @@ export function ChatComposer({
   attachSelection,
   openSource,
   hasEarlierTurns,
+  quickActions,
 }: ChatComposerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -100,24 +98,76 @@ export function ChatComposer({
     action();
   }
 
+  const hint =
+    text.length > 0
+      ? `${text.length.toLocaleString("pt-BR")}/8.000`
+      : hasEarlierTurns
+        ? "Sem histórico entre mensagens"
+        : "Enter envia · Shift+Enter quebra linha";
+
   return (
-    <form className="chat-composer" onSubmit={submit}>
+    <form className="chat-composer" onSubmit={submit} ref={menuRef}>
+      <div className="quick-actions" role="group" aria-label="Sugestões rápidas">
+        {quickActions.map((action) => (
+          <button
+            type="button"
+            key={action.label}
+            disabled={!draftReady}
+            onClick={action.run}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+
+      {menuOpen && (
+        <div className="attach-menu" role="menu" aria-label="Anexar contexto">
+          <button type="button" role="menuitem" onClick={() => choose(attachSelection)}>
+            <ArrowDownToLine size={14} aria-hidden="true" />
+            <span>
+              Trecho selecionado da aba
+              <small>Vai junto com a mensagem</small>
+            </span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose(() => openSource("screenshot"))}>
+            <Camera size={14} aria-hidden="true" />
+            <span>
+              Capturar print da tela
+              <small>Fica salvo; o Claude ainda não analisa imagens</small>
+            </span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose(() => openSource("image"))}>
+            <ImageIcon size={14} aria-hidden="true" />
+            <span>
+              Importar imagem local
+              <small>Fica salva; o Claude ainda não analisa imagens</small>
+            </span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose(() => openSource("text"))}>
+            <FileText size={14} aria-hidden="true" />
+            <span>
+              Adicionar anotação de texto
+              <small>Salva na biblioteca do projeto</small>
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="composer-pill">
         {(capture || selectedSourcesCount > 0) && (
           <div className="composer-context" aria-label="Contexto que será enviado">
             {capture && (
               <span className="context-chip">
-                <Link2 size={12} aria-hidden="true" />
                 <button
                   type="button"
                   className="context-chip-title"
                   aria-expanded={previewOpen}
-                  title="Ver o trecho que será enviado"
+                  title={`Ver o trecho que será enviado (${captureText.length.toLocaleString("pt-BR")} caracteres)`}
                   onClick={() => setPreviewOpen((open) => !open)}
                 >
+                  <span aria-hidden="true">🌐 </span>
                   {captureTitle}
                 </button>
-                <small>{captureText.length.toLocaleString("pt-BR")} caracteres</small>
                 <button
                   type="button"
                   className="context-chip-remove"
@@ -131,8 +181,8 @@ export function ChatComposer({
             )}
             {selectedSourcesCount > 0 && (
               <span className="context-chip">
-                <FileText size={12} aria-hidden="true" />
-                <span>
+                <span className="context-chip-title">
+                  <span aria-hidden="true">📄 </span>
                   {selectedSourcesCount}{" "}
                   {selectedSourcesCount === 1
                     ? "material da biblioteca"
@@ -160,7 +210,7 @@ export function ChatComposer({
         )}
 
         <div className="composer-row">
-          <div className="attach-anchor" ref={menuRef}>
+          <div className="attach-anchor">
             <button
               type="button"
               className={`attach-button ${menuOpen ? "active" : ""}`}
@@ -173,38 +223,6 @@ export function ChatComposer({
             >
               <Plus size={17} aria-hidden="true" />
             </button>
-            {menuOpen && (
-              <div className="attach-menu" role="menu" aria-label="Anexar contexto">
-                <button type="button" role="menuitem" onClick={() => choose(attachSelection)}>
-                  <ArrowDownToLine size={14} aria-hidden="true" />
-                  <span>
-                    Trecho selecionado da aba
-                    <small>Vai junto com a mensagem</small>
-                  </span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => choose(() => openSource("text"))}>
-                  <FileText size={14} aria-hidden="true" />
-                  <span>
-                    Anotação de texto
-                    <small>Salva na biblioteca do projeto</small>
-                  </span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => choose(() => openSource("screenshot"))}>
-                  <Camera size={14} aria-hidden="true" />
-                  <span>
-                    Print da tela
-                    <small>Fica salvo; o Claude ainda não analisa imagens</small>
-                  </span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => choose(() => openSource("image"))}>
-                  <ImageIcon size={14} aria-hidden="true" />
-                  <span>
-                    Imagem do computador
-                    <small>Fica salva; o Claude ainda não analisa imagens</small>
-                  </span>
-                </button>
-              </div>
-            )}
           </div>
 
           <label htmlFor="instruction" className="sr-only">
@@ -213,8 +231,8 @@ export function ChatComposer({
           <textarea
             id="instruction"
             ref={inputRef}
-            rows={1}
-            placeholder="Pergunte ao Claude…"
+            rows={2}
+            placeholder="Pergunte ao Claude ou anexe um trecho da página… (Enter para enviar)"
             value={text}
             maxLength={8000}
             disabled={!draftReady}
@@ -244,26 +262,7 @@ export function ChatComposer({
 
         <div className="composer-footer">
           <label className="composer-select">
-            <span className="sr-only">Modelo Claude</span>
-            <select
-              aria-label="Modelo Claude"
-              value={eligibleModels.some((m) => m.id === chatModel) ? chatModel : "auto"}
-              disabled={!eligibleModels.length}
-              onChange={(event) => setChatModel(event.target.value)}
-            >
-              <option value="auto">
-                {eligibleModels.length ? "Modelo automático" : "Sem modelo"}
-              </option>
-              {eligibleModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} aria-hidden="true" />
-          </label>
-          <label className="composer-select">
-            <span className="sr-only">Tipo de tarefa</span>
+            <SlidersHorizontal size={12} aria-hidden="true" />
             <select
               aria-label="Tipo de tarefa"
               value={kind}
@@ -275,18 +274,14 @@ export function ChatComposer({
               <option value="coding">Código</option>
               <option value="analysis">Análise</option>
             </select>
-            <ChevronDown size={12} aria-hidden="true" />
+            <ChevronDown size={11} aria-hidden="true" />
           </label>
           <span
             className="composer-hint"
             id="composer-hint"
             title="Enter envia e Shift+Enter quebra linha. O Claude ainda não recebe as mensagens anteriores da conversa."
           >
-            {text.length > 0
-              ? `${text.length.toLocaleString("pt-BR")}/8.000`
-              : hasEarlierTurns
-                ? "Sem histórico entre mensagens"
-                : "Enter envia"}
+            {hint}
           </span>
         </div>
       </div>

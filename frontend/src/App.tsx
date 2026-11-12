@@ -41,6 +41,7 @@ import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatThread } from "./components/ChatThread";
+import { ChatHeader, ModelPill } from "./components/ChatHeader";
 import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
@@ -86,6 +87,17 @@ export default function App() {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wantsChatCapture = useRef(false);
+  // Painel lateral (até 700 px): um topo só, no formato da proposta aprovada.
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia?.("(max-width: 700px)").matches ?? false,
+  );
+  useEffect(() => {
+    const query = window.matchMedia?.("(max-width: 700px)");
+    if (!query) return;
+    const onChange = () => setNarrow(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
   const [draftReady, setDraftReady] = useState(false);
   const [kind, setKind] = useState("study");
   const [acceptedLimit, setAcceptedLimit] = useState(false);
@@ -667,24 +679,110 @@ export default function App() {
     Boolean(text.trim()) &&
     !sendOpen;
   const canAttachSelection = Boolean(localBridge);
-  const startWith = (prompt: string, attach: boolean) => () => {
-    if (attach) attachSelection();
+  // Sugestões: com o navegador, anexam o trecho selecionado na aba (o app ainda
+  // não lê a página inteira); sem ele, só preenchem o campo.
+  const startWith = (prompt: string) => () => {
+    if (canAttachSelection && !chatCapture) attachSelection();
     changeText(prompt);
     inputRef.current?.focus();
   };
-  const starters = canAttachSelection
-    ? [
-        { label: "Explicar a seleção", hint: "Anexa o trecho selecionado na aba", run: startWith("Explique este trecho em linguagem simples.", true) },
-        { label: "Resumir a seleção", hint: "Anexa o trecho e pede os pontos principais", run: startWith("Resuma este trecho em tópicos claros.", true) },
-        { label: "Questões de estudo", hint: "Perguntas sobre o trecho selecionado", run: startWith("Crie perguntas de estudo sobre este trecho.", true) },
-        { label: "Pergunta livre", hint: "Sem anexar nada da página", run: startWith("", false) },
-      ]
-    : [
-        { label: "Explicar um conceito", hint: "Em linguagem simples", run: startWith("Explique em linguagem simples: ", false) },
-        { label: "Resumir um texto", hint: "Cole o texto depois dos dois-pontos", run: startWith("Resuma em tópicos claros o texto a seguir:\n", false) },
-        { label: "Questões de estudo", hint: "Sobre um tema que você indicar", run: startWith("Crie perguntas de estudo sobre: ", false) },
-        { label: "Pergunta livre", hint: "Escreva o que quiser", run: startWith("", false) },
-      ];
+  const P_SUMMARY = canAttachSelection
+    ? "Resuma este trecho em tópicos claros."
+    : "Resuma em tópicos claros o texto a seguir:\n";
+  const P_POINTS = canAttachSelection
+    ? "Identifique os principais argumentos e conclusões deste trecho."
+    : "Identifique os principais argumentos e conclusões do texto a seguir:\n";
+  const P_TERMS = canAttachSelection
+    ? "Explique os termos mais difíceis deste trecho em linguagem simples."
+    : "Explique em linguagem simples: ";
+  const P_QUESTIONS = canAttachSelection
+    ? "Crie perguntas de estudo sobre este trecho."
+    : "Crie perguntas de estudo sobre: ";
+  const starters = [
+    { label: "✨ Resumir a seleção", hint: canAttachSelection ? "Anexa o trecho selecionado na aba" : "Cole o texto depois dos dois-pontos", run: startWith(P_SUMMARY) },
+    { label: "🔍 Principais pontos", hint: "Argumentos e conclusões centrais", run: startWith(P_POINTS) },
+    { label: "💡 Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith(P_TERMS) },
+    { label: "✍ Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith(P_QUESTIONS) },
+  ];
+  const quickActions = [
+    { label: "✨ Resumir seleção", run: startWith(P_SUMMARY) },
+    { label: "🔍 Principais pontos", run: startWith(P_POINTS) },
+    { label: "💡 Explicar termos", run: startWith(P_TERMS) },
+  ];
+  const welcomeText = canAttachSelection
+    ? "Pergunte sobre um trecho da página, explore conceitos ou converse com Claude."
+    : "Explore conceitos ou converse com Claude.";
+  const pending = sendOpen
+    ? {
+        text,
+        contextTitles: [
+          ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
+          ...sources
+            .filter((source) => selectedSources.includes(source.id))
+            .map((source) => source.title),
+        ],
+      }
+    : null;
+  const sendConfirm = (
+    <div className="chat-card" role="group" aria-label="Confirmar envio">
+      <strong>{executionEnabled ? "Enviar ao Claude?" : "Salvar este pedido?"}</strong>
+      <p>
+        {executionEnabled
+          ? "Sua pergunta e o contexto anexado serão enviados ao Claude e usam a cota da sua assinatura."
+          : "Esta conexão não executa pedidos: a mensagem fica salva, sem gerar resposta."}
+      </p>
+      {needsLimitAcceptance && (
+        <label className="consent-check">
+          <input
+            type="checkbox"
+            checked={acceptedLimit}
+            disabled={busy}
+            onChange={(e) => setAcceptedLimit(e.target.checked)}
+          />
+          <span>Aceito o limite indicativo para esta tarefa</span>
+        </label>
+      )}
+      {needsLimitAcceptance && (
+        <p className="consent-note">
+          O Claude pode ultrapassar a saída solicitada. Encerrar o processo local
+          não garante interrupção no provedor nem devolução de cota.
+        </p>
+      )}
+      {executionEnabled && (
+        <label className="consent-check">
+          <input
+            type="checkbox"
+            checked={authorized}
+            disabled={busy}
+            onChange={(e) => setAuthorized(e.target.checked)}
+          />
+          <span>Autorizo executar esta tarefa com minha conta</span>
+        </label>
+      )}
+      {sendError && (
+        <p className="turn-error-line" role="alert">
+          {sendError}
+        </p>
+      )}
+      <div className="chat-card-actions">
+        <button
+          type="button"
+          className="dark-button"
+          disabled={
+            busy ||
+            (needsLimitAcceptance && !acceptedLimit) ||
+            (executionEnabled && !authorized)
+          }
+          onClick={confirmSend}
+        >
+          {executionEnabled ? "Enviar ao Claude" : "Salvar pedido"}
+        </button>
+        <button type="button" className="plain-button" disabled={busy} onClick={cancelSend}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`shell ${isChat ? "chat-mode" : ""}`}>
@@ -703,29 +801,60 @@ export default function App() {
       />
 
       <div className="body">
-        <TopBar
-          tab={tab}
-          tabs={tabs}
-          online={online}
-          checking={checking}
-          canExpand={inDesktop}
-          demo={demo}
-          connect={connect}
-          expand={expand}
-          openGuide={() => setGuideOpen(true)}
-          projectSwitch={
-            <ProjectSwitch
+        {narrow ? (
+          <>
+            <ChatHeader
+              eligibleModels={eligibleModels}
+              chatModel={chatModel}
+              setChatModel={setChatModel}
+              online={online}
+              checking={checking}
               projects={projects}
               projectId={projectId}
               setProjectId={setProjectId}
-              openProject={openProject}
-              online={online}
               busy={busy}
+              tab={tab}
+              setTab={setTab}
+              openProject={openProject}
+              newChat={newChat}
+              canNewChat={turns.length > 0}
+              openGuide={() => setGuideOpen(true)}
+              canExpand={inDesktop}
+              expand={expand}
+              sourceCount={sources.length}
             />
-          }
-        />
-
-        <MobileNav tab={tab} setTab={setTab} tabs={tabs} />
+            {demo && (
+              <div className="demo-banner" role="note">
+                Demonstração visual · dados de exemplo · nenhuma conta ou IA conectada
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <TopBar
+              tab={tab}
+              tabs={tabs}
+              online={online}
+              checking={checking}
+              canExpand={inDesktop}
+              demo={demo}
+              connect={connect}
+              expand={expand}
+              openGuide={() => setGuideOpen(true)}
+              projectSwitch={
+                <ProjectSwitch
+                  projects={projects}
+                  projectId={projectId}
+                  setProjectId={setProjectId}
+                  openProject={openProject}
+                  online={online}
+                  busy={busy}
+                />
+              }
+            />
+            <MobileNav tab={tab} setTab={setTab} tabs={tabs} />
+          </>
+        )}
 
         <main>
           {!isChat && (
@@ -752,11 +881,16 @@ export default function App() {
             </div>
           )}
 
-          {isChat && (
+          {isChat && !narrow && (
             <div className="chat-bar">
-              <h1>
-                Chat com <span>Claude</span>
-              </h1>
+              <ModelPill
+                eligibleModels={eligibleModels}
+                chatModel={chatModel}
+                setChatModel={setChatModel}
+                online={online}
+                checking={checking}
+                showStatus={false}
+              />
               <button
                 type="button"
                 className="subtle"
@@ -886,94 +1020,26 @@ export default function App() {
                 pollError={pollError}
                 uncertainEnqueue={uncertainEnqueue}
                 openTask={setTaskView}
-                reuseInstruction={(value) => {
+                retry={(value) => {
                   changeText(value);
                   inputRef.current?.focus();
                 }}
                 starters={starters}
-                canAttachSelection={canAttachSelection}
-                openGuide={() => setGuideOpen(true)}
+                welcomeText={welcomeText}
+                pending={pending}
+                confirm={sendConfirm}
               />
 
               <div className="chat-dock">
-                {sendOpen && (
-                  <div className="send-confirm" role="group" aria-label="Confirmar envio">
-                    <p>
-                      {executionEnabled
-                        ? "A mensagem e o contexto anexado serão enviados ao Claude e usam a cota da sua conta."
-                        : "Esta conexão não executa pedidos: a mensagem fica salva, sem gerar resposta."}
-                    </p>
-                    {needsLimitAcceptance && (
-                      <label className="consent-check">
-                        <input
-                          type="checkbox"
-                          checked={acceptedLimit}
-                          disabled={busy}
-                          onChange={(e) => setAcceptedLimit(e.target.checked)}
-                        />
-                        <span>Aceito o limite indicativo para esta tarefa</span>
-                      </label>
-                    )}
-                    {needsLimitAcceptance && (
-                      <p className="small-note">
-                        O Claude pode ultrapassar a saída solicitada. Encerrar o
-                        processo local não garante interrupção no provedor nem
-                        devolução de cota.
-                      </p>
-                    )}
-                    {executionEnabled && (
-                      <label className="consent-check">
-                        <input
-                          type="checkbox"
-                          checked={authorized}
-                          disabled={busy}
-                          onChange={(e) => setAuthorized(e.target.checked)}
-                        />
-                        <span>Autorizo executar esta tarefa com minha conta</span>
-                      </label>
-                    )}
-                    {sendError && (
-                      <p className="turn-error-line" role="alert">
-                        {sendError}
-                      </p>
-                    )}
-                    <div className="send-confirm-actions">
-                      <button
-                        type="button"
-                        className="primary"
-                        disabled={
-                          busy ||
-                          (needsLimitAcceptance && !acceptedLimit) ||
-                          (executionEnabled && !authorized)
-                        }
-                        onClick={confirmSend}
-                      >
-                        {executionEnabled ? "Enviar ao Claude" : "Salvar pedido"}
-                      </button>
-                      <button
-                        type="button"
-                        className="subtle"
-                        disabled={busy}
-                        onClick={cancelSend}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <ChatComposer
                   inputRef={inputRef}
-                  text={text}
+                  text={sendOpen ? "" : text}
                   changeText={changeText}
-                  draftReady={draftReady}
+                  draftReady={draftReady && !sendOpen}
                   submit={requestSend}
                   canSubmit={canSubmit}
                   busy={busy}
                   online={online}
-                  eligibleModels={eligibleModels}
-                  chatModel={chatModel}
-                  setChatModel={setChatModel}
                   kind={kind}
                   setKind={setKind}
                   capture={chatCapture}
@@ -983,6 +1049,7 @@ export default function App() {
                   attachSelection={attachSelection}
                   openSource={openSource}
                   hasEarlierTurns={turns.length > 0}
+                  quickActions={quickActions}
                 />
               </div>
             </section>

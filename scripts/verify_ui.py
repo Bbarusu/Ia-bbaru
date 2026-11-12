@@ -110,16 +110,21 @@ def main():
         assert len(records)==3 and 'https://example.org/aula' in records[1]['content'] and 'https://example.org/aula-2' in records[2]['content']
         page.screenshot(path=str(artifacts/'workspace-chromium.png'),full_page=True)
         page.set_viewport_size({'width':360,'height':900})
+        # Painel estreito: um topo só; áreas ficam no menu "Mais opções".
+        # Espera o topo do painel substituir o da página ampla antes de medir.
+        def open_area(target,name):
+            target.get_by_role('button',name='Mais opções',exact=True).click()
+            target.get_by_role('menuitem',name=name).click()
+        expect(page.get_by_role('button',name='Mais opções',exact=True)).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
-        expect(page.get_by_role('button',name='Biblioteca',exact=True)).to_be_visible()
-        page.get_by_role('button',name='Biblioteca',exact=True).click()
+        open_area(page,'Biblioteca')
         page.get_by_role('textbox',name='Buscar materiais').fill('sem-correspondencia')
         expect(page.get_by_text('Nenhum material encontrado.',exact=True)).to_be_visible()
         page.get_by_role('textbox',name='Buscar materiais').fill('')
-        page.get_by_role('button',name='Chat',exact=True).click()
+        open_area(page,'Chat')
         expect(page.locator('#instruction')).to_be_in_viewport()
         page.screenshot(path=str(artifacts/'sidebar-chromium.png'),full_page=True)
-        page.get_by_role('button',name='Conexões',exact=True).click()
+        open_area(page,'Conexões')
         expect(page.get_by_text('Nenhum serviço de IA disponível.',exact=False)).to_be_visible()
         assert not errors,errors
         # Plain browser mode must not silently switch to demo or invent accounts.

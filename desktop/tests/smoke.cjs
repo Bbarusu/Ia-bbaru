@@ -153,10 +153,12 @@ async function main() {
       });
     });
     assert.equal(secondCode, 0);
-    await workspace
-      .getByRole("button", { name: "Novo projeto", exact: true })
-      .first()
-      .click();
+    // No painel lateral, projetos e áreas ficam no menu "Mais opções" do topo.
+    const openArea = async (page, name) => {
+      await page.getByRole("button", { name: "Mais opções", exact: true }).click();
+      await page.getByRole("menuitem", { name, exact: false }).click();
+    };
+    await openArea(workspace, "Novo projeto");
     await workspace.getByLabel("Nome do projeto").fill("Teste Chromium");
     await workspace
       .getByRole("dialog")
@@ -397,7 +399,7 @@ async function main() {
       .click();
     await expect(shell.locator("#tabs .choose")).toHaveCount(1);
     // A new capture while manually editing must not erase the draft (Path A: save then review queued).
-    await workspace.getByRole("button", { name: "Biblioteca", exact: true }).first().click();
+    await openArea(workspace, "Biblioteca");
     await workspace
       .getByRole("button", { name: "Adicionar texto", exact: true })
       .click();
@@ -613,7 +615,7 @@ async function main() {
     await expect(workspace.locator("dialog textarea")).not.toHaveValue(/base64/);
     await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
-    await workspace.getByRole("button", { name: "Conexões", exact: true }).first().click();
+    await openArea(workspace, "Conexões");
     await expect(workspace.getByText("Claude Code · 2.1.307", { exact: true })).toBeVisible();
     const versions = await app.evaluate(() => process.versions);
     await app.close();
