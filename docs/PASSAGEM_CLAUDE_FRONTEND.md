@@ -107,11 +107,9 @@ Tudo com dublês e fixtures. Nenhuma conta real, nenhuma geração real.
 | `npm --prefix frontend test` | 18 de 18 (11 anteriores + 7 novos do chat) |
 | `npm --prefix frontend run build` | aprovado, `tsc --noEmit` incluído |
 | `npm --prefix desktop run test:ui` (Linux, Xvfb, sandbox desativada só no teste) | aprovado |
-| `scripts/verify_ui.py` | aprovado **com motor Chromium**, não Firefox |
+| `scripts/verify_ui.py` | aprovado (passou a usar Chromium; ver remoção do Firefox) |
 
-O Firefox do Playwright não pôde ser baixado neste ambiente. O roteiro de
-`verify_ui.py` foi executado numa cópia temporária trocando só o navegador;
-falta repetir no Firefox real. Windows não foi testado.
+Windows não foi testado.
 
 ### Testes de integração adaptados (revisar)
 
@@ -142,3 +140,35 @@ salvo e ainda não enviado) e “Conexões”. Seletores alterados: o envio cham
 - A página inicial e o guia ainda dizem “Perguntar ao Yuki”; alinhar ao novo rótulo.
 - Acessibilidade do painel verificada por papéis e nomes nos testes; auditoria
   axe do painel não foi executada (o pacote não está instalado aqui).
+
+## Remoção do suporte ao Firefox (12/11/2026)
+
+Pedido explícito do usuário: trabalhar somente com o navegador Chromium. Entregue
+em commit próprio para revisão separada, porque toca `extension/` e `native_host/`,
+áreas do Codex.
+
+Removido:
+- `extension/` (manifesto, `background.js`, ícone) e o build copiado para `extension/app/`.
+- `native_host/install.py` e o `EXTENSION_ID`/`HOST_NAME`: registravam o host de
+  Native Messaging no Firefox. O desktop cria a própria configuração.
+- No frontend: `inFirefox`, `window.browser`, o link do guia Firefox e
+  `frontend/scripts/package.mjs`; `npm run build` não copia mais para `extension/`.
+- `frontend/tests/background.test.mjs` (testava o `background.js` da extensão).
+- `docs/INSTALAR_FIREFOX.md` e as referências no README.
+
+Mantido, porque o Chromium usa: `native_host/bridge.py`, `__main__.py` e
+`service.py` (`desktop/local-service.cjs` sobe `native_host.service` e a ponte
+`native_host`). Os testes da ponte continuam; o teste do instalador virou teste de
+`load_config` (backend só em loopback e token longo), e o teste do processo nativo
+gera a configuração no próprio teste.
+
+`scripts/verify_ui.py` passou a rodar em Chromium com a ponte simulada no formato
+de `desktop/workspace-preload.cjs` (`window.iaDesktop`). Aceita
+`IA_BBARU_CHROMIUM_PATH` para usar um Chromium já instalado.
+
+Não alterado: documentos históricos (briefings e revisões antigas que citam o
+Firefox), `scripts/audit_copies.py` e `scripts/consolidate_copies.py`.
+
+Evidências após a remoção: `python -m unittest discover -s tests` 75 de 75;
+frontend 15 de 15 (os 3 testes do `background.js` saíram com a extensão); build
+aprovado; `desktop` 3 de 3; teste gráfico Chromium e `verify_ui.py` aprovados.

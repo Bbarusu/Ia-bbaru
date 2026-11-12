@@ -1,9 +1,8 @@
 import type { Capture } from "./types";
 
 export const demo = new URLSearchParams(location.search).get("demo") === "1";
-export const inFirefox = !!window.browser?.runtime?.sendMessage;
 export const inDesktop = !!window.iaDesktop;
-export const localBridge = window.iaDesktop || window.browser;
+export const localBridge = window.iaDesktop;
 export async function request<T>(
   operation: string,
   params: object = {},
@@ -14,7 +13,7 @@ export async function request<T>(
   }
   if (!localBridge)
     throw new Error(
-      "Abra o navegador Yuki ou a extensão Firefox para conectar ao componente local.",
+      "Abra o navegador Yuki para conectar ao componente local.",
     );
   const response = await localBridge.runtime.sendMessage({
     type: "bridge.request",

@@ -18,7 +18,6 @@ import {
   demo,
   expand,
   inDesktop,
-  inFirefox,
   localBridge,
   pendingCapture,
   readDraft,
@@ -61,8 +60,6 @@ const tabs: { id: Tab; label: string; icon: typeof MessageSquare }[] = [
 
 const chromiumGuideUrl =
   "https://github.com/Bbarusu/Ia-bbaru/blob/codex/chromium-browser/docs/TESTAR_NAVEGADOR_CHROMIUM.md";
-const firefoxGuideUrl =
-  "https://github.com/Bbarusu/Ia-bbaru/blob/codex/frontend-firefox/docs/INSTALAR_FIREFOX.md";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("workspace");
@@ -123,7 +120,7 @@ export default function App() {
 
   const project = projects.find((p) => p.id === projectId);
   const available = models.filter((m) => m.available);
-  const guideUrl = inDesktop ? chromiumGuideUrl : firefoxGuideUrl;
+  const guideUrl = chromiumGuideUrl;
 
   async function connect() {
     let hostReady = false;
@@ -711,7 +708,7 @@ export default function App() {
           tabs={tabs}
           online={online}
           checking={checking}
-          canExpand={inFirefox || inDesktop}
+          canExpand={inDesktop}
           demo={demo}
           connect={connect}
           expand={expand}
@@ -1041,7 +1038,6 @@ export default function App() {
             <ConnectionsSection
               connections={connections}
               diagnosticError={diagnosticError}
-              inFirefox={inFirefox}
               inDesktop={inDesktop}
               demo={demo}
               host={host}

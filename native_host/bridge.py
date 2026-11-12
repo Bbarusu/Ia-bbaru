@@ -10,8 +10,6 @@ from backend.contracts import StrictModel
 from backend.main import ProjectInput, SourceInput, TaskInput
 from backend.gateway_errors import ERROR_STATUS, error_message
 
-HOST_NAME = "ia_bbaru.bridge"
-EXTENSION_ID = "ia-bbaru@bbarusu.local"
 MAX_BYTES = 900_000
 OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
               "sources.list", "sources.create", "sources.get", "models.list", "connections.list",

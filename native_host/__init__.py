@@ -1,1 +1,1 @@
-"""Firefox Native Messaging bridge. No provider credentials enter the extension."""
+"""Local bridge between the Chromium workspace and the backend. No provider credentials reach the renderer."""

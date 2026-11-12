@@ -1,11 +1,13 @@
-"""UI checks in real Firefox/Gecko, real backend+bridge, simulated WebExtension APIs.
+"""UI checks in Chromium with the real backend and bridge, simulating the desktop preload.
 
-Run after npm run build; requires optional `playwright` Python package and Firefox
-browser installed by Playwright. It never signs into or calls an AI provider.
+Run after npm run build; requires the optional `playwright` Python package and its
+Chromium (`python -m playwright install chromium`). IA_BBARU_CHROMIUM_PATH may point
+to an existing Chromium binary. It never signs into or calls an AI provider.
 """
 import functools
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -31,13 +33,14 @@ def main():
     with tempfile.TemporaryDirectory() as folder, TestClient(create_app(Path(folder)/'ui.db',token),
             headers={'Authorization':f'Bearer {token}'}) as client, sync_playwright() as pw:
         bridge=Bridge(client)
-        browser=pw.firefox.launch(headless=True)
+        browser=pw.chromium.launch(headless=True,executable_path=os.environ.get('IA_BBARU_CHROMIUM_PATH') or None)
         page=browser.new_page(viewport={'width':1440,'height':1080})
         errors=[];page.on('pageerror',lambda err:errors.append(str(err)))
         page.expose_function('testNativeBridge', bridge.handle)
         page.add_init_script("""(() => {
           const listeners=[];
-          window.browser={runtime:{sendMessage:async msg=>{
+          // Same shape as desktop/workspace-preload.cjs (window.iaDesktop).
+          window.iaDesktop={runtime:{sendMessage:async msg=>{
             if(msg.type==='bridge.request')return window.testNativeBridge(msg.request);
             if(msg.type==='capture.read')return JSON.parse(localStorage.getItem('testCapture')||'null');
             if(msg.type==='capture.clear'){
@@ -45,7 +48,7 @@ def main():
               if(!msg.id || (cur && cur.id===msg.id))localStorage.removeItem('testCapture');
               return {ok:true};
             }
-            if(msg.type==='capture.selection')return {ok:false,error:{message:'Selecione um trecho no Firefox.'}};
+            if(msg.type==='capture.selection')return {ok:false,error:{message:'Selecione um trecho na página.'}};
           }},storage:{local:{get:async key=>({[key]:localStorage.getItem(key)}),set:async values=>{
             for(const [key,val] of Object.entries(values))localStorage.setItem(key,val);
           },remove:async key=>localStorage.removeItem(key)},onChanged:{addListener:fn=>listeners.push(fn),removeListener:()=>{}}}};
@@ -105,7 +108,7 @@ def main():
         page.get_by_role('button',name='Descartar trecho',exact=True).click()
         records=client.get(f"/v1/projects/{project['id']}/sources").json()['items']
         assert len(records)==3 and 'https://example.org/aula' in records[1]['content'] and 'https://example.org/aula-2' in records[2]['content']
-        page.screenshot(path=str(artifacts/'workspace-firefox.png'),full_page=True)
+        page.screenshot(path=str(artifacts/'workspace-chromium.png'),full_page=True)
         page.set_viewport_size({'width':360,'height':900})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
         expect(page.get_by_role('button',name='Biblioteca',exact=True)).to_be_visible()
@@ -115,7 +118,7 @@ def main():
         page.get_by_role('textbox',name='Buscar materiais').fill('')
         page.get_by_role('button',name='Chat',exact=True).click()
         expect(page.locator('#instruction')).to_be_in_viewport()
-        page.screenshot(path=str(artifacts/'sidebar-firefox.png'),full_page=True)
+        page.screenshot(path=str(artifacts/'sidebar-chromium.png'),full_page=True)
         page.get_by_role('button',name='Conexões',exact=True).click()
         expect(page.get_by_text('Nenhum serviço de IA disponível.',exact=False)).to_be_visible()
         assert not errors,errors
@@ -129,7 +132,7 @@ def main():
         expect(demo.get_by_text('Demonstração visual',exact=False)).to_be_visible()
         demo.get_by_label('Modelo Claude').select_option(label='Agente de exemplo')
         demo.locator('#instruction').fill('Pedido demonstrativo')
-        demo.screenshot(path=str(artifacts/'demo-firefox.png'),full_page=True)
+        demo.screenshot(path=str(artifacts/'demo-chromium.png'),full_page=True)
         demo.get_by_role('button',name='Enviar',exact=True).click()
         # A demonstração não executa nada: o pedido fica salvo, sem resposta inventada.
         demo.get_by_role('group',name='Confirmar envio').get_by_role('button',name='Salvar pedido',exact=True).click()
@@ -137,7 +140,7 @@ def main():
         expect(demo.get_by_role('dialog')).to_have_count(0)
         browser.close()
     server.shutdown()
-    print('Firefox UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout with visible composer, labelled demo without generation.')
+    print('Chromium UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout with visible composer, labelled demo without generation.')
 
 
 if __name__=='__main__': main()
