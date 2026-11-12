@@ -61,6 +61,8 @@ def main():
         page.get_by_role('dialog').get_by_role('button',name='Criar projeto',exact=True).click()
         expect(page.locator('#project')).to_have_value(client.get('/v1/projects').json()['items'][0]['id'])
         expect(page.locator('ul.project-list > li > button[aria-current="true"]')).to_have_text('Pesquisa da faculdade')
+        # Projetos e materiais são organização opcional: ficam em Biblioteca, fora do chat.
+        page.get_by_role('button',name='Biblioteca',exact=True).first.click()
         page.get_by_role('button',name='Adicionar texto',exact=True).click()
         page.get_by_label('Título',exact=True).fill('Anotações sobre agentes')
         hostile='Agentes usam contexto. <script>window.stolen=true</script>'
@@ -68,10 +70,13 @@ def main():
         page.get_by_role('button',name='Salvar no projeto',exact=True).click()
         expect(page.get_by_role('heading',name='Anotações sobre agentes')).to_be_visible()
         assert page.evaluate('window.stolen') is None
+        page.get_by_role('button',name='Chat',exact=True).first.click()
         page.locator('#instruction').fill('Compare as ideias deste material.')
         page.reload();expect(page.locator('#instruction')).to_have_value('Compare as ideias deste material.')
-        expect(page.get_by_role('button',name='Criar plano',exact=True)).to_be_disabled()
+        # Sem modelo Claude o envio fica desativado e o rascunho permanece.
+        expect(page.get_by_role('button',name='Enviar',exact=True)).to_be_disabled()
         expect(page.get_by_text('Nenhuma IA conectada.',exact=False)).to_be_visible()
+        page.get_by_role('button',name='Biblioteca',exact=True).first.click()
         # Path A: Capture A opens, user edits it, Capture B arrives and stays queued until user finishes A.
         page.evaluate("window.testCapture({id:'capture-a',title:'Uma referência',url:'https://example.org/aula',text:'Trecho escolhido pelo usuário.'})")
         expect(page.get_by_role('dialog')).to_be_visible()
@@ -108,7 +113,8 @@ def main():
         page.get_by_role('textbox',name='Buscar materiais').fill('sem-correspondencia')
         expect(page.get_by_text('Nenhum material encontrado.',exact=True)).to_be_visible()
         page.get_by_role('textbox',name='Buscar materiais').fill('')
-        page.get_by_role('button',name='Área de trabalho',exact=True).click()
+        page.get_by_role('button',name='Chat',exact=True).click()
+        expect(page.locator('#instruction')).to_be_in_viewport()
         page.screenshot(path=str(artifacts/'sidebar-firefox.png'),full_page=True)
         page.get_by_role('button',name='Conexões',exact=True).click()
         expect(page.get_by_text('Nenhum serviço de IA disponível.',exact=False)).to_be_visible()
@@ -116,20 +122,22 @@ def main():
         # Plain browser mode must not silently switch to demo or invent accounts.
         plain=browser.new_page(viewport={'width':360,'height':900});plain.goto(url)
         expect(plain.get_by_text('Modo desconectado',exact=True)).to_be_visible()
-        expect(plain.get_by_role('button',name='Criar plano',exact=True)).to_be_disabled()
+        expect(plain.get_by_role('button',name='Enviar',exact=True)).to_be_disabled()
         assert not plain.get_by_text('Demonstração visual',exact=False).count()
         # Demo mode is explicit and labelled; no real gateway ever called.
         demo=browser.new_page(viewport={'width':1440,'height':1080});demo.goto(url+'/?demo=1')
         expect(demo.get_by_text('Demonstração visual',exact=False)).to_be_visible()
-        demo.get_by_role('button',name='Agente de exemplo',exact=False).click()
+        demo.get_by_label('Modelo Claude').select_option(label='Agente de exemplo')
         demo.locator('#instruction').fill('Pedido demonstrativo')
         demo.screenshot(path=str(artifacts/'demo-firefox.png'),full_page=True)
-        demo.get_by_role('button',name='Criar plano',exact=True).click()
-        expect(demo.get_by_role('dialog')).to_be_visible()
-        expect(demo.get_by_text('Plano salvo. Esta versão ainda não inicia execuções pelo painel.')).to_be_visible()
+        demo.get_by_role('button',name='Enviar',exact=True).click()
+        # A demonstração não executa nada: o pedido fica salvo, sem resposta inventada.
+        demo.get_by_role('group',name='Confirmar envio').get_by_role('button',name='Salvar pedido',exact=True).click()
+        expect(demo.get_by_text('Pedido salvo. Nenhuma resposta foi gerada.',exact=True)).to_be_visible()
+        expect(demo.get_by_role('dialog')).to_have_count(0)
         browser.close()
     server.shutdown()
-    print('Firefox UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout, labelled demo plan.')
+    print('Firefox UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout with visible composer, labelled demo without generation.')
 
 
 if __name__=='__main__': main()

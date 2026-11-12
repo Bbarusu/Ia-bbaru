@@ -174,3 +174,209 @@ export function decideIncomingCapture(currentState, incoming) {
     content: incoming.text,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Chat lateral: apresentação das tarefas existentes como conversa.
+// Nenhuma destas funções cria contrato novo; elas apenas leem o catálogo e as
+// tarefas que o backend já devolve.
+// ---------------------------------------------------------------------------
+
+export const CHAT_WORKING_STATES = ["queued", "running", "waiting", "in_flight"];
+
+/** Modelos que o chat pode autorizar: disponíveis e, no contrato 1.1, sem ferramentas. */
+export function eligibleChatModels(models, catalogVersion) {
+  if (!Array.isArray(models)) return [];
+  return models.filter(
+    (m) =>
+      m &&
+      m.available &&
+      (catalogVersion !== "1.1" ||
+        (m.capabilities && m.capabilities.tools === "disabled")),
+  );
+}
+
+/**
+ * IDs enviados em allowed_model_ids. "auto" autoriza os modelos elegíveis, mas
+ * nunca inclui Fable por conta própria: ele pode exigir créditos adicionais e
+ * só entra quando a pessoa o escolhe pelo nome.
+ */
+export function resolveChatModelIds(choice, models, catalogVersion) {
+  const eligible = eligibleChatModels(models, catalogVersion);
+  if (choice && choice !== "auto")
+    return eligible.filter((m) => m.id === choice).map((m) => m.id);
+  return eligible.filter((m) => !/fable/i.test(m.id)).map((m) => m.id);
+}
+
+/** Tarefas do projeto em ordem de conversa (mais antiga primeiro), a partir de `since`. */
+export function chatTurns(tasks, since) {
+  if (!Array.isArray(tasks)) return [];
+  const start = since ? Date.parse(since) : NaN;
+  return tasks
+    .filter((t) => {
+      if (!t || Number.isNaN(start)) return Boolean(t);
+      const created = Date.parse(t.created_at);
+      return Number.isNaN(created) || created >= start;
+    })
+    .slice()
+    .sort((a, b) => {
+      const da = Date.parse(a.created_at);
+      const db = Date.parse(b.created_at);
+      if (Number.isNaN(da) || Number.isNaN(db) || da === db) return 0;
+      return da - db;
+    });
+}
+
+/** Fase de um turno, derivada só do estado real da tarefa. */
+export function chatTurnPhase(task) {
+  const status = task?.status;
+  if (status === "completed") return "answered";
+  if (CHAT_WORKING_STATES.includes(status)) return "working";
+  if (status === "planned") return "awaiting_consent";
+  if (status === "blocked") return "blocked";
+  if (status === "uncertain") return "uncertain";
+  if (status === "incomplete") return "incomplete";
+  if (status === "failed" || status === "interrupted") return "failed";
+  return "unknown";
+}
+
+/** Texto de atividade real. Não há streaming: a resposta chega inteira. */
+export function chatActivityLabel(status) {
+  return (
+    {
+      queued: "Preparando o pedido…",
+      waiting: "Aguardando o gateway local…",
+      running: "Aguardando o Claude…",
+      in_flight: "Aguardando o Claude…",
+    }[status] || "Aguardando…"
+  );
+}
+
+const CHAT_LOGIN_ERRORS = [
+  "provider_not_authenticated",
+  "provider_not_logged_in",
+  "provider_not_subscription_login",
+  "provider_auth_status_unknown",
+];
+const CHAT_CLI_ERRORS = [
+  "provider_cli_not_installed",
+  "provider_cli_not_runnable",
+  "provider_cli_version_unsupported",
+];
+const CHAT_UNCERTAIN_ERRORS = [
+  "provider_timeout",
+  "request_outcome_uncertain",
+  "process_interrupted_outcome_unknown",
+  "gateway_failed_outcome_may_be_unknown",
+  "gateway_request_failed",
+  "gateway_invalid_response",
+];
+const CHAT_REPLAN_ERRORS = [
+  "model_unavailable_replan_required",
+  "model_capabilities_changed_replan_required",
+  "model_capabilities_missing_replan_required",
+  "gateway_protocol_changed_replan_required",
+];
+
+/**
+ * Mensagem de erro para a conversa: frase principal, orientação e tom.
+ * `tone` "info" = saída preservada; "warn" = precisa de ação; "error" = falhou.
+ * O código técnico não aparece aqui; fica nos detalhes recolhidos.
+ */
+export function describeChatError(error) {
+  if (!error) return null;
+  if (error === "provider_error")
+    return {
+      tone: "error",
+      message: "O Claude não conseguiu responder a este pedido.",
+      hint: "Seu texto e os materiais continuam preservados. O pedido não será repetido automaticamente.",
+    };
+  if (error === "provider_quota_exceeded")
+    return {
+      tone: "warn",
+      message: "O limite de uso da sua conta Claude foi atingido.",
+      hint: "Seu texto continua preservado. Envie de novo quando a cota for renovada.",
+    };
+  if (CHAT_LOGIN_ERRORS.includes(error))
+    return {
+      tone: "warn",
+      message: "É preciso entrar na sua conta Claude para continuar.",
+      hint: "Faça login pelo comando claude no terminal e depois retome este pedido.",
+    };
+  if (CHAT_CLI_ERRORS.includes(error))
+    return {
+      tone: "warn",
+      message: "O Claude Code não pôde ser iniciado neste computador.",
+      hint: "Confira a instalação em Conexões e depois retome este pedido.",
+    };
+  if (error === "completion_unconfirmed")
+    return {
+      tone: "info",
+      message: "Resposta recebida, mas o término não foi confirmado.",
+      hint: "O texto recebido está preservado abaixo e pode estar incompleto.",
+    };
+  if (
+    error === "output_token_limit_reached" ||
+    error === "provider_output_limit_reached"
+  )
+    return {
+      tone: "info",
+      message: "A resposta parou no limite de saída.",
+      hint: "O texto recebido até esse ponto está preservado abaixo.",
+    };
+  if (CHAT_UNCERTAIN_ERRORS.includes(error))
+    return {
+      tone: "warn",
+      message: "Não foi possível confirmar o resultado deste pedido.",
+      hint: "A geração pode ter usado sua cota. O pedido não será repetido automaticamente.",
+    };
+  if (CHAT_REPLAN_ERRORS.includes(error))
+    return {
+      tone: "warn",
+      message: "O modelo ou o contrato mudou depois que este pedido foi criado.",
+      hint: "Escolha um modelo disponível e envie a mensagem de novo.",
+    };
+  if (error === "output_limit_not_accepted")
+    return {
+      tone: "warn",
+      message: "Este pedido precisa do aceite do limite indicativo.",
+      hint: "Marque o aceite e envie a mensagem de novo.",
+    };
+  if (error === "visual_context_not_supported")
+    return {
+      tone: "warn",
+      message: "O Claude ainda não analisa prints e imagens por aqui.",
+      hint: "A captura continua salva no seu computador. Envie um trecho de texto.",
+    };
+  if (error === "review_context_too_large")
+    return {
+      tone: "warn",
+      message: "O contexto ficou grande demais para a revisão.",
+      hint: "Reduza os materiais anexados e envie de novo.",
+    };
+  if (
+    error === "gateway_preflight_failed" ||
+    error === "invalid_gateway_token" ||
+    error === "gateway_busy" ||
+    error === "request_in_progress"
+  )
+    return {
+      tone: "warn",
+      message: "O gateway local não está pronto para este pedido.",
+      hint: "Nenhuma resposta foi gerada. Confira Conexões e depois retome.",
+    };
+  return {
+    tone: "error",
+    message: "Este pedido não foi concluído.",
+    hint: "Seu texto continua preservado. Veja os detalhes técnicos para o diagnóstico.",
+  };
+}
+
+/** Validação do envio no chat. Projeto não é pré-requisito: é criado no envio. */
+export function validateChatDraft({ text, modelIds, online }) {
+  if (!online) return "Conecte o componente local para enviar.";
+  if (!text || !text.trim()) return "Escreva uma mensagem.";
+  if (text.length > 8000) return "A mensagem pode ter até 8.000 caracteres.";
+  if (!Array.isArray(modelIds) || !modelIds.length)
+    return "Nenhum modelo Claude disponível. Veja Conexões.";
+  return null;
+}
