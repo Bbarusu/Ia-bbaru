@@ -4,10 +4,27 @@ A direção vigente é [DIRECAO_CLAUDE_ONLY.md](DIRECAO_CLAUDE_ONLY.md).
 Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
 
 Divisão vigente: [DIVISAO_RESPONSABILIDADES.md](DIVISAO_RESPONSABILIDADES.md).
-Codex conduz backend, contratos, runtime e correção de execução; Gemini mantém
-frontend; Claude faz análise documental da CLI até transferência explícita de
+Codex conduz backend, contratos, runtime e correção de execução. Por atualização
+posterior do usuário, um novo chat do Claude assumiu frontend/UI no lugar do Gemini;
+o Claude da integração faz análise documental da CLI até transferência explícita de
 uma implementação. Novo prompt: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
 Os briefings e pedidos de implementação anteriores do Claude estão substituídos.
+
+Limpeza solicitada: consolidar as quatro cópias Windows em uma instalação de
+trabalho. Inventário de leitura disponível em scripts/audit_copies.py; caminhos,
+critérios de preservação e pendências em
+[LIMPEZA_COPIAS_WINDOWS.md](LIMPEZA_COPIAS_WINDOWS.md). Inventário Windows recebido;
+nenhuma pasta Windows foi excluída pelo Codex.
+
+Inventário recebido posteriormente: quatro worktrees limpas usando Ia-bbaru/.git,
+11 commits sem cobertura nas referências remotas locais (contagem compartilhada)
+e data/ na cópia original. Consolidação preparada em scripts/consolidate_copies.py:
+backup verificado, Git independente na cópia de validação e remoção posterior das
+três árvores antigas. Oito testes de auditoria/consolidação aprovados em fixtures
+locais. O usuário confirmou posteriormente Git limpo em local/windows e uma única
+worktree em Ia-bbaru-validacao-pr7 no commit c12b477. A independência Git está
+confirmada; manter os backups durante a validação. O falso positivo de tokens.css
+foi corrigido.
 
 Após o roteiro de recuperação do merge 875d4b4 e testes locais, o usuário informou
 “Sem erros”. Não foi enviada nova saída detalhada nem resultado de geração real;
@@ -40,6 +57,21 @@ Os testes gráficos Linux usaram Xvfb e sandbox do sistema desativada apenas no 
 Prompts atuais: [Gemini/frontend](PROMPT_GEMINI_CLAUDE_ONLY.md) e
 [Code/Claude Code](PROMPT_CLAUDE_ESCOPO.md).
 As propostas e achados abaixo são histórico, não instruções para reativar provedores.
+
+## Tentativa real Windows — limite de uso reportado (11/11/2026)
+
+O usuário executou test_real_claude_code.py e enviou captura: um teste em 2,885 s,
+falha por HTTP 429 em vez do 200 esperado. Código provider_quota_exceeded,
+categoria quota, etapa result_error; CLI retornou código 1, JSON objeto com
+result textual e subtype=success. Limite solicitado: 128 tokens. O subtype sozinho
+não é evidência de sucesso, pois houve saída de erro da CLI.
+
+O gateway classificou a mensagem como limite de uso da conta. Não houve resposta
+concluída validada. A captura não informa qual janela de uso foi atingida nem o
+horário de renovação; conferir no Claude Code antes de outra geração. A causa do
+provider_error original do pedido “Revise” continua sem comprovação retrospectiva.
+Não alterar limites, repetir automaticamente ou mascarar o teste como aprovado.
+O aviso Starlette/httpx é separado da resposta HTTP 429.
 
 ## Validação Windows recebida em 11/11/2026
 

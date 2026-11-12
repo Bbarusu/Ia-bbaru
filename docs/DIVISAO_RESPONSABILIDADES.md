@@ -5,6 +5,11 @@ Esta divisão substitui os escopos amplos anteriores dos prompts e passagens.
 O produto continua integrado exclusivamente com Claude Code; os nomes dos
 colaboradores não são provedores disponíveis no aplicativo.
 
+Atualização posterior do usuário: um novo chat do Claude substituiu Gemini na
+frente frontend/UI. Todas as atribuições de interface ao Gemini abaixo passam
+a esse Claude de frontend. O Claude da integração permanece no escopo documental;
+os dois chats têm papéis distintos e Codex mantém a integração final.
+
 ## Responsáveis
 
 | Frente | Responsável | Limite |
