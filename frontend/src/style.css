@@ -2744,20 +2744,26 @@ dialog.kinfo-guide-dialog {
   color: var(--text);
 }
 
-.header-menu-anchor {
-  position: relative;
+/* Menus nativos (popover): presos ao botão que os abre, virando de lado se não couberem. */
+.header-menu,
+.attach-menu {
+  inset: auto;
+  position-try-fallbacks: flip-block, flip-inline;
+  color: var(--text);
 }
 
-.header-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 40;
-  min-width: 210px;
-  padding: 6px;
+.header-menu > div,
+.attach-menu > div {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.header-menu {
+  position-area: block-end span-inline-start;
+  margin: 6px 0 0;
+  min-width: 210px;
+  padding: 6px;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -2787,9 +2793,9 @@ dialog.kinfo-guide-dialog {
 }
 
 .header-menu-divider {
-  height: 1px;
   margin: 4px 6px;
-  background: var(--border-subtle);
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* Página ampla: pílula do modelo e nova conversa acima do chat */
@@ -3433,15 +3439,10 @@ dialog.kinfo-guide-dialog {
 }
 
 .attach-menu {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% - 36px);
-  z-index: 30;
+  position-area: block-start span-inline-end;
+  margin: 0 0 8px;
   width: min(270px, calc(100vw - 32px));
   padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -3477,6 +3478,7 @@ dialog.kinfo-guide-dialog {
 .composer-row textarea {
   flex: 1;
   min-width: 0;
+  field-sizing: content;
   min-height: 34px;
   max-height: 140px;
   padding: 6px 2px;

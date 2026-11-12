@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
+import { useEffect, useState, type FormEvent, type RefObject } from "react";
 import {
   ArrowDownToLine,
   ArrowUp,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { Capture } from "../types";
 import type { CaptureMediaKind } from "./SourceModal";
+import { Menu } from "./Menu";
 
 export type QuickAction = { label: string; run: () => void };
 
@@ -57,46 +58,14 @@ export function ChatComposer({
   hasEarlierTurns,
   quickActions,
 }: ChatComposerProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const menuRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointer(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node))
-        setMenuOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     if (!capture) setPreviewOpen(false);
   }, [capture]);
 
-  // Cresce com o conteúdo até o limite definido no CSS.
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [text, inputRef]);
-
   const captureText = typeof capture?.text === "string" ? capture.text : "";
   const captureTitle = capture?.title?.trim() || "Trecho da página";
-
-  function choose(action: () => void) {
-    setMenuOpen(false);
-    action();
-  }
 
   const hint =
     text.length > 0
@@ -106,7 +75,7 @@ export function ChatComposer({
         : "Enter envia · Shift+Enter quebra linha";
 
   return (
-    <form className="chat-composer" onSubmit={submit} ref={menuRef}>
+    <form className="chat-composer" onSubmit={submit}>
       <div className="quick-actions" role="group" aria-label="Sugestões rápidas">
         {quickActions.map((action) => (
           <button
@@ -119,39 +88,6 @@ export function ChatComposer({
           </button>
         ))}
       </div>
-
-      {menuOpen && (
-        <div className="attach-menu" role="menu" aria-label="Anexar contexto">
-          <button type="button" role="menuitem" onClick={() => choose(attachSelection)}>
-            <ArrowDownToLine size={14} aria-hidden="true" />
-            <span>
-              Trecho selecionado da aba
-              <small>Vai junto com a mensagem</small>
-            </span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => choose(() => openSource("screenshot"))}>
-            <Camera size={14} aria-hidden="true" />
-            <span>
-              Capturar print da tela
-              <small>Fica salvo; o Claude ainda não analisa imagens</small>
-            </span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => choose(() => openSource("image"))}>
-            <ImageIcon size={14} aria-hidden="true" />
-            <span>
-              Importar imagem local
-              <small>Fica salva; o Claude ainda não analisa imagens</small>
-            </span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => choose(() => openSource("text"))}>
-            <FileText size={14} aria-hidden="true" />
-            <span>
-              Adicionar anotação de texto
-              <small>Salva na biblioteca do projeto</small>
-            </span>
-          </button>
-        </div>
-      )}
 
       <div className="composer-pill">
         {(capture || selectedSourcesCount > 0) && (
@@ -211,18 +147,52 @@ export function ChatComposer({
 
         <div className="composer-row">
           <div className="attach-anchor">
-            <button
-              type="button"
-              className={`attach-button ${menuOpen ? "active" : ""}`}
-              aria-label="Anexar contexto"
-              title="Anexar contexto"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
+            <Menu
+              label="Anexar contexto"
+              triggerClass="attach-button"
+              menuClass="attach-menu"
               disabled={!online || busy}
-              onClick={() => setMenuOpen((open) => !open)}
+              trigger={<Plus size={17} aria-hidden="true" />}
             >
-              <Plus size={17} aria-hidden="true" />
-            </button>
+              {(close) => {
+                const choose = (action: () => void) => () => {
+                  close();
+                  action();
+                };
+                return (
+                  <>
+                    <button type="button" onClick={choose(attachSelection)}>
+                      <ArrowDownToLine size={14} aria-hidden="true" />
+                      <span>
+                        Trecho selecionado da aba
+                        <small>Vai junto com a mensagem</small>
+                      </span>
+                    </button>
+                    <button type="button" onClick={choose(() => openSource("screenshot"))}>
+                      <Camera size={14} aria-hidden="true" />
+                      <span>
+                        Capturar print da tela
+                        <small>Fica salvo; o Claude ainda não analisa imagens</small>
+                      </span>
+                    </button>
+                    <button type="button" onClick={choose(() => openSource("image"))}>
+                      <ImageIcon size={14} aria-hidden="true" />
+                      <span>
+                        Importar imagem local
+                        <small>Fica salva; o Claude ainda não analisa imagens</small>
+                      </span>
+                    </button>
+                    <button type="button" onClick={choose(() => openSource("text"))}>
+                      <FileText size={14} aria-hidden="true" />
+                      <span>
+                        Adicionar anotação de texto
+                        <small>Salva na biblioteca do projeto</small>
+                      </span>
+                    </button>
+                  </>
+                );
+              }}
+            </Menu>
           </div>
 
           <label htmlFor="instruction" className="sr-only">

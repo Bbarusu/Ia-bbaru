@@ -219,3 +219,18 @@ Achado para o Codex: o texto exibido como resposta foi apenas
 terminava citando o id. A interface mostra `task.output` inteiro, então a saída
 parece ter chegado cortada ao backend. Falta confirmar com o texto completo do
 diálogo de detalhes da tarefa, já solicitado ao usuário.
+
+## Revisão com o modern-web-guidance (12/11/2026)
+
+Suporte: só o Chromium do Electron 45 (Chromium 156), sem fallback para outros
+navegadores. Aplicado:
+- Menus "Mais opções" e "Anexar contexto" (`components/Menu.tsx`): popover nativo
+  com `command="toggle-popover"` (Esc, clique fora e retorno do foco pelo navegador),
+  `focusgroup="menu"` (setas, Home/End e papéis menu/menuitem) e anchor positioning.
+  Antes usavam `role="menu"` sem setas e código próprio de fechamento.
+- Campo de mensagem cresce com `field-sizing: content`, sem JavaScript.
+- Os testes acham os itens como botões dentro de `.header-menu`: o Playwright
+  calcula papéis sozinho e não infere os do focusgroup.
+
+Mantido: Enter com IME já checava `isComposing`; diálogos de edição continuam sem
+fechar por clique fora, para não perder rascunho.

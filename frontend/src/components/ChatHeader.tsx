@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { shortModelName } from "../logic.mjs";
 import type { Model, Project, Tab } from "../types";
+import { Menu } from "./Menu";
 
 interface ModelPillProps {
   eligibleModels: Model[];
@@ -107,30 +107,6 @@ export function ChatHeader({
   sourceCount,
   ...pill
 }: ChatHeaderProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointer(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
-
-  function choose(action: () => void) {
-    setMenuOpen(false);
-    action();
-  }
-
   return (
     <header className="chat-header">
       <ModelPill {...pill} showStatus />
@@ -171,49 +147,49 @@ export function ChatHeader({
           <SquarePen size={16} aria-hidden="true" />
         </button>
 
-        <div className="header-menu-anchor" ref={menuRef}>
-          <button
-            type="button"
-            className={`header-icon ${menuOpen ? "active" : ""}`}
-            aria-label="Mais opções"
-            title="Biblioteca, atividade e conexões"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <MoreHorizontal size={16} aria-hidden="true" />
-          </button>
-          {menuOpen && (
-            <div className="header-menu" role="menu" aria-label="Mais opções">
-              {AREAS.map(({ id, label, icon: Icon }) => (
-                <button
-                  type="button"
-                  role="menuitem"
-                  key={id}
-                  aria-current={tab === id ? "page" : undefined}
-                  onClick={() => choose(() => setTab(id))}
-                >
-                  <Icon size={14} aria-hidden="true" />
-                  <span>{label}</span>
-                  {id === "library" && sourceCount > 0 && (
-                    <small>
-                      {sourceCount} {sourceCount === 1 ? "material" : "materiais"}
-                    </small>
-                  )}
+        <Menu
+          label="Mais opções"
+          title="Biblioteca, atividade e conexões"
+          triggerClass="header-icon"
+          menuClass="header-menu"
+          trigger={<MoreHorizontal size={16} aria-hidden="true" />}
+        >
+          {(close) => {
+            const choose = (action: () => void) => () => {
+              close();
+              action();
+            };
+            return (
+              <>
+                {AREAS.map(({ id, label, icon: Icon }) => (
+                  <button
+                    type="button"
+                    key={id}
+                    aria-current={tab === id ? "page" : undefined}
+                    onClick={choose(() => setTab(id))}
+                  >
+                    <Icon size={14} aria-hidden="true" />
+                    <span>{label}</span>
+                    {id === "library" && sourceCount > 0 && (
+                      <small>
+                        {sourceCount} {sourceCount === 1 ? "material" : "materiais"}
+                      </small>
+                    )}
+                  </button>
+                ))}
+                <hr className="header-menu-divider" />
+                <button type="button" onClick={choose(openProject)}>
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Novo projeto</span>
                 </button>
-              ))}
-              <span className="header-menu-divider" role="separator" />
-              <button type="button" role="menuitem" onClick={() => choose(openProject)}>
-                <Plus size={14} aria-hidden="true" />
-                <span>Novo projeto</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => choose(openGuide)}>
-                <CircleHelp size={14} aria-hidden="true" />
-                <span>Conhecendo o Yuki</span>
-              </button>
-            </div>
-          )}
-        </div>
+                <button type="button" onClick={choose(openGuide)}>
+                  <CircleHelp size={14} aria-hidden="true" />
+                  <span>Conhecendo o Yuki</span>
+                </button>
+              </>
+            );
+          }}
+        </Menu>
 
         {canExpand && (
           <button

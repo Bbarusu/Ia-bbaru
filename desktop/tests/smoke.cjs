@@ -156,7 +156,8 @@ async function main() {
     // No painel lateral, projetos e áreas ficam no menu "Mais opções" do topo.
     const openArea = async (page, name) => {
       await page.getByRole("button", { name: "Mais opções", exact: true }).click();
-      await page.getByRole("menuitem", { name, exact: false }).click();
+      // O papel menuitem vem do focusgroup do Chromium; o Playwright não o infere.
+      await page.locator(".header-menu").getByRole("button", { name, exact: false }).click();
     };
     await openArea(workspace, "Novo projeto");
     await workspace.getByLabel("Nome do projeto").fill("Teste Chromium");

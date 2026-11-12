@@ -114,7 +114,7 @@ def main():
         # Espera o topo do painel substituir o da página ampla antes de medir.
         def open_area(target,name):
             target.get_by_role('button',name='Mais opções',exact=True).click()
-            target.get_by_role('menuitem',name=name).click()
+            target.locator('.header-menu').get_by_role('button',name=name).click()  # menuitem vem do focusgroup
         expect(page.get_by_role('button',name='Mais opções',exact=True)).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
         open_area(page,'Biblioteca')
