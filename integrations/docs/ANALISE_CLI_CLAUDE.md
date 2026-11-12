@@ -2,7 +2,8 @@
 
 Autor: Claude Code (frente de compatibilidade da CLI). Data: 11/11/2026.
 Escopo: `docs/PROMPT_CLAUDE_ESCOPO.md` e `docs/DIVISAO_RESPONSABILIDADES.md`.
-Base lida: `codex/browser-capture-clis` `36e5402`, que já contém meu trabalho até
+Atualizado em 12/11/2026 com a base `4e6679e` (seção 6).
+Base lida originalmente: `codex/browser-capture-clis` `36e5402`, que já contém meu trabalho até
 `c22beb0` (merge `875d4b4`) e a correção do Codex `aa3933f`.
 
 **Este documento é só análise.** Não alterei código, testes, fixtures,
@@ -42,7 +43,7 @@ repositório.
 | Campos marcados internamente: `api_error` (tipo do erro da API que encerrou o turno) e `terminal_reason` | 2.1.322 | [P]. Valores possíveis não levantados |
 | `modelUsage` vem indexado pelo ID do modelo servido (ex.: `claude-sonnet-5-5`), com `outputTokens`, `contextWindow`, `maxOutputTokens` | 2.1.322 | [N] |
 | `stop_reason` vem no resultado e o real de 11/11 no Windows deu `stop` | 2.1.307 | [R] com geração (rodada anterior: "laranja", 913/5, teto 64) |
-| Código de saída do processo em turnos de erro | — | **Não comprovado.** Os dublês supõem 1 |
+| Código de saída do processo em turno de erro de cota: **1**, com JSON objeto, `subtype: "success"` e `result` em texto | Windows, versão não registrada na captura | [R] com geração (seção 6). Outros tipos de erro não observados |
 
 ### 1.2 Erros e limites
 
@@ -94,7 +95,9 @@ causa comprovada**. O limite de 128 tokens **não** é causa confirmada. Faltam:
    tokens. A tela mostra "medium effort" para Opus 5.5. Para Sonnet 5.5 em `-p`
    não está levantado. A rodada real anterior (2.1.307, teto 64, uma palavra)
    passou, mas a versão e o modelo resolvido podiam ser outros.
-4. **O código de saída e o subtipo** reais dos turnos de erro (seção 1.1).
+4. **O código de saída e o subtipo** reais dos turnos de erro: observados só
+   para cota (seção 6). Teto de saída, recusa de modelo e erros da API seguem
+   sem observação.
 
 Hipóteses compatíveis com o código anterior. Nenhuma está confirmada.
 
@@ -102,12 +105,17 @@ Hipóteses compatíveis com o código anterior. Nenhuma está confirmada.
 | --- | --- |
 | H1. Resposta de revisão passou de 128 tokens e a CLI converteu em erro | Categoria `output_limit_reached` (assinatura). **Hoje o log `claude_cli_failure` não mostra isso**, ver P-1 |
 | H2. Teto menor que o orçamento de raciocínio, com recusa da API | Marcador `thinking_output_budget` (Codex), `api_status: 400` |
-| H3. Login ou cota informados em `errors[]`, antes ignorados | `authentication` / `quota` (já classificados) |
+| H3. Login ou cota informados em `errors[]`, antes ignorados | `authentication` / `quota` (já classificados). Para cota, menos provável: ver seção 6 |
 | H4. Problema de invocação no Windows depois da troca para o executável nativo (`bin/claude.exe` no pacote 2.1.322) | Marcador `argument_error`, `exit_code` sem JSON (`stdout_shape: invalid_json`) |
 
 ## 3. Problemas concretos encontrados (sem patch)
 
-### P-1 (alta) O diagnóstico pedido ao usuário não mostra a hipótese principal
+### P-1 (média, era alta) O diagnóstico pedido ao usuário não mostra a hipótese principal
+
+Atualização de 12/11: na tentativa real, o Codex leu a categoria (`quota`) pela
+assinatura ou pela linha `geração falhou`. A lacuna fica restrita ao roteiro de
+extração do log do gateway e aos marcadores da linha `claude_cli_failure`.
+
 
 - **Onde:** `integrations/failure_diagnostics.py` (`log_failure`, lista de
   marcadores) e `docs/CORRECAO_PROVIDER_ERROR.md` (pede só as linhas
@@ -233,14 +241,94 @@ Nenhuma destas pendências está transferida a mim. Ficam com o responsável ind
 | C-9 | Histórico do chat em `context[]`, dentro de `context_char_limit`, sem sessão paralela da CLI | idem |
 | — | Observar na validação Windows: versão da CLI, código de saída e subtipo reais de um turno de erro | Seção 2 |
 
-**Gemini**
+**Frontend/UI** (outro chat do Claude, no lugar do Gemini desde 11/11)
 
 | Id | Pendência | Dependência |
 | --- | --- | --- |
-| G-2 | Manter a tradução neutra de `provider_error` já feita pelo Codex em `frontend/src/logic.mjs` ao construir o chat | Nenhuma |
-| G-1 | Seletor rápido/normal/profundo | Decisão do Codex sobre C-3/C-4 |
+| F-2 | Manter a tradução neutra de `provider_error` já feita pelo Codex em `frontend/src/logic.mjs` ao construir o chat | Nenhuma |
+| F-1 | Seletor rápido/normal/profundo | Decisão do Codex sobre C-3/C-4 |
 | — | Mensagens específicas para teto de saída, créditos e modelo indisponível | Só depois que C-2/C-7 existirem no backend |
+| F-3 | Para `provider_quota_exceeded`, não prometer horário de renovação: o gateway não o transmite (texto da CLI é descartado). Indicar conferir no Claude Code | Nenhuma; R-2 mudaria isso |
 
 **Claude Code:** nenhuma implementação em aberto. Uma nova tarefa só começa por
 transferência registrada em `docs/DIVISAO_RESPONSABILIDADES.md` ou por pedido
 explícito do usuário.
+
+## 6. Atualização de 12/11/2026 (base `4e6679e`)
+
+Desde `36e5402`, a base mudou só em scripts de consolidação de cópias no Windows
+e em documentos do Codex. **Nada em `integrations/`.** P-1 a P-5 continuam
+abertos. Os prefixos G-* passaram a F-* (frontend, outro chat do Claude).
+
+### Evidência nova [R, com geração, conduzida pelo Codex]
+
+`docs/STATUS.md` e `docs/CORRECAO_PROVIDER_ERROR.md` registram que o teste opcional
+`test_real_claude_code.py` (Sonnet, teto 128) terminou em **HTTP 429**:
+`provider_quota_exceeded`, categoria `quota`, etapa `result_error`, em 2,885 s.
+A CLI saiu com **código 1** e imprimiu **JSON objeto** com `subtype: "success"` e
+`result` em texto.
+
+O que isso comprova:
+- O formato de erro de cota na conta do usuário: código 1 + `subtype: "success"`
+  + texto em `result`. É o formato que os dublês `auth_error`/`usage_limit` já
+  imitavam. Não é o envelope `errors[]` dos subtipos `error_*`.
+- `subtype: "success"` não indica sucesso. O parser atual trata corretamente
+  `is_error`/código ≠ 0 antes do subtipo.
+- A classificação por frase funcionou para esta mensagem.
+
+O que **não** comprova:
+- Qual janela de uso foi atingida, nem o horário de renovação. O gateway descarta
+  o texto e só guarda a categoria, de propósito.
+- A versão da CLI nesta execução (a captura não mostra; P-5).
+- Nada sobre o teto de 128: a falha veio antes de qualquer resposta.
+- A causa do `provider_error` original.
+
+### Dedução nova sobre a falha original (não é diagnóstico)
+
+O código vigente na falha “Revise” (`fa24ef3`) já classificava como cota um
+`result` com "usage limit", "limit reached", "rate limit", "quota" ou "resets".
+Se aquela falha tivesse sido de cota **no mesmo formato** observado agora, o
+painel teria mostrado `provider_quota_exceeded`, não `provider_error`. Logo, cota
+nesse formato fica **menos provável** como causa original.
+
+Ressalvas:
+- A versão pode ter sido outra (2.1.307 × 2.1.322).
+- Um texto de cota sem essas frases cairia em `provider_error`.
+- Cota no envelope `errors[]` (H3) também seria `provider_error` no código antigo,
+  mas esse envelope não foi observado para cota.
+
+H1, H2 e H4 continuam em aberto.
+
+### Leitura do próximo teste sintético (apoio à análise, não é pedido de teste)
+
+O teste opcional pede uma resposta de **uma palavra** com teto 128. Portanto:
+- **Sucesso** valida login, invocação, formato de sucesso e modelo servido (a
+  linha imprime "pedido | servido"). **Não exclui H1**, porque a resposta não
+  chega perto do teto. Só exclui H2 se o raciocínio contar no teto e ainda assim
+  passar.
+- **Erro com categoria `output_limit_reached`** ou marcador
+  `thinking_output_budget` numa resposta de uma palavra indicaria H2 (raciocínio
+  consumindo o teto), não H1.
+- **Cota de novo** não diz nada sobre a falha original.
+- O banco de deduplicação do teste é temporário. A assinatura persiste só nas
+  linhas de log impressas no terminal (`claude_cli_failure` e `geração falhou`).
+  Por isso P-1 importa nesse teste.
+
+### Recomendações novas
+
+- **R-1 (Codex):** documentar no dublê de cota que o formato foi **observado**
+  (código 1, `subtype: "success"`, `result` em texto). Até agora era descrito como
+  "visto na prática", sem data nem versão. Fixture: a existente `usage_limit`, com
+  comentário de proveniência. Não precisa de código novo.
+- **R-2 (Codex, depende de contrato):** a saída `stream-json` emite um evento
+  `rate_limit_event`, visto em [N] só pelo tipo; campos **não levantados**. Se ele
+  trouxer janela e renovação de forma estruturada, permitiria informar o usuário
+  sem guardar texto da CLI. Hoje não há evidência suficiente para propor campos.
+  Fica condicionado à proposta de streaming da seção 4.
+- **R-3 (Codex):** a categoria `quota` junta "rate limit" (limite de taxa da
+  API, possivelmente transitório) e "usage limit" (janela da assinatura). Se a
+  interface for orientar "aguarde a renovação", convém separar as duas
+  categorias na assinatura. A frase exata do limite de taxa na 2.1.322 não foi
+  levantada, então não proponho a frase.
+
+Sem outros achados novos nesta atualização.
