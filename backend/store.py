@@ -25,6 +25,10 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS sources_project ON sources(project_id);
                 CREATE INDEX IF NOT EXISTS tasks_project ON tasks(project_id);
+                CREATE TABLE IF NOT EXISTS source_media (
+                    source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+                    body TEXT NOT NULL
+                );
             """)
 
     @contextmanager

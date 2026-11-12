@@ -1,7 +1,7 @@
 # Ia-bbaru: navegador Chromium e backend local
 
 Em 9/11/2026, o usuário escolheu **Chromium** para iniciar o navegador independente.
-A implementação está em `codex/chromium-browser`, baseada na entrega `cbcf3d7`.
+A base está na `main`. A revisão de captura/CLIs está em `codex/browser-capture-clis`.
 Usamos Electron, com Chromium incorporado e interface própria. Não é um fork do
 código do Chrome. A extensão Firefox permanece como alternativa de desenvolvimento;
 Gecko deixou de ser a direção do navegador.
@@ -17,7 +17,9 @@ flowchart LR
     N -->|HTTP loopback com token interno| B[Backend FastAPI]
     B --> D[SQLite do perfil]
     B -->|Contrato 1 ou 1.1| G[Gateway separado]
-    G --> C[CLI oficial e assinatura elegível]
+    G --> C[Claude Code oficial e conta Claude]
+    C --> S1[Modelo Claude autorizado para resposta]
+    C --> S2[Modelo Claude autorizado para revisão]
 ```
 
 - `desktop/main.cjs`: janela, abas WebContentsView, navegação, captura, perfil,
@@ -46,14 +48,15 @@ navegação de documentos internos e anexação de webviews são bloqueados. Jan
 novas são direcionadas para abas sem privilégios do processo principal. Downloads e
 permissões de dispositivos estão desativados nesta primeira versão.
 
-A captura lê somente a seleção após uma ação do usuário, inclui URL/título e exige
-revisão antes de salvar. Há uma captura pendente por vez no desktop. Receber uma
+A captura lê seleção, texto da página ou pixels visíveis após ação explícita,
+inclui origem quando disponível e exige revisão antes de salvar. Imagens locais
+também podem ser importadas/coladas; a origem não é inventada para esses arquivos.
+Há uma captura pendente por vez no desktop. Receber uma
 seleção durante edição manual não substitui o rascunho. Páginas e respostas de IA
 continuam como dados não confiáveis, renderizados como texto.
 
-Abrir ou fazer login em NotebookLM, ChatGPT, Claude ou Gemini não concede ao gateway
-uma API de assinatura. Não há extração de cookies, importação automática de cadernos
-ou uso de endpoints privados. Cada adaptador oficial verifica sua elegibilidade.
+Abrir o site Claude não autentica o gateway. A conexão usa exclusivamente a CLI
+oficial Claude Code e seu login; não extrai cookies nem usa endpoints privados.
 
 ## Planejamento e execução
 
@@ -61,12 +64,22 @@ O backend 1.1 persiste aceite/capacidades, revalida planos e trata `unknown` com
 incompleto sem chamar o revisor. O painel envia o aceite e o exige para limites
 indicativos. Criar plano não gera uma resposta.
 
-**Execução pelo painel ainda depende de coordenação durável.** A ponte desktop
-preserva a allowlist do host e recusa `tasks.execute`. O endpoint HTTP síncrono de
-desenvolvimento não deve ser exposto diretamente no renderer. Codex fará a fila/
-worker e acompanhamento de tarefas no próximo marco.
+A ponte oferece tasks.enqueue e tasks.resume com confirmação explícita. O worker
+SQLite mantém pedidos e identifica resultados incertos sem repetir geração.
+tasks.execute é legado HTTP e não é exposto no renderer.
 
-## Responsabilidades
+## Modelos Claude
+
+Somente Claude Code é registrado no gateway. O backend filtra o catálogo para
+claude-code. Perfis por modelo vêm de IA_BBARU_CLAUDE_CODE_MODEL_TASK_KINDS;
+regras e limites estão em [direção atual](DIRECAO_CLAUDE_ONLY.md). Não há
+aceite para ferramentas restritas. O worker não fabrica stop nem inicia revisão
+de resposta incompleta. Uma categoria de tarefa não é uma medida de qualidade.
+
+Capturas raster são registros `source_media` vinculados à fonte/projeto, separados
+do texto. O backend valida tipo, tamanho e dimensões e não envia esses pixels em
+`ContextItem.content`. Multimodalidade exige contrato versionado e suporte
+declarado por modelo. Ver [contrato local de capturas](CONTRATO_CAPTURAS.md).
 
 | Frente | Responsável | Área |
 | --- | --- | --- |
@@ -76,8 +89,8 @@ worker e acompanhamento de tarefas no próximo marco.
 | Integrações e autenticação elegível | Claude | `integrations/`, `tests/integrations/` |
 
 Usar a nova base, preservar transporte/aceite e não sobrescrever branches de outras
-frentes. Prompts atuais: [Gemini](PROMPT_GEMINI_CHROMIUM.md) e
-[Claude](PROMPT_CLAUDE_CHROMIUM.md).
+frentes. Prompts atuais: [Gemini](PROMPT_GEMINI_CLAUDE_ONLY.md) e
+[Claude Code](PROMPT_CODE_CLAUDE_ONLY.md).
 
 ## Teste e distribuição
 

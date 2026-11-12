@@ -11,7 +11,7 @@ import {
   Unplug,
   Workflow,
 } from "lucide-react";
-import type { Capture, Model, Page, Project, Source, Tab, Task } from "./types";
+import type { Capture, Connection, Media, Model, Page, Project, Source, Tab, Task } from "./types";
 import {
   clearCapture,
   demo,
@@ -43,7 +43,7 @@ import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
 import { ProjectModal } from "./components/ProjectModal";
-import { SourceModal } from "./components/SourceModal";
+import { SourceModal, type CaptureMediaKind } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
@@ -94,6 +94,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const [modal, setModal] = useState<"project" | "source" | null>(null);
+  const [sourceMode, setSourceMode] = useState<CaptureMediaKind>("text");
   const [guideOpen, setGuideOpen] = useState(false);
   const [capture, setCapture] = useState<Capture | null>(null);
   const [queuedCapture, setQueuedCapture] = useState<Capture | null>(null);
@@ -101,6 +102,8 @@ export default function App() {
   const [taskView, setTaskView] = useState<Task | null>(null);
   const [executionEnabled, setExecutionEnabled] = useState(false);
   const [pollError, setPollError] = useState("");
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [diagnosticError, setDiagnosticError] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [search, setSearch] = useState("");
@@ -204,6 +207,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (tab !== "connections" || !online || !inDesktop || checking) return;
+    let active = true;
+    request<{ connections: Connection[] }>("connections.list").then((data) => {
+      if (active) { setConnections(data.connections); setDiagnosticError(""); }
+    }).catch(() => { if (active) setDiagnosticError("Diagnóstico das CLIs indisponível. O catálogo acima continua independente."); });
+    return () => { active = false; };
+  }, [tab, online, checking]);
+
+  useEffect(() => {
     let active = true;
     setSources([]);
     setTasks([]);
@@ -257,6 +269,7 @@ export default function App() {
     }
     if (decision.action === "open" && decision.capture) {
       setCapture(decision.capture);
+      setSourceMode(decision.capture.media?.kind || "text");
       setTitle(decision.title);
       setContent(decision.content);
       setModal("source");
@@ -302,8 +315,18 @@ export default function App() {
     setModal("project");
   }
 
-  function openSource() {
+  function openSource(mode: CaptureMediaKind = "text") {
+    if (mode === "screenshot" && inDesktop) {
+      void (async () => {
+        setError("");
+        const result = await localBridge.runtime.sendMessage({ type: "capture.screenshot" });
+        if (!result?.ok) throw new Error(result?.error?.message || "Não foi possível capturar a página.");
+        // The runtime publishes the capture through the existing draft-safe path.
+      })().catch((error) => setError(error.message));
+      return;
+    }
     setCapture(null);
+    setSourceMode(mode);
     setTitle("");
     setContent("");
     setModal("source");
@@ -322,7 +345,7 @@ export default function App() {
     });
   }
 
-  async function saveSource(event: FormEvent) {
+  async function saveSource(event: FormEvent, media?: Media) {
     event.preventDefault();
     const target = projectId;
     if (!target) {
@@ -342,6 +365,7 @@ export default function App() {
         project_id: target,
         title: title.trim(),
         content: body,
+        ...(media ? { media } : {}),
       });
       if (projectRef.current === target) {
         setSources((old) => [
@@ -349,7 +373,7 @@ export default function App() {
           { ...source, preview: body.slice(0, 160), char_count: body.length },
         ]);
         setSelectedSources((old) =>
-          old.length < 20 ? [...old, source.id] : old,
+          old.length < 20 && !source.media ? [...old, source.id] : old,
         );
       }
       if (reviewedCapture) {
@@ -671,6 +695,9 @@ export default function App() {
                   draftReady={draftReady}
                   selectedSourcesCount={selectedSources.length}
                   openSource={openSource}
+                  captureSelection={() =>
+                    selectCapture().catch((error) => setError(error.message))
+                  }
                   kind={kind}
                   setKind={setKind}
                   plan={plan}
@@ -707,7 +734,7 @@ export default function App() {
               openSource={openSource}
               openProject={openProject}
               captureSelection={() =>
-                act(async () => receiveCapture(await selectCapture()))
+                selectCapture().catch((error) => setError(error.message))
               }
               viewSource={(source) =>
                 act(async () =>
@@ -745,6 +772,8 @@ export default function App() {
 
           {tab === "connections" && (
             <ConnectionsSection
+              connections={connections}
+              diagnosticError={diagnosticError}
               inFirefox={inFirefox}
               inDesktop={inDesktop}
               demo={demo}
@@ -784,7 +813,7 @@ export default function App() {
 
       {modal === "source" && (
         <SourceModal
-          key={capture?.id ?? "source-manual"}
+          key={`${capture?.id ?? "source-manual"}-${sourceMode}`}
           capture={capture}
           queuedCapture={queuedCapture}
           projects={projects}
@@ -801,6 +830,7 @@ export default function App() {
           busy={busy}
           online={online}
           error={error}
+          initialMode={sourceMode}
         />
       )}
 

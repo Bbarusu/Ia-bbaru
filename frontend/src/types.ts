@@ -6,7 +6,11 @@ export type Source = {
   preview?: string;
   content?: string;
   char_count?: number;
+  media?: Media;
 };
+
+export type Media = { kind: "image" | "screenshot"; data_url?: string; width?: number; height?: number; byte_count?: number };
+export type Connection = { provider: string; version: string | null; installed: boolean; ready: boolean; configured: boolean; reason: string | null };
 
 export type ModelCapabilities = {
   output_limit: "enforced" | "best_effort" | "none";
@@ -65,7 +69,7 @@ export type Task = {
   }[] };
 };
 
-export type Capture = { id: string; title: string; url: string; text: string };
+export type Capture = { id: string; title: string; url: string; text: string; media?: Media };
 export type Page<T> = { items: T[]; next_offset: number | null };
 export type Tab = "workspace" | "library" | "history" | "connections";
 

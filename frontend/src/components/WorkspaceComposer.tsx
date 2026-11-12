@@ -1,6 +1,9 @@
 import { type FormEvent } from "react";
 import {
+  ArrowDownToLine,
   ArrowRight,
+  Camera,
+  Image as ImageIcon,
   Link2,
   Loader2,
   Plus,
@@ -9,13 +12,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { Model } from "../types";
+import type { CaptureMediaKind } from "./SourceModal";
 
 interface WorkspaceComposerProps {
   text: string;
   changeText: (value: string) => void;
   draftReady: boolean;
   selectedSourcesCount: number;
-  openSource: () => void;
+  openSource: (mode?: CaptureMediaKind) => void;
+  captureSelection?: () => void;
   kind: string;
   setKind: (kind: string) => void;
   plan: (e: FormEvent) => Promise<void>;
@@ -32,6 +37,7 @@ export function WorkspaceComposer({
   draftReady,
   selectedSourcesCount,
   openSource,
+  captureSelection,
   kind,
   setKind,
   plan,
@@ -42,10 +48,14 @@ export function WorkspaceComposer({
   selectedModels,
 }: WorkspaceComposerProps) {
   const promptSuggestions = [
-    "Explique este conteúdo",
-    "Compare duas ideias",
-    "Organize meus estudos",
+    "Resumir pontos essenciais da página",
+    "Explicar a descrição de um diagrama",
+    "Comparar argumentos dos materiais",
   ];
+
+  const activeAgentLabels = availableModels
+    .filter((m) => selectedModels.includes(m.id))
+    .map((m) => m.label);
 
   const canSubmit =
     !busy &&
@@ -62,10 +72,52 @@ export function WorkspaceComposer({
           <Sparkles size={18} />
         </span>
         <div>
-          <h2>O que vamos fazer?</h2>
-          <p>Comece com uma pergunta. Ou uma grande ideia.</p>
+          <h2>Perguntar ao Yuki</h2>
+          <p>Capture materiais da página. Os agentes atuais recebem texto.</p>
         </div>
-        <span className="micro-badge">NOVO PEDIDO</span>
+        <span className="micro-badge">CONTEXTO DA ABA</span>
+      </div>
+
+      <div
+        className="context-composer-bar"
+        role="group"
+        aria-label="Captura rápida multimodal para o agente"
+      >
+        <span className="context-bar-title">❄ Anexar da aba:</span>
+        <div className="context-bar-btns">
+          {captureSelection && (
+            <button
+              type="button"
+              className="context-mini-btn"
+              onClick={captureSelection}
+              disabled={busy}
+              title="Capturar trecho de texto selecionado na aba ativa"
+            >
+              <ArrowDownToLine size={12} aria-hidden="true" />
+              Trecho
+            </button>
+          )}
+          <button
+            type="button"
+            className="context-mini-btn"
+            onClick={() => openSource("screenshot")}
+            disabled={!online || !projectId || busy}
+            title="Capturar ou colar print da tela (Ctrl+V)"
+          >
+            <Camera size={12} aria-hidden="true" />
+            Print
+          </button>
+          <button
+            type="button"
+            className="context-mini-btn"
+            onClick={() => openSource("image")}
+            disabled={!online || !projectId || busy}
+            title="Capturar ou importar imagem da página"
+          >
+            <ImageIcon size={12} aria-hidden="true" />
+            Imagem
+          </button>
+        </div>
       </div>
 
       <form onSubmit={plan}>
@@ -74,7 +126,7 @@ export function WorkspaceComposer({
         </label>
         <textarea
           id="instruction"
-          placeholder="Explique um assunto, conecte ideias ou planeje seu próximo projeto…"
+          placeholder="Pergunte sobre os textos selecionados ou peça para sintetizar seus materiais…"
           value={text}
           onChange={(e) => changeText(e.target.value)}
           disabled={!draftReady}
@@ -106,17 +158,24 @@ export function WorkspaceComposer({
             {selectedSourcesCount > 0
               ? `${selectedSourcesCount} ${
                   selectedSourcesCount === 1
-                    ? "material selecionado"
-                    : "materiais selecionados"
+                    ? "material anexado"
+                    : "materiais anexados"
                 }`
-              : "Adicione contexto ao seu pedido"}
+              : "Adicione textos, prints ou imagens ao pedido"}
+          </span>
+          <span className="context-agent-pill">
+            {activeAgentLabels.length > 0
+              ? `❄ ${activeAgentLabels.join(" + ")}`
+              : availableModels.length > 0
+                ? "Escolha 1 agente abaixo"
+                : "Sem agente conectado"}
           </span>
           <button
             type="button"
             className="icon-button"
             aria-label="Adicionar material"
-            title="Adicionar material"
-            onClick={openSource}
+            title="Adicionar material (Texto, Print ou Imagem)"
+            onClick={() => openSource("text")}
             disabled={!online || !projectId}
           >
             <Plus size={16} />
@@ -161,7 +220,7 @@ export function WorkspaceComposer({
 
       <div className="composer-foot">
         <ShieldCheck size={13} aria-hidden="true" />
-        Você escolhe os materiais que cada agente recebe.
+        Você escolhe exatamente quais textos, prints e imagens cada agente recebe.
       </div>
     </section>
   );

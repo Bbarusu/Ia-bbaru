@@ -50,6 +50,7 @@ const operations = new Set([
   "sources.create",
   "sources.get",
   "models.list",
+  "connections.list",
   "tasks.list",
   "tasks.plan",
   "tasks.get",

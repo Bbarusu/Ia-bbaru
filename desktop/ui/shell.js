@@ -1,16 +1,16 @@
 const api = window.navigatorApp;
 const $ = (id) => document.getElementById(id);
 let state,
-  ownMessage = "";
+  ownMessage = "",
+  activeSubbarMode = null, // null | "find" | "zoom" | "history" | "security" | "capture-media"
+  currentZoom = 100,
+  findQuery = "";
 
 const DEFAULT_BOOKMARKS = [
-  { title: "NotebookLM", url: "https://notebooklm.google.com/" },
   { title: "Claude", url: "https://claude.ai/" },
-  { title: "ChatGPT", url: "https://chatgpt.com/" },
-  { title: "Gemini", url: "https://gemini.google.com/" },
 ];
 
-const subtabsByTab = new Map();
+
 
 function loadBookmarks() {
   try {
@@ -29,33 +29,46 @@ function saveBookmarks(items) {
   } catch {}
 }
 
-let bookmarks = loadBookmarks();
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem("yuki:history");
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return [];
+}
 
-function ensureSubtabs(tab) {
-  if (!tab) return [];
-  let list = subtabsByTab.get(tab.id);
-  if (!list || !list.length) {
-    list = [
-      {
-        id: "main",
-        title: tab.title || "Principal",
-        url: tab.url || "",
-        active: true,
-      },
-    ];
-    subtabsByTab.set(tab.id, list);
-  } else {
-    const current = list.find((s) => s.active) || list[0];
-    current.title = tab.title || current.title || "Sub-aba";
-    current.url = tab.url || "";
-  }
-  return list;
+function saveHistory(items) {
+  try {
+    localStorage.setItem("yuki:history", JSON.stringify(items.slice(0, 30)));
+  } catch {}
+}
+
+let bookmarks = loadBookmarks();
+let visitHistory = loadHistory();
+
+function recordVisit(tab) {
+  if (!tab?.url || !/^https?:\/\//i.test(tab.url)) return;
+  const entry = {
+    title: (tab.title || tab.url).slice(0, 48),
+    url: tab.url,
+    time: new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+  visitHistory = [
+    entry,
+    ...visitHistory.filter((item) => item.url !== tab.url),
+  ].slice(0, 25);
+  saveHistory(visitHistory);
 }
 
 async function command(action, value) {
   const result = await api.command(action, value);
   ownMessage = result.ok ? "" : result.error;
   renderMessage();
+  return result;
 }
 
 function renderMessage() {
@@ -86,44 +99,212 @@ function createPowerIconSvg() {
   return svg;
 }
 
-function renderSubbar(activeTab) {
-  const subtabsEl = $("subtabs");
-  subtabsEl.replaceChildren();
-  const subs = ensureSubtabs(activeTab);
+function updateSiteSecurityBadge(activeTab) {
+  const badge = $("site-security");
+  if (!badge) return;
+  const url = activeTab?.url || "";
+  if (!url) {
+    badge.textContent = "❄";
+    badge.title = "Página interna isolada do Yuki (Nova aba)";
+  } else if (url.startsWith("https://")) {
+    badge.textContent = "🔒";
+    badge.title = `Endereço HTTPS (${url})`;
+  } else {
+    badge.textContent = "ⓘ";
+    badge.title = `Conexão HTTP (${url}) · Sandbox Chromium ativo`;
+  }
+}
 
-  for (const sub of subs) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "subtab-chip" + (sub.active ? " active" : "");
-    btn.textContent = sub.title || "Sub-aba";
-    btn.title = sub.url ? `${sub.title} — ${sub.url}` : sub.title;
-    btn.onclick = () => {
-      for (const item of subs) item.active = item.id === sub.id;
-      renderSubbar(activeTab);
-      command("navigate", sub.url || "");
-    };
-    subtabsEl.appendChild(btn);
+function closeSubbarTool() {
+  if (activeSubbarMode === "find") command("find", { text: "", forward: true });
+  activeSubbarMode = null;
+  renderSubbar(state?.tabs.find((t) => t.id === state?.activeId));
+}
+
+function setSubbarTool(mode, mediaKind = "") {
+  if (activeSubbarMode === mode && !mediaKind) {
+    closeSubbarTool();
+    return;
+  }
+  activeSubbarMode = mode;
+  renderSubbar(state?.tabs.find((t) => t.id === state?.activeId), mediaKind);
+}
+
+function renderSubbarToolContent(activeTab, mediaKind = "") {
+  const toolEl = $("subbar-tool");
+  const defEl = $("subbar-default");
+  if (!activeSubbarMode) {
+    toolEl.hidden = true;
+    defEl.hidden = false;
+    return;
   }
 
-  const addSub = document.createElement("button");
-  addSub.type = "button";
-  addSub.className = "subtab-chip add";
-  addSub.textContent = "+ Sub-aba";
-  addSub.title = "Criar sub-aba nesta aba";
-  addSub.onclick = () => {
-    if (!activeTab) return;
-    for (const item of subs) item.active = false;
-    subs.push({
-      id: String(Date.now()),
-      title: `Sub-aba ${subs.length + 1}`,
-      url: "",
-      active: true,
-    });
-    renderSubbar(activeTab);
-    command("navigate", "");
-  };
-  subtabsEl.appendChild(addSub);
+  defEl.hidden = true;
+  toolEl.hidden = false;
+  toolEl.replaceChildren();
 
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "tool-close-btn";
+  closeBtn.textContent = "✕";
+  closeBtn.title = "Voltar para a barra de favoritos";
+  closeBtn.onclick = closeSubbarTool;
+
+  if (activeSubbarMode === "find") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = "⌕ Buscar na página:";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tool-input";
+    input.placeholder = "Digite um termo para localizar…";
+    input.value = findQuery;
+    input.oninput = (e) => {
+      findQuery = e.target.value;
+    };
+    input.onkeydown = (e) => {
+      if (e.key === "Escape") closeSubbarTool();
+      if (e.key === "Enter" && findQuery.trim()) {
+        command("find", { text: findQuery, forward: true });
+      }
+    };
+
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "context-chip";
+    prevBtn.textContent = "↑ Anterior";
+    prevBtn.onclick = () => {
+      if (findQuery.trim()) {
+        command("find", { text: findQuery, forward: false });
+      }
+    };
+
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "context-chip";
+    nextBtn.textContent = "↓ Próxima";
+    nextBtn.onclick = () => {
+      if (findQuery.trim()) {
+        command("find", { text: findQuery, forward: true });
+      }
+    };
+
+    const count = document.createElement("span");
+    count.setAttribute("role", "status");
+    count.textContent = state?.find ? `${state.find.activeMatchOrdinal} / ${state.find.matches}` : "";
+    toolEl.append(label, input, prevBtn, nextBtn, count, closeBtn);
+    setTimeout(() => input.focus(), 10);
+    return;
+  }
+
+  if (activeSubbarMode === "zoom") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = `Zoom da página (${currentZoom}%):`;
+
+    for (const step of [80, 90, 100, 110, 125, 150]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "context-chip" + (currentZoom === step ? " active" : "");
+      btn.textContent = `${step}%`;
+      btn.onclick = () => {
+        command("zoom", step);
+      };
+      toolEl.appendChild(btn);
+    }
+
+    toolEl.appendChild(closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "history") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = "🕘 Histórico recente:";
+    toolEl.appendChild(label);
+
+    if (!visitHistory.length) {
+      const empty = document.createElement("span");
+      empty.className = "tool-note";
+      empty.textContent = "Nenhuma página web visitada ainda nesta sessão.";
+      toolEl.appendChild(empty);
+    } else {
+      for (const item of visitHistory.slice(0, 5)) {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "bookmark-chip";
+        link.textContent = `${item.title} (${item.time})`;
+        link.title = item.url;
+        link.onclick = () => {
+          closeSubbarTool();
+          command("navigate", item.url);
+        };
+        toolEl.appendChild(link);
+      }
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "context-chip";
+      clearBtn.textContent = "Limpar";
+      clearBtn.onclick = () => {
+        visitHistory = [];
+        saveHistory([]);
+        renderSubbarToolContent(activeTab);
+      };
+      toolEl.appendChild(clearBtn);
+    }
+
+    toolEl.appendChild(closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "security") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    const url = activeTab?.url || "yuki://nova-aba";
+    label.textContent = url.startsWith("https://")
+      ? "🔒 Endereço HTTPS"
+      : url.startsWith("http://")
+        ? "ⓘ HTTP local/padrão"
+        : "❄ Página interna Yuki";
+
+    const details = document.createElement("span");
+    details.className = "tool-note";
+    details.textContent =
+      "Sandbox Chromium ativo · Sem acesso a Node/IPC · Cookies isolados dos agentes CLI.";
+
+    toolEl.append(label, details, closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "capture-media") {
+    const isPrint = mediaKind === "print";
+    const badge = document.createElement("span");
+    badge.className = "tool-label";
+    badge.textContent = isPrint
+      ? "📸 Capturar Print da Tela:"
+      : "🖼 Capturar Imagem da Página:";
+
+    const info = document.createElement("span");
+    info.className = "tool-note";
+    info.textContent = isPrint
+      ? "Use o painel lateral (+ Material → aba Print / Ctrl+V) ou clique com botão direito na página."
+      : "Use o painel lateral (+ Material → aba Imagem) para colar ou importar imagens da página.";
+
+    const openPanelBtn = document.createElement("button");
+    openPanelBtn.type = "button";
+    openPanelBtn.className = "context-chip active";
+    openPanelBtn.textContent = "❄ Abrir no Painel Yuki →";
+    openPanelBtn.onclick = () => {
+      if (!state?.panel) command("panel");
+      closeSubbarTool();
+    };
+
+    toolEl.append(badge, info, openPanelBtn, closeBtn);
+  }
+}
+
+function renderSubbar(activeTab, mediaKind = "") {
   const bookmarksEl = $("bookmarks");
   bookmarksEl.replaceChildren();
   for (const bm of bookmarks) {
@@ -139,6 +320,8 @@ function renderSubbar(activeTab) {
   const isBookmarked =
     Boolean(activeTab?.url) && bookmarks.some((b) => b.url === activeTab.url);
   $("bookmark-toggle").classList.toggle("active", isBookmarked);
+  updateSiteSecurityBadge(activeTab);
+  renderSubbarToolContent(activeTab, mediaKind);
 }
 
 function render(next) {
@@ -147,6 +330,9 @@ function render(next) {
   $("tabs").replaceChildren();
   for (const tab of next.tabs) {
     const isActive = tab.id === next.activeId;
+    if (isActive && !tab.loading && tab.url) {
+      recordVisit(tab);
+    }
     const item = document.createElement("div");
     item.className = [
       "tab",
@@ -176,7 +362,6 @@ function render(next) {
     close.setAttribute("aria-label", `Fechar ${tab.title}`);
     close.title = `Encerrar aba ${tab.title}`;
     close.onclick = () => {
-      subtabsByTab.delete(tab.id);
       command("close", tab.id);
     };
 
@@ -193,6 +378,9 @@ function render(next) {
   }
   $("back").disabled = !next.back;
   $("forward").disabled = !next.forward;
+  $("reopen-tab").disabled = !next.canReopen;
+  currentZoom = next.zoom || 100;
+  $("zoom-toggle").textContent = `${currentZoom}%`;
   $("panel").setAttribute("aria-pressed", String(Boolean(next.panel)));
   $("panel").classList.toggle("active", Boolean(next.panel));
   $("expand").setAttribute("aria-pressed", String(Boolean(next.expanded)));
@@ -213,13 +401,29 @@ for (const id of [
   $(id).onclick = () => command(id);
 }
 
-$("minimize").onclick = () => {
-  if (state?.panel) command("panel");
-};
+$("home").onclick = () => command("navigate", "");
+
+$("reopen-tab").onclick = () => command("reopen");
+$("minimize").onclick = () => command("minimize");
 
 $("power").onclick = () => {
   window.close();
 };
+
+$("site-security").onclick = () => setSubbarTool("security");
+$("find-toggle").onclick = () => setSubbarTool("find");
+$("zoom-toggle").onclick = () => setSubbarTool("zoom");
+$("history-toggle").onclick = () => setSubbarTool("history");
+
+$("capture-print").onclick = () => command("capture.screenshot");
+$("capture-image").onclick = () => command("capture.image");
+
+document.querySelectorAll("[data-context]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const kind = btn.getAttribute("data-context");
+    command(kind === "summarize" ? "capture.page" : kind === "print" ? "capture.screenshot" : "capture.image");
+  });
+});
 
 $("bookmark-toggle").onclick = () => {
   const tab = state?.tabs.find((t) => t.id === state.activeId);
@@ -283,7 +487,15 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "t") {
     event.preventDefault();
-    command("new");
+    if (event.shiftKey) {
+      $("reopen-tab").click();
+    } else {
+      command("new");
+    }
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    setSubbarTool("find");
   }
 });
 
@@ -293,3 +505,5 @@ api.focusAddress(() => {
   $("address").focus();
   $("address").select();
 });
+
+api.openTool((name) => { if (name === "find") setSubbarTool("find"); });

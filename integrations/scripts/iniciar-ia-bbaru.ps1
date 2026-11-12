@@ -1,15 +1,17 @@
 ﻿<#
-Inicia o Ia-bbaru com o gateway do Claude Code: primeiro início e aberturas seguintes.
+Inicia o Ia-bbaru com o gateway das CLIs oficiais (Claude Code): primeiro início e aberturas seguintes.
 
-Uso, na raiz de um checkout que junte o navegador (Codex), a interface (Gemini)
-e o gateway (Claude):
+Uso, na raiz do checkout integrado:
 
     powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru.ps1
+
+Modelos: -Models "sonnet,haiku,opus" (somente os autorizados na sua conta).
+-Model continua aceito como alias. Confira /model na CLI antes de adicionar modelos.
 
 O que faz:
   1. Na primeira vez, cria .venv (Python 3.12) e instala requirements.txt.
   2. Guarda um token de gateway fora do repositório (%LOCALAPPDATA%\Ia-bbaru-gateway).
-  3. Mostra o diagnóstico do Claude Code (sem gerar resposta).
+  3. Mostra o diagnóstico das CLIs configuradas (sem gerar resposta).
   4. Abre o gateway sem janela (porta 8010), com log em %LOCALAPPDATA%\Ia-bbaru-gateway.
   5. Abre o navegador com GATEWAY_URL, GATEWAY_TOKEN e GATEWAY_PROTOCOL_VERSION=1.1,
      usando scripts\start-browser.ps1 (com -Install na primeira vez).
@@ -19,7 +21,7 @@ Nunca gera respostas de IA: abrir, consultar o catálogo e criar planos não con
 geração. Não lê cookies nem arquivos de credencial. Não liga a flag legada do contrato 1.
 #>
 param(
-    [string]$Model = 'sonnet',
+    [Alias('Model')][string]$Models = 'sonnet',
     [int]$MaxOutputTokens = 128,
     [int]$Port = 8010
 )
@@ -28,7 +30,7 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $startBrowser = Join-Path $root 'scripts\start-browser.ps1'
 if (-not (Test-Path $startBrowser)) {
-    throw 'Este checkout não tem scripts\start-browser.ps1. Use a pasta que junta o navegador do Codex com o gateway.'
+    throw 'Este checkout não tem scripts\start-browser.ps1. Use a pasta do navegador integrado.'
 }
 $python = Join-Path $root '.venv\Scripts\python.exe'
 
@@ -57,7 +59,7 @@ $token = (Get-Content $tokenFile -Raw).Trim()
 # Configuração do gateway (herdada pelo processo que será aberto).
 $env:GATEWAY_TOKEN = $token
 $env:IA_BBARU_GATEWAY_DB = Join-Path $stateDir 'gateway.sqlite3'
-$env:IA_BBARU_CLAUDE_CODE_MODELS = $Model
+$env:IA_BBARU_CLAUDE_CODE_MODELS = $Models
 $env:IA_BBARU_CLAUDE_CODE_MAX_OUTPUT_TOKENS = "$MaxOutputTokens"
 Remove-Item Env:IA_BBARU_CLAUDE_CODE_ACCEPT_UNENFORCED_OUTPUT_LIMIT -ErrorAction SilentlyContinue
 Remove-Item Env:IA_BBARU_REAL_TEST -ErrorAction SilentlyContinue
@@ -67,14 +69,24 @@ Push-Location $root
 try {
     $diagnostic = (& $python -m integrations diagnose | Out-String) | ConvertFrom-Json
 } finally { Pop-Location }
-$claude = $diagnostic.claude_code
-if ($claude.contract_1_1.available) {
-    Write-Host "Claude Code $($claude.version): pronto (login $($claude.auth_method))." -ForegroundColor Green
-} else {
-    Write-Host "Claude Code indisponível: $($claude.reason)." -ForegroundColor Yellow
-    if ($claude.next_action) { Write-Host "  O que fazer: $($claude.next_action)" -ForegroundColor Yellow }
-    Write-Host '  O navegador abre mesmo assim; o agente aparece como indisponível.'
+$agents = @(
+    @{ Name = 'Claude Code'; Data = $diagnostic.claude_code; Configured = $true }
+)
+foreach ($agent in $agents) {
+    if (-not $agent.Configured) { continue }
+    $info = $agent.Data
+    if ($info.contract_1_1.available) {
+        Write-Host "$($agent.Name) $($info.version): pronto (login $($info.auth_method))." -ForegroundColor Green
+        if ($info.capabilities.tools -ne 'disabled') {
+            Write-Host '  Aviso: esta CLI não permite desligar todas as ferramentas; o planejamento ainda a recusa.' -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "$($agent.Name) indisponível: $($info.reason)." -ForegroundColor Yellow
+        if ($info.detail) { Write-Host "  Detalhe: $($info.detail)" -ForegroundColor Yellow }
+        if ($info.next_action) { Write-Host "  O que fazer: $($info.next_action)" -ForegroundColor Yellow }
+    }
 }
+Write-Host '  O navegador abre mesmo assim; agentes indisponíveis aparecem como indisponíveis.'
 
 # 4. Gateway.
 $url = "http://127.0.0.1:$Port"
@@ -87,7 +99,8 @@ if ($alreadyRunning) {
     throw "Já existe um serviço na porta $Port (talvez um gateway antigo). Feche-o e rode este script de novo."
 }
 # Sem janela: um clique no console do Windows (modo "Selecionar") pausa o processo
-# quando ele escreve no log. O log vai para arquivo (só método, rota e status).
+# quando ele escreve no log. O stderr inclui diagnóstico estrutural sanitizado
+# de falhas da CLI; nunca inclui o texto bruto do provedor ou dos materiais.
 $logFile = Join-Path $stateDir 'gateway.log'
 $errFile = Join-Path $stateDir 'gateway-erros.log'
 $env:PYTHONUNBUFFERED = '1'  # linhas do log aparecem na hora

@@ -1,4 +1,211 @@
+# Estado atual — Claude exclusivo
+
+A direção vigente é [DIRECAO_CLAUDE_ONLY.md](DIRECAO_CLAUDE_ONLY.md).
+Branch de integração: `codex/browser-capture-clis`, PR #7. Ainda fora da main.
+
+Divisão vigente: [DIVISAO_RESPONSABILIDADES.md](DIVISAO_RESPONSABILIDADES.md).
+Codex conduz backend, contratos, runtime e correção de execução. Por atualização
+posterior do usuário, um novo chat do Claude assumiu frontend/UI no lugar do Gemini;
+o Claude da integração faz análise documental da CLI até transferência explícita de
+uma implementação. Novo prompt: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
+Os briefings e pedidos de implementação anteriores do Claude estão substituídos.
+
+Limpeza solicitada: consolidar as quatro cópias Windows em uma instalação de
+trabalho. Inventário de leitura disponível em scripts/audit_copies.py; caminhos,
+critérios de preservação e pendências em
+[LIMPEZA_COPIAS_WINDOWS.md](LIMPEZA_COPIAS_WINDOWS.md). Inventário Windows recebido;
+nenhuma pasta Windows foi excluída pelo Codex.
+
+Inventário recebido posteriormente: quatro worktrees limpas usando Ia-bbaru/.git,
+11 commits sem cobertura nas referências remotas locais (contagem compartilhada)
+e data/ na cópia original. Consolidação preparada em scripts/consolidate_copies.py:
+backup verificado, Git independente na cópia de validação e remoção posterior das
+três árvores antigas. Oito testes de auditoria/consolidação aprovados em fixtures
+locais. O usuário confirmou posteriormente Git limpo em local/windows e uma única
+worktree em Ia-bbaru-validacao-pr7 no commit c12b477. A independência Git está
+confirmada; manter os backups durante a validação. O falso positivo de tokens.css
+foi corrigido.
+
+Após o roteiro de recuperação do merge 875d4b4 e testes locais, o usuário informou
+“Sem erros”. Não foi enviada nova saída detalhada nem resultado de geração real;
+essa última validação continua pendente. A atividade seguinte foi delimitar as
+responsabilidades para evitar edição concorrente do gateway.
+
+- Único provedor: Claude Code oficial com a conta do usuário.
+- Catálogo somente com os modelos Claude explicitamente configurados.
+- Perfis editáveis por modelo: tipo de tarefa, contexto e preferência orientam
+  a escolha. Não há classificação automática de qualidade/dificuldade.
+- Resposta e revisão podem usar modelos Claude diferentes. Ferramentas seguem
+  desativadas; resposta sem término confirmado não inicia revisão.
+- Sonnet, Haiku, Opus e Fable são aliases documentados oficialmente. Acesso e
+  cobrança dependem da conta; Fable não é habilitado por padrão e pode exigir
+  créditos adicionais. Conferir `/model` antes de configurar.
+- Captura de texto/print/imagem, armazenamento separado e fila durável preservados.
+  Imagens continuam locais; visão no gateway ainda não está implementada.
+- Linux e Windows: backend, gateway, build e teste gráfico aprovados para esta
+  configuração. Login Claude confirmado no Windows. Nova captura de tarefa no
+  painel mostra provider_error: geração real ainda não validada nesta configuração.
+- Próxima experiência solicitada: chat lateral com contexto da página, resposta
+  em destaque e envio direto. Especificação e divisão de responsabilidades em
+  [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md); ainda não implementadas.
+
+Validação desta entrega: backend 67 aprovados; gateway 61 aprovados e 1 teste
+de conta real ignorado; frontend 11 e políticas desktop 3 aprovados. Build,
+teste gráfico Chromium, integração desktop/gateway e 5 cenários HTTP 1.1 aprovados.
+Os testes gráficos Linux usaram Xvfb e sandbox do sistema desativada apenas no teste.
+
+Prompts atuais: [Gemini/frontend](PROMPT_GEMINI_CLAUDE_ONLY.md) e
+[Code/Claude Code](PROMPT_CLAUDE_ESCOPO.md).
+As propostas e achados abaixo são histórico, não instruções para reativar provedores.
+
+## Tentativa real Windows — limite de uso reportado (11/11/2026)
+
+O usuário executou test_real_claude_code.py e enviou captura: um teste em 2,885 s,
+falha por HTTP 429 em vez do 200 esperado. Código provider_quota_exceeded,
+categoria quota, etapa result_error; CLI retornou código 1, JSON objeto com
+result textual e subtype=success. Limite solicitado: 128 tokens. O subtype sozinho
+não é evidência de sucesso, pois houve saída de erro da CLI.
+
+O gateway classificou a mensagem como limite de uso da conta. Não houve resposta
+concluída validada. A captura não informa qual janela de uso foi atingida nem o
+horário de renovação; conferir no Claude Code antes de outra geração. A causa do
+provider_error original do pedido “Revise” continua sem comprovação retrospectiva.
+Não alterar limites, repetir automaticamente ou mascarar o teste como aprovado.
+O aviso Starlette/httpx é separado da resposta HTTP 429.
+
+## Validação Windows recebida em 11/11/2026
+
+Evidência: saída de terminal e captura do seletor de modelos fornecidas pelo usuário,
+após incorporar a branch de integração (entrega fa24ef3; SHA do merge local não informado).
+
+| Verificação | Resultado |
+| --- | --- |
+| Merge | Concluído pelo Git, sem conflitos reportados |
+| Backend | 67 testes aprovados em 14,469 s |
+| Gateway | 62 executados em 43,974 s: 61 aprovados e 1 teste real ignorado |
+| Build frontend | TypeScript/Vite aprovado |
+| Chromium test:ui | Aprovado: navegação, isolamento, backend real, captura, rascunhos e persistência |
+| Claude Code | 2.1.307, instalado, sem flags faltantes |
+| Login | logged_in=true, auth_method=claude.ai, uses_subscription=true, ready=true |
+| Diagnóstico | 2,1 s; apenas claude_code; nenhuma variável de chave de API detectada |
+| Contrato | 1.1 disponível; 1 indisponível por output_limit_not_enforced, esperado |
+| Ferramentas | disabled |
+
+O aviso de depreciação Starlette/httpx não impediu os testes. O teste real foi
+ignorado de propósito; esses resultados não comprovam geração com a conta.
+
+A captura da CLI mostra plano Claude Pro, Opus 5.5 selecionado e entradas
+Sonnet 5.5, Fable 5.2, Haiku 5.5, Fable 5.1 e outros modelos. A entrada
+Default (recommended) mostra Fable 5.2. Isso confirma a apresentação desses modelos
+no seletor desta instalação, não que todos já tenham sido executados ou que
+Fable esteja incluído sem créditos adicionais. A referência anterior à versão
+mínima documentada de Fable não deve sobrepor esta observação: compatibilidade
+de execução precisa de teste próprio, sem exigir atualização apenas pelo número.
+
+Roteiro proposto antes da captura de falha abaixo: sair da CLI interativa e iniciar o navegador com -Models "sonnet".
+Criar projeto/material sintético, planejar uma tarefa sem revisão e confirmar
+uma única geração pelo painel. Observar saída, estado, modelo e persistência.
+O pedido deve usar só a palavra "laranja" de uma fonte de teste.
+Não repetir automaticamente se o resultado ficar incerto. Depois validar
+outros modelos autorizados e revisão entre dois modelos Claude.
+
+## Captura posterior e ajuste de experiência — 11/11/2026
+
+O usuário mostrou o pedido “Revise” em estado Falhou, Claude Code (sonnet),
+um material, uma tentativa, limite indicativo de 128 e código provider_error.
+Não foi informado o SHA dessa execução nem diagnóstico da CLI. Não sabemos se
+é o teste sintético sugerido acima; não atribuir a falha ao limite ou à conta.
+O reparo e uma geração real bem-sucedida continuam pendentes, apesar dos testes
+automatizados aprovados. Não repetir automaticamente resultado incerto.
+
+Também solicitou simplificar a interação conforme referências Atlas/Edge:
+conversa persistente na lateral, contexto visível e respostas claras, retirando
+planos e metadados técnicos do percurso principal. Os ajustes e critérios estão
+em [AJUSTES_CHAT_LATERAL.md](AJUSTES_CHAT_LATERAL.md), com prompts atualizados
+para Gemini (frontend) e Code (gateway). Esta rodada registra a especificação;
+não implementa o novo chat nem corrige o provider_error observado.
+
+## Tratamento de provider_error — correção e diagnóstico
+
+Corrigida leitura de `errors[]` da CLI, antes ignorada quando a falha não vinha
+em `result`. Autenticação/cota nesses envelopes agora conservam seus códigos.
+Adicionado diagnóstico estrutural sanitizado `claude_cli_failure`, sem textos
+do usuário/provedor, e mensagem compreensível para falha ainda desconhecida.
+Nenhum retry automático novo; causa da captura e geração real ainda pendentes.
+
+Roteiro de uma única geração sintética no Windows e coordenação com os outros
+chats em [CORRECAO_PROVIDER_ERROR.md](CORRECAO_PROVIDER_ERROR.md).
+Validação local: backend 67 OK; gateway 67 OK + 1 real ignorado; frontend 11 OK;
+build e cinco cenários HTTP 1.1 aprovados. Windows ainda precisa validar esta correção.
+
+## Integração das correções Claude/Codex e conflito Windows
+
+Incorporada a branch Claude até `c22beb0`, combinando em claude_code.py a leitura
+de erros, diagnóstico persistido, log estrutural e conferência de modelo servido.
+O usuário encontrou `<<<<<<< HEAD` nesse arquivo após merge local: a falha de
+importação ocorre antes da geração e não explica o provider_error original.
+O roteiro de recuperação preserva um diff local e incorpora a versão integrada;
+ver [CORRECAO_PROVIDER_ERROR.md](CORRECAO_PROVIDER_ERROR.md).
+
+Gateway integrado: 89 testes executados, 88 aprovados e 1 real ignorado. Nenhum
+teste com a conta real foi executado nesta integração. Contratos 1/1.1 mantidos.
+
+## Histórico de decisões anteriores
+
 # Estado do Ia-bbaru / Yuki
+
+## Atualização: Gemini CLI indisponível para a conta do usuário
+
+Revisão dos registros do Claude até `47bffd5` (10/11/2026), na branch
+`claude/vibrant-meitner-ksbzgf`. Essas alterações ainda não foram incorporadas
+à branch de integração por esta atualização documental.
+
+- O Google recusou o login individual na Gemini CLI 0.67.0 e orientou migração
+  para o Antigravity. Essa rota não é utilizável com a conta testada; não sugerir
+  chave de API/Vertex nem tratar a recusa como simples configuração incorreta.
+  Não há conclusão sobre todas as contas ou versões futuras.
+- Claude corrigiu os dois achados anteriores em `64c6c36`: verificação do modo
+  Google e recusa de saída mista de modelos, com regressões. O caminho de login
+  válido ainda não foi observado com a conta real. A correção usa mecanismo
+  interno da CLI, com limitações documentadas; não equivale a validar produção.
+- Segundo `integrations/docs/VALIDACAO.md` dessa branch, o Windows passou com
+  66 testes de backend, 80 de gateway + 1 ignorado e os 5 cenários HTTP 1.1.
+  As duas falhas de acentuação foram resolvidas. O usuário também confirmou
+  aprovação do teste gráfico da PR #7.
+- Claude Code é o caminho funcional atual. Codex CLI tem login ChatGPT
+  reconhecido, mas continua inelegível por `tools=restricted`; não foi liberado.
+- Antigravity não é substituto implementado: faltam evidências de login por
+  assinatura, execução não interativa, formato de saída e controle de ferramentas.
+
+Direção recomendada: tirar a Gemini CLI do caminho dos testes práticos desta
+conta e continuar com Claude Code e a avaliação do isolamento do Codex. Isso
+não afeta o frontend produzido pelo Gemini nem o uso manual do site Gemini.
+As capturas continuam locais e o contrato visual 1.2 é apenas uma proposta.
+
+## Revisão de 10/11/2026 (ainda fora da main)
+
+Estado da integração antes dos novos registros acima:
+
+Branch `codex/browser-capture-clis`: combina Claude `db8cee4` (código `732b0ac`) e Gemini `fd2a574`,
+com busca/zoom/minimizar/reabrir reais, captura nativa de tela/imagem, armazenamento
+raster separado do texto e diagnóstico sanitizado das CLIs. Atualizar as dependências
+Python com `python -m pip install -r requirements.txt` (Pillow foi acrescentado).
+
+Claude Code permanece integrado. ChatGPT/Codex e Gemini entram somente no protocolo
+1.1; Codex continua bloqueado por `tools=restricted`. Gemini funciona com dublê,
+mas a revisão apontou duas pendências para uso real: garantir Login with Google e
+rejeitar contribuição de modelo diferente. Ambas retornam `unknown`, sem revisão
+automática. O código das integrações não foi alterado pelo Codex.
+
+A captura guarda imagens localmente; o gateway 1.1 continua recebendo apenas texto.
+Não há análise visual pronta. A integração permanece em revisão para o Claude
+corrigir os pontos do gateway antes da incorporação na main.
+
+Referências atuais: [revisão](REVISAO_CLIS_2026_11_10.md),
+[contrato de capturas](CONTRATO_CAPTURAS.md),
+[prompt Claude](PROMPT_CLAUDE_CLIS.md), [prompt Gemini](PROMPT_GEMINI_CAPTURAS.md).
+
+## Base já integrada
 
 Atualizado em 9/11/2026. Base integrada: `main`.
 
