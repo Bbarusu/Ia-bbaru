@@ -54,8 +54,8 @@ anteriores são histórico; a direção Claude exclusivo prevalece sobre elas.
 
 Para testar o navegador, siga [Abrir o Chromium](docs/TESTAR_NAVEGADOR_CHROMIUM.md):
 ele inicia o backend automaticamente. Os comandos abaixo servem para desenvolver
-o backend separadamente. O caminho anterior de [extensão Firefox](docs/INSTALAR_FIREFOX.md)
-também continua disponível.
+o backend separadamente. O suporte à extensão Firefox foi removido: o produto
+funciona somente no navegador Chromium do Yuki.
 
 Requer Python 3.12. Os comandos abaixo são para bash:
 
@@ -170,6 +170,6 @@ falhas parciais, respostas truncadas, recuperação após reinício e validaçã
 Não realizam chamadas pagas a provedores.
 
 A validação opcional de UI usa `python scripts/verify_ui.py` após instalar
-`playwright` e executar `python -m playwright install firefox`. Renderiza em Gecko
-com backend real e APIs WebExtensions simuladas; não substitui testar o carregamento
-nativo da extensão. Nenhuma validação automática exige login de IA.
+`playwright` e executar `python -m playwright install chromium`. Renderiza o painel
+em Chromium com backend real e a ponte do navegador simulada; não substitui o teste
+gráfico `npm --prefix desktop run test:ui`. Nenhuma validação automática exige login de IA.

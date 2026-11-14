@@ -75,7 +75,6 @@ export type Tab = "workspace" | "library" | "history" | "connections";
 
 declare global {
   interface Window {
-    browser?: any;
     iaDesktop?: any;
   }
 }

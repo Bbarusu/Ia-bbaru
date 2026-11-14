@@ -447,6 +447,7 @@ app
       minHeight: 640,
       backgroundColor: "#08090b",
       title: "Ia-bbaru",
+      icon: path.join(__dirname, "ui", "icon.png"),
       webPreferences: {
         preload: path.join(__dirname, "shell-preload.cjs"),
         contextIsolation: true,

@@ -1,11 +1,13 @@
-"""UI checks in real Firefox/Gecko, real backend+bridge, simulated WebExtension APIs.
+"""UI checks in Chromium with the real backend and bridge, simulating the desktop preload.
 
-Run after npm run build; requires optional `playwright` Python package and Firefox
-browser installed by Playwright. It never signs into or calls an AI provider.
+Run after npm run build; requires the optional `playwright` Python package and its
+Chromium (`python -m playwright install chromium`). IA_BBARU_CHROMIUM_PATH may point
+to an existing Chromium binary. It never signs into or calls an AI provider.
 """
 import functools
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -31,13 +33,14 @@ def main():
     with tempfile.TemporaryDirectory() as folder, TestClient(create_app(Path(folder)/'ui.db',token),
             headers={'Authorization':f'Bearer {token}'}) as client, sync_playwright() as pw:
         bridge=Bridge(client)
-        browser=pw.firefox.launch(headless=True)
+        browser=pw.chromium.launch(headless=True,executable_path=os.environ.get('IA_BBARU_CHROMIUM_PATH') or None)
         page=browser.new_page(viewport={'width':1440,'height':1080})
         errors=[];page.on('pageerror',lambda err:errors.append(str(err)))
         page.expose_function('testNativeBridge', bridge.handle)
         page.add_init_script("""(() => {
           const listeners=[];
-          window.browser={runtime:{sendMessage:async msg=>{
+          // Same shape as desktop/workspace-preload.cjs (window.iaDesktop).
+          window.iaDesktop={runtime:{sendMessage:async msg=>{
             if(msg.type==='bridge.request')return window.testNativeBridge(msg.request);
             if(msg.type==='capture.read')return JSON.parse(localStorage.getItem('testCapture')||'null');
             if(msg.type==='capture.clear'){
@@ -45,7 +48,7 @@ def main():
               if(!msg.id || (cur && cur.id===msg.id))localStorage.removeItem('testCapture');
               return {ok:true};
             }
-            if(msg.type==='capture.selection')return {ok:false,error:{message:'Selecione um trecho no Firefox.'}};
+            if(msg.type==='capture.selection')return {ok:false,error:{message:'Selecione um trecho na página.'}};
           }},storage:{local:{get:async key=>({[key]:localStorage.getItem(key)}),set:async values=>{
             for(const [key,val] of Object.entries(values))localStorage.setItem(key,val);
           },remove:async key=>localStorage.removeItem(key)},onChanged:{addListener:fn=>listeners.push(fn),removeListener:()=>{}}}};
@@ -61,6 +64,8 @@ def main():
         page.get_by_role('dialog').get_by_role('button',name='Criar projeto',exact=True).click()
         expect(page.locator('#project')).to_have_value(client.get('/v1/projects').json()['items'][0]['id'])
         expect(page.locator('ul.project-list > li > button[aria-current="true"]')).to_have_text('Pesquisa da faculdade')
+        # Projetos e materiais são organização opcional: ficam em Biblioteca, fora do chat.
+        page.get_by_role('button',name='Biblioteca',exact=True).first.click()
         page.get_by_role('button',name='Adicionar texto',exact=True).click()
         page.get_by_label('Título',exact=True).fill('Anotações sobre agentes')
         hostile='Agentes usam contexto. <script>window.stolen=true</script>'
@@ -68,10 +73,13 @@ def main():
         page.get_by_role('button',name='Salvar no projeto',exact=True).click()
         expect(page.get_by_role('heading',name='Anotações sobre agentes')).to_be_visible()
         assert page.evaluate('window.stolen') is None
+        page.get_by_role('button',name='Chat',exact=True).first.click()
         page.locator('#instruction').fill('Compare as ideias deste material.')
         page.reload();expect(page.locator('#instruction')).to_have_value('Compare as ideias deste material.')
-        expect(page.get_by_role('button',name='Criar plano',exact=True)).to_be_disabled()
+        # Sem modelo Claude o envio fica desativado e o rascunho permanece.
+        expect(page.get_by_role('button',name='Enviar',exact=True)).to_be_disabled()
         expect(page.get_by_text('Nenhuma IA conectada.',exact=False)).to_be_visible()
+        page.get_by_role('button',name='Biblioteca',exact=True).first.click()
         # Path A: Capture A opens, user edits it, Capture B arrives and stays queued until user finishes A.
         page.evaluate("window.testCapture({id:'capture-a',title:'Uma referência',url:'https://example.org/aula',text:'Trecho escolhido pelo usuário.'})")
         expect(page.get_by_role('dialog')).to_be_visible()
@@ -100,36 +108,44 @@ def main():
         page.get_by_role('button',name='Descartar trecho',exact=True).click()
         records=client.get(f"/v1/projects/{project['id']}/sources").json()['items']
         assert len(records)==3 and 'https://example.org/aula' in records[1]['content'] and 'https://example.org/aula-2' in records[2]['content']
-        page.screenshot(path=str(artifacts/'workspace-firefox.png'),full_page=True)
+        page.screenshot(path=str(artifacts/'workspace-chromium.png'),full_page=True)
         page.set_viewport_size({'width':360,'height':900})
+        # Painel estreito: um topo só; áreas ficam no menu "Mais opções".
+        # Espera o topo do painel substituir o da página ampla antes de medir.
+        def open_area(target,name):
+            target.get_by_role('button',name='Mais opções',exact=True).click()
+            target.locator('.header-menu').get_by_role('button',name=name).click()  # menuitem vem do focusgroup
+        expect(page.get_by_role('button',name='Mais opções',exact=True)).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
-        expect(page.get_by_role('button',name='Biblioteca',exact=True)).to_be_visible()
-        page.get_by_role('button',name='Biblioteca',exact=True).click()
+        open_area(page,'Biblioteca')
         page.get_by_role('textbox',name='Buscar materiais').fill('sem-correspondencia')
         expect(page.get_by_text('Nenhum material encontrado.',exact=True)).to_be_visible()
         page.get_by_role('textbox',name='Buscar materiais').fill('')
-        page.get_by_role('button',name='Área de trabalho',exact=True).click()
-        page.screenshot(path=str(artifacts/'sidebar-firefox.png'),full_page=True)
-        page.get_by_role('button',name='Conexões',exact=True).click()
+        open_area(page,'Chat')
+        expect(page.locator('#instruction')).to_be_in_viewport()
+        page.screenshot(path=str(artifacts/'sidebar-chromium.png'),full_page=True)
+        open_area(page,'Conexões')
         expect(page.get_by_text('Nenhum serviço de IA disponível.',exact=False)).to_be_visible()
         assert not errors,errors
         # Plain browser mode must not silently switch to demo or invent accounts.
         plain=browser.new_page(viewport={'width':360,'height':900});plain.goto(url)
         expect(plain.get_by_text('Modo desconectado',exact=True)).to_be_visible()
-        expect(plain.get_by_role('button',name='Criar plano',exact=True)).to_be_disabled()
+        expect(plain.get_by_role('button',name='Enviar',exact=True)).to_be_disabled()
         assert not plain.get_by_text('Demonstração visual',exact=False).count()
         # Demo mode is explicit and labelled; no real gateway ever called.
         demo=browser.new_page(viewport={'width':1440,'height':1080});demo.goto(url+'/?demo=1')
         expect(demo.get_by_text('Demonstração visual',exact=False)).to_be_visible()
-        demo.get_by_role('button',name='Agente de exemplo',exact=False).click()
+        demo.get_by_label('Modelo Claude').select_option(label='Agente de exemplo')
         demo.locator('#instruction').fill('Pedido demonstrativo')
-        demo.screenshot(path=str(artifacts/'demo-firefox.png'),full_page=True)
-        demo.get_by_role('button',name='Criar plano',exact=True).click()
-        expect(demo.get_by_role('dialog')).to_be_visible()
-        expect(demo.get_by_text('Plano salvo. Esta versão ainda não inicia execuções pelo painel.')).to_be_visible()
+        demo.screenshot(path=str(artifacts/'demo-chromium.png'),full_page=True)
+        demo.get_by_role('button',name='Enviar',exact=True).click()
+        # A demonstração não executa nada: o pedido fica salvo, sem resposta inventada.
+        demo.get_by_role('group',name='Confirmar envio').get_by_role('button',name='Salvar pedido',exact=True).click()
+        expect(demo.get_by_text('Pedido salvo. Nenhuma resposta foi gerada.',exact=True)).to_be_visible()
+        expect(demo.get_by_role('dialog')).to_have_count(0)
         browser.close()
     server.shutdown()
-    print('Firefox UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout, labelled demo plan.')
+    print('Chromium UI checks passed: real backend/library/capture, draft persistence, unavailable gateway, 360px layout with visible composer, labelled demo without generation.')
 
 
 if __name__=='__main__': main()

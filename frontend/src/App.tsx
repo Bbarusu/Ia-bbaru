@@ -5,7 +5,8 @@ import {
   CheckCircle2,
   Circle,
   FileText,
-  Layers3,
+  MessageSquare,
+  SquarePen,
   Power,
   Settings2,
   Unplug,
@@ -17,7 +18,6 @@ import {
   demo,
   expand,
   inDesktop,
-  inFirefox,
   localBridge,
   pendingCapture,
   readDraft,
@@ -27,18 +27,21 @@ import {
 } from "./transport";
 import {
   decideIncomingCapture,
+  chatTurns,
+  eligibleChatModels,
   requiresLimitAcceptance,
+  resolveChatModelIds,
   sourceContent,
-  validateDraft,
+  validateChatDraft,
 } from "./logic.mjs";
 
 import { TopBar } from "./components/TopBar";
 import { NavigationRail } from "./components/NavigationRail";
 import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
-import { WorkspaceComposer } from "./components/WorkspaceComposer";
-import { ContextGuideCard } from "./components/ContextGuideCard";
-import { AgentsSection } from "./components/AgentsSection";
+import { ChatComposer } from "./components/ChatComposer";
+import { ChatThread } from "./components/ChatThread";
+import { ChatHeader, ModelPill } from "./components/ChatHeader";
 import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
@@ -49,8 +52,8 @@ import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
 import { YukiMark } from "./components/YukiMark";
 
-const tabs: { id: Tab; label: string; icon: typeof Layers3 }[] = [
-  { id: "workspace", label: "Área de trabalho", icon: Layers3 },
+const tabs: { id: Tab; label: string; icon: typeof MessageSquare }[] = [
+  { id: "workspace", label: "Chat", icon: MessageSquare },
   { id: "library", label: "Biblioteca", icon: BookOpen },
   { id: "history", label: "Atividade", icon: Workflow },
   { id: "connections", label: "Conexões", icon: Settings2 },
@@ -58,8 +61,6 @@ const tabs: { id: Tab; label: string; icon: typeof Layers3 }[] = [
 
 const chromiumGuideUrl =
   "https://github.com/Bbarusu/Ia-bbaru/blob/codex/chromium-browser/docs/TESTAR_NAVEGADOR_CHROMIUM.md";
-const firefoxGuideUrl =
-  "https://github.com/Bbarusu/Ia-bbaru/blob/codex/frontend-firefox/docs/INSTALAR_FIREFOX.md";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("workspace");
@@ -76,11 +77,29 @@ export default function App() {
   const [models, setModels] = useState<Model[]>([]);
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [chatModel, setChatModel] = useState("auto");
+  const [chatSince, setChatSince] = useState("");
+  const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [authorized, setAuthorized] = useState(false);
+  const [uncertainEnqueue, setUncertainEnqueue] = useState<string[]>([]);
   const [text, setText] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const wantsChatCapture = useRef(false);
+  // Painel lateral (até 700 px): um topo só, no formato da proposta aprovada.
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia?.("(max-width: 700px)").matches ?? false,
+  );
+  useEffect(() => {
+    const query = window.matchMedia?.("(max-width: 700px)");
+    if (!query) return;
+    const onChange = () => setNarrow(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
   const [draftReady, setDraftReady] = useState(false);
   const [kind, setKind] = useState("study");
-  const [review, setReview] = useState(false);
   const [acceptedLimit, setAcceptedLimit] = useState(false);
   const [catalogVersion, setCatalogVersion] = useState("1");
 
@@ -113,7 +132,7 @@ export default function App() {
 
   const project = projects.find((p) => p.id === projectId);
   const available = models.filter((m) => m.available);
-  const guideUrl = inDesktop ? chromiumGuideUrl : firefoxGuideUrl;
+  const guideUrl = chromiumGuideUrl;
 
   async function connect() {
     let hostReady = false;
@@ -150,14 +169,8 @@ export default function App() {
         setModels(data.models);
         setCatalogVersion(data.protocol_version || "1");
         setModelError("");
-        setSelectedModels((old) =>
-          old.filter((id) =>
-            data.models.some((m) => m.id === id && m.available),
-          ),
-        );
       } catch (e) {
         setModels([]);
-        setSelectedModels([]);
         setModelError((e as Error).message);
       }
     } catch (e) {
@@ -165,7 +178,6 @@ export default function App() {
       setHost(hostReady);
       setOnline(false);
       setModels([]);
-      setSelectedModels([]);
       setConnectionError((e as Error).message);
     } finally {
       setChecking(false);
@@ -206,6 +218,17 @@ export default function App() {
     connect();
   }, []);
 
+  // Abrir ou voltar ao painel leva direto ao campo de mensagem; nada é enviado.
+  useEffect(() => {
+    function focusComposer() {
+      if (tab === "workspace" && !document.querySelector("dialog[open]"))
+        inputRef.current?.focus();
+    }
+    focusComposer();
+    window.addEventListener("focus", focusComposer);
+    return () => window.removeEventListener("focus", focusComposer);
+  }, [tab]);
+
   useEffect(() => {
     if (tab !== "connections" || !online || !inDesktop || checking) return;
     let active = true;
@@ -224,6 +247,15 @@ export default function App() {
     setTaskNext(null);
     setText("");
     setDraftReady(false);
+    setSendOpen(false);
+    setSendError("");
+    setChatSince("");
+
+    readDraft(`chat-start:${projectId || "new"}`)
+      .then((value) => {
+        if (active) setChatSince(value);
+      })
+      .catch(() => {});
 
     readDraft(`draft:${projectId || "new"}`)
       .then((value) => {
@@ -262,6 +294,12 @@ export default function App() {
   }, [projectId, online]);
 
   function receiveCapture(value: Capture | null) {
+    // Um trecho pedido pelo compositor vira contexto visível da conversa, sem diálogo.
+    if (value && wantsChatCapture.current && !value.media) {
+      wantsChatCapture.current = false;
+      setChatCapture(value);
+      return;
+    }
     const decision = decideIncomingCapture(editRef.current, value);
     if (decision.action === "queue" && decision.queuedCapture) {
       setQueuedCapture(decision.queuedCapture);
@@ -430,53 +468,161 @@ export default function App() {
     }
   }
 
-  function toggleModel(id: string) {
-    setSelectedModels((old) =>
-      old.includes(id) ? old.filter((x) => x !== id) : [...old, id],
-    );
+  const eligibleModels = eligibleChatModels(models, catalogVersion);
+  const chatModelIds = resolveChatModelIds(chatModel, models, catalogVersion);
+  const needsLimitAcceptance = requiresLimitAcceptance(chatModelIds, models);
+  const turns = chatTurns(tasks, chatSince);
+
+  function attachSelection() {
+    setError("");
+    wantsChatCapture.current = true;
+    selectCapture()
+      .then((value) => {
+        // O runtime também publica a captura; quem chegar primeiro preenche o chip.
+        if (wantsChatCapture.current && value && !value.media) {
+          wantsChatCapture.current = false;
+          setChatCapture(value);
+        }
+      })
+      .catch((e) => {
+        wantsChatCapture.current = false;
+        setError(e.message);
+      });
   }
 
-  async function plan(event: FormEvent) {
+  function removeChatCapture() {
+    const current = chatCapture;
+    setChatCapture(null);
+    if (current) clearCapture(current.id).catch(() => {});
+  }
+
+  function newChat() {
+    const now = new Date().toISOString();
+    setChatSince(now);
+    setSendOpen(false);
+    setSendError("");
+    writeDraft(`chat-start:${projectId || "new"}`, now).catch(() => {});
+    inputRef.current?.focus();
+  }
+
+  function requestSend(event: FormEvent) {
     event.preventDefault();
-    const warning = validateDraft({ projectId, text, selectedModels, review });
+    const warning = validateChatDraft({ text, modelIds: chatModelIds, online });
     if (warning) {
       setError(warning);
       return;
     }
-    const selected = models.filter((m) => selectedModels.includes(m.id));
-    if (
-      catalogVersion === "1.1" &&
-      selected.some(
-        (m) => !m.capabilities || m.capabilities.tools !== "disabled",
-      )
-    ) {
-      setError(
-        "Este agente não oferece as capacidades necessárias para esta tarefa.",
-      );
+    setError("");
+    setSendError("");
+    setSendOpen(true);
+  }
+
+  function cancelSend() {
+    setSendOpen(false);
+    setSendError("");
+    setAcceptedLimit(false);
+    setAuthorized(false);
+    inputRef.current?.focus();
+  }
+
+  // Envio do chat: persiste o contexto, cria a tarefa e só então enfileira,
+  // sempre com os aceites desta mensagem. Nada é marcado sem a ação da pessoa.
+  async function confirmSend() {
+    const instruction = text;
+    const warning = validateChatDraft({ text: instruction, modelIds: chatModelIds, online });
+    if (warning) {
+      setSendError(warning);
       return;
     }
-    if (requiresLimitAcceptance(selectedModels, models) && !acceptedLimit) {
-      setError("Aceite o limite indicativo antes de criar este plano.");
+    if (needsLimitAcceptance && !acceptedLimit) {
+      setSendError("Aceite o limite indicativo antes de enviar.");
       return;
     }
-    const target = projectId;
-    await act(async () => {
-      const task = await request<Task>("tasks.plan", {
+    if (executionEnabled && !authorized) {
+      setSendError("Autorize o envio com a sua conta antes de enviar.");
+      return;
+    }
+    setBusy(true);
+    setSendError("");
+    setError("");
+    setNotice("");
+    try {
+      let target = projectId;
+      let createdProject = false;
+      if (!target) {
+        createdProject = true;
+        // Projeto não é pré-requisito do chat: o primeiro envio cria um para guardar a conversa.
+        const created = await request<Project>("projects.create", { title: "Conversas" });
+        await writeDraft(`draft:${created.id}`, instruction).catch(() => {});
+        setProjects((old) => [created, ...old]);
+        projectRef.current = created.id;
+        setProjectId(created.id);
+        target = created.id;
+      }
+      const sourceIds = [...selectedSources];
+      const attached = chatCapture;
+      if (attached) {
+        const sourceTitle = attached.title?.trim() || "Trecho da página";
+        const body = sourceContent(sourceTitle, attached.url || "", attached.text || "");
+        if (body.length > 40000)
+          throw new Error("O trecho anexado, incluindo a origem, deve ter até 40.000 caracteres.");
+        const source = await request<Source>("sources.create", {
+          project_id: target,
+          title: sourceTitle.slice(0, 120),
+          content: body,
+        });
+        sourceIds.push(source.id);
+        if (projectRef.current === target)
+          setSources((old) => [
+            ...old.filter((item) => item.id !== source.id),
+            { ...source, preview: body.slice(0, 160), char_count: body.length },
+          ]);
+        await clearCapture(attached.id).catch(() => {});
+        setChatCapture(null);
+      }
+      let task = await request<Task>("tasks.plan", {
         project_id: target,
         task: {
-          instruction: text,
+          instruction,
           kind,
-          source_ids: selectedSources,
-          allowed_model_ids: selectedModels,
-          mode: review ? "review" : "single",
-          allow_unenforced_output_limit: acceptedLimit,
+          source_ids: sourceIds,
+          allowed_model_ids: chatModelIds,
+          mode: "single",
+          allow_unenforced_output_limit: needsLimitAcceptance && acceptedLimit,
         },
       });
-      if (projectRef.current === target) setTasks((old) => [task, ...old]);
-      setTaskView(task);
+      const planned = task;
+      // A partir daqui o pedido está salvo: o rascunho pode ser limpo.
+      setText("");
+      writeDraft(`draft:${target}`, "").catch(() => {});
+      writeDraft("draft:new", "").catch(() => {});
+      setSelectedSources([]);
+      setSendOpen(false);
       setAcceptedLimit(false);
-      setNotice("Plano salvo. Nenhuma geração foi iniciada.");
-    });
+      setAuthorized(false);
+      if (executionEnabled) {
+        try {
+          task = await request<Task>("tasks.enqueue", { task_id: planned.id, confirmed: true });
+        } catch {
+          // Confirmação perdida não autoriza enfileirar de novo: o turno pede consulta de estado.
+          setUncertainEnqueue((old) => [...old, planned.id]);
+        }
+      }
+      if (projectRef.current === target)
+        setTasks((old) => [task, ...old.filter((item) => item.id !== task.id)]);
+      if (createdProject) {
+        // A troca de projeto recarrega a lista em paralelo; garante que o novo turno apareça.
+        const page = await request<Page<Task>>("tasks.list", { project_id: target });
+        if (projectRef.current === target) {
+          setTasks(page.items);
+          setTaskNext(page.next_offset);
+        }
+      }
+    } catch (e) {
+      setSendError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function more(type: "sources" | "tasks" | "projects") {
@@ -524,8 +670,122 @@ export default function App() {
       .includes(search.toLocaleLowerCase()),
   );
 
+  const isChat = tab === "workspace";
+  const canSubmit =
+    !busy &&
+    draftReady &&
+    online &&
+    eligibleModels.length > 0 &&
+    Boolean(text.trim()) &&
+    !sendOpen;
+  const canAttachSelection = Boolean(localBridge);
+  // Sugestões: com o navegador, anexam o trecho selecionado na aba (o app ainda
+  // não lê a página inteira); sem ele, só preenchem o campo.
+  const startWith = (prompt: string) => () => {
+    if (canAttachSelection && !chatCapture) attachSelection();
+    changeText(prompt);
+    inputRef.current?.focus();
+  };
+  const P_SUMMARY = canAttachSelection
+    ? "Resuma este trecho em tópicos claros."
+    : "Resuma em tópicos claros o texto a seguir:\n";
+  const P_POINTS = canAttachSelection
+    ? "Identifique os principais argumentos e conclusões deste trecho."
+    : "Identifique os principais argumentos e conclusões do texto a seguir:\n";
+  const P_TERMS = canAttachSelection
+    ? "Explique os termos mais difíceis deste trecho em linguagem simples."
+    : "Explique em linguagem simples: ";
+  const P_QUESTIONS = canAttachSelection
+    ? "Crie perguntas de estudo sobre este trecho."
+    : "Crie perguntas de estudo sobre: ";
+  const starters = [
+    { label: "✨ Resumir a seleção", hint: canAttachSelection ? "Anexa o trecho selecionado na aba" : "Cole o texto depois dos dois-pontos", run: startWith(P_SUMMARY) },
+    { label: "🔍 Principais pontos", hint: "Argumentos e conclusões centrais", run: startWith(P_POINTS) },
+    { label: "💡 Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith(P_TERMS) },
+    { label: "✍ Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith(P_QUESTIONS) },
+  ];
+  const quickActions = [
+    { label: "✨ Resumir seleção", run: startWith(P_SUMMARY) },
+    { label: "🔍 Principais pontos", run: startWith(P_POINTS) },
+    { label: "💡 Explicar termos", run: startWith(P_TERMS) },
+  ];
+  const welcomeText = canAttachSelection
+    ? "Pergunte sobre um trecho da página, explore conceitos ou converse com Claude."
+    : "Explore conceitos ou converse com Claude.";
+  const pending = sendOpen
+    ? {
+        text,
+        contextTitles: [
+          ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
+          ...sources
+            .filter((source) => selectedSources.includes(source.id))
+            .map((source) => source.title),
+        ],
+      }
+    : null;
+  const sendConfirm = (
+    <div className="chat-card" role="group" aria-label="Confirmar envio">
+      <strong>{executionEnabled ? "Enviar ao Claude?" : "Salvar este pedido?"}</strong>
+      <p>
+        {executionEnabled
+          ? "Sua pergunta e o contexto anexado serão enviados ao Claude e usam a cota da sua assinatura."
+          : "Esta conexão não executa pedidos: a mensagem fica salva, sem gerar resposta."}
+      </p>
+      {needsLimitAcceptance && (
+        <label className="consent-check">
+          <input
+            type="checkbox"
+            checked={acceptedLimit}
+            disabled={busy}
+            onChange={(e) => setAcceptedLimit(e.target.checked)}
+          />
+          <span>Aceito o limite indicativo para esta tarefa</span>
+        </label>
+      )}
+      {needsLimitAcceptance && (
+        <p className="consent-note">
+          O Claude pode ultrapassar a saída solicitada. Encerrar o processo local
+          não garante interrupção no provedor nem devolução de cota.
+        </p>
+      )}
+      {executionEnabled && (
+        <label className="consent-check">
+          <input
+            type="checkbox"
+            checked={authorized}
+            disabled={busy}
+            onChange={(e) => setAuthorized(e.target.checked)}
+          />
+          <span>Autorizo executar esta tarefa com minha conta</span>
+        </label>
+      )}
+      {sendError && (
+        <p className="turn-error-line" role="alert">
+          {sendError}
+        </p>
+      )}
+      <div className="chat-card-actions">
+        <button
+          type="button"
+          className="dark-button"
+          disabled={
+            busy ||
+            (needsLimitAcceptance && !acceptedLimit) ||
+            (executionEnabled && !authorized)
+          }
+          onClick={confirmSend}
+        >
+          {executionEnabled ? "Enviar ao Claude" : "Salvar pedido"}
+        </button>
+        <button type="button" className="plain-button" disabled={busy} onClick={cancelSend}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="shell">
+    <div className={`shell ${isChat ? "chat-mode" : ""}`}>
       <NavigationRail
         tab={tab}
         setTab={setTab}
@@ -541,190 +801,261 @@ export default function App() {
       />
 
       <div className="body">
-        <TopBar
-          tab={tab}
-          tabs={tabs}
-          online={online}
-          checking={checking}
-          canExpand={inFirefox || inDesktop}
-          demo={demo}
-          connect={connect}
-          expand={expand}
-          openGuide={() => setGuideOpen(true)}
-        />
-
-        <MobileNav tab={tab} setTab={setTab} tabs={tabs} />
-
-        <main>
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow">
-                <span aria-hidden="true" /> SEU ESPAÇO DE TRABALHO
-              </div>
-              <h1>
-                {tab === "workspace" ? (
-                  <>
-                    Boas ideias merecem
-                    <br />
-                    <span>o contexto certo.</span>
-                  </>
-                ) : tab === "library" ? (
-                  "Sua biblioteca."
-                ) : tab === "history" ? (
-                  "Cada passo, registrado."
-                ) : (
-                  "Tudo começa com uma conexão."
-                )}
-              </h1>
-              <p>
-                {tab === "workspace"
-                  ? "Reúna seus materiais. Escolha seus agentes. Dê o próximo passo."
-                  : tab === "library"
-                    ? "Os materiais que acompanham seu pensamento."
-                    : tab === "history"
-                      ? "Planos, respostas e revisões organizados por projeto."
-                      : "Veja o que está disponível no seu computador."}
-              </p>
-            </div>
-
-            <ProjectSwitch
+        {narrow ? (
+          <>
+            <ChatHeader
+              eligibleModels={eligibleModels}
+              chatModel={chatModel}
+              setChatModel={setChatModel}
+              online={online}
+              checking={checking}
               projects={projects}
               projectId={projectId}
               setProjectId={setProjectId}
-              openProject={openProject}
-              online={online}
               busy={busy}
+              tab={tab}
+              setTab={setTab}
+              openProject={openProject}
+              newChat={newChat}
+              canNewChat={turns.length > 0}
+              openGuide={() => setGuideOpen(true)}
+              canExpand={inDesktop}
+              expand={expand}
+              sourceCount={sources.length}
             />
-          </div>
+            {demo && (
+              <div className="demo-banner" role="note">
+                Demonstração visual · dados de exemplo · nenhuma conta ou IA conectada
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <TopBar
+              tab={tab}
+              tabs={tabs}
+              online={online}
+              checking={checking}
+              canExpand={inDesktop}
+              demo={demo}
+              connect={connect}
+              expand={expand}
+              openGuide={() => setGuideOpen(true)}
+              projectSwitch={
+                <ProjectSwitch
+                  projects={projects}
+                  projectId={projectId}
+                  setProjectId={setProjectId}
+                  openProject={openProject}
+                  online={online}
+                  busy={busy}
+                />
+              }
+            />
+            <MobileNav tab={tab} setTab={setTab} tabs={tabs} />
+          </>
+        )}
 
-          {error && (
-            <div className="alert error" role="alert">
-              <Circle size={15} aria-hidden="true" />
-              <span>{error}</span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Dispensar erro"
-                onClick={() => setError("")}
-              >
-                <Power size={14} />
-              </button>
-            </div>
-          )}
-
-          {notice && (
-            <div className="alert success" role="status">
-              <CheckCircle2 size={16} aria-hidden="true" />
-              <span>{notice}</span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Dispensar aviso"
-                onClick={() => setNotice("")}
-              >
-                <Power size={14} />
-              </button>
-            </div>
-          )}
-
-          {queuedCapture && (
-            <div className="alert" role="status">
-              <span>
-                Uma nova captura está aguardando. Conclua o material atual.
-              </span>
-              <button
-                type="button"
-                className="text-button"
-                disabled={modal === "source" || busy}
-                onClick={() => {
-                  receiveCapture(queuedCapture);
-                  setQueuedCapture(null);
-                }}
-              >
-                Revisar nova captura
-              </button>
-            </div>
-          )}
-
-          {capture && modal !== "source" && (
-            <div className="alert" role="status">
-              <FileText size={16} aria-hidden="true" />
-              <span>Um trecho aguarda sua revisão.</span>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  setTitle(capture.title);
-                  setContent(capture.text);
-                  setModal("source");
-                }}
-              >
-                Revisar trecho
-              </button>
-            </div>
-          )}
-
-          {!online && !checking && tab !== "connections" && (
-            <div className="connection-banner">
-              <span className="connection-icon" aria-hidden="true">
-                <Unplug size={20} />
-              </span>
+        <main>
+          {!isChat && (
+            <div className="page-heading">
               <div>
-                <strong>Seu espaço está pronto para conectar.</strong>
+                <div className="eyebrow">
+                  <span aria-hidden="true" /> SEU ESPAÇO DE TRABALHO
+                </div>
+                <h1>
+                  {tab === "library"
+                    ? "Sua biblioteca."
+                    : tab === "history"
+                      ? "Cada passo, registrado."
+                      : "Tudo começa com uma conexão."}
+                </h1>
                 <p>
-                  {connectionError ||
-                    "Inicie o componente local para acessar seus projetos."}
+                  {tab === "library"
+                    ? "Os materiais que acompanham seu pensamento."
+                    : tab === "history"
+                      ? "Conversas, respostas e revisões organizadas por projeto."
+                      : "Veja o que está disponível no seu computador."}
                 </p>
               </div>
+            </div>
+          )}
+
+          {isChat && !narrow && (
+            <div className="chat-bar">
+              <ModelPill
+                eligibleModels={eligibleModels}
+                chatModel={chatModel}
+                setChatModel={setChatModel}
+                online={online}
+                checking={checking}
+                showStatus={false}
+              />
               <button
                 type="button"
-                className="text-button"
-                onClick={() => setTab("connections")}
+                className="subtle"
+                onClick={newChat}
+                disabled={!turns.length}
+                title="Começa uma conversa vazia; a anterior continua em Atividade"
               >
-                Como conectar <ArrowUpRight size={16} aria-hidden="true" />
+                <SquarePen size={14} aria-hidden="true" /> Nova conversa
               </button>
             </div>
           )}
 
-          {tab === "workspace" && (
-            <>
-              <div className="workspace-grid">
-                <WorkspaceComposer
-                  text={text}
+          <div className="notices">
+            {error && (
+              <div className="alert error" role="alert">
+                <Circle size={15} aria-hidden="true" />
+                <span>{error}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Dispensar erro"
+                  onClick={() => setError("")}
+                >
+                  <Power size={14} />
+                </button>
+              </div>
+            )}
+
+            {notice && (
+              <div className="alert success" role="status">
+                <CheckCircle2 size={16} aria-hidden="true" />
+                <span>{notice}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Dispensar aviso"
+                  onClick={() => setNotice("")}
+                >
+                  <Power size={14} />
+                </button>
+              </div>
+            )}
+
+            {queuedCapture && (
+              <div className="alert" role="status">
+                <span>
+                  Uma nova captura está aguardando. Conclua o material atual.
+                </span>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={modal === "source" || busy}
+                  onClick={() => {
+                    receiveCapture(queuedCapture);
+                    setQueuedCapture(null);
+                  }}
+                >
+                  Revisar nova captura
+                </button>
+              </div>
+            )}
+
+            {capture && modal !== "source" && (
+              <div className="alert" role="status">
+                <FileText size={16} aria-hidden="true" />
+                <span>Um trecho aguarda sua revisão.</span>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => {
+                    setTitle(capture.title || "");
+                    setContent(capture.text || "");
+                    setModal("source");
+                  }}
+                >
+                  Revisar trecho
+                </button>
+              </div>
+            )}
+
+            {!online && !checking && tab !== "connections" && (
+              <div className="connection-banner">
+                <span className="connection-icon" aria-hidden="true">
+                  <Unplug size={20} />
+                </span>
+                <div>
+                  <strong>Seu espaço está pronto para conectar.</strong>
+                  <p>
+                    {connectionError ||
+                      "Inicie o componente local para conversar com o Claude."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setTab("connections")}
+                >
+                  Como conectar <ArrowUpRight size={16} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            {isChat && online && !checking && !eligibleModels.length && (
+              <div className="alert" role="status">
+                <span>
+                  Nenhuma IA conectada. Sua mensagem fica como rascunho até um
+                  modelo Claude estar disponível.
+                </span>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setTab("connections")}
+                >
+                  Ver conexões
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isChat && (
+            <section className="chat" aria-label="Chat com Claude">
+              <ChatThread
+                turns={turns}
+                models={models}
+                executionEnabled={executionEnabled}
+                updateTask={updateTask}
+                pollError={pollError}
+                uncertainEnqueue={uncertainEnqueue}
+                openTask={setTaskView}
+                retry={(value) => {
+                  changeText(value);
+                  inputRef.current?.focus();
+                }}
+                starters={starters}
+                welcomeText={welcomeText}
+                pending={pending}
+                confirm={sendConfirm}
+              />
+
+              <div className="chat-dock">
+                <ChatComposer
+                  inputRef={inputRef}
+                  text={sendOpen ? "" : text}
                   changeText={changeText}
-                  draftReady={draftReady}
-                  selectedSourcesCount={selectedSources.length}
-                  openSource={openSource}
-                  captureSelection={() =>
-                    selectCapture().catch((error) => setError(error.message))
-                  }
-                  kind={kind}
-                  setKind={setKind}
-                  plan={plan}
+                  draftReady={draftReady && !sendOpen}
+                  submit={requestSend}
+                  canSubmit={canSubmit}
                   busy={busy}
                   online={online}
-                  projectId={projectId}
-                  availableModels={available}
-                  selectedModels={selectedModels}
+                  kind={kind}
+                  setKind={setKind}
+                  capture={chatCapture}
+                  removeCapture={removeChatCapture}
+                  selectedSourcesCount={selectedSources.length}
+                  clearSelectedSources={() => setSelectedSources([])}
+                  attachSelection={attachSelection}
+                  openSource={openSource}
+                  hasEarlierTurns={turns.length > 0}
+                  quickActions={quickActions}
                 />
-                <ContextGuideCard />
               </div>
-
-              <AgentsSection
-                models={models}
-                availableModels={available}
-                selectedModels={selectedModels}
-                toggleModel={toggleModel}
-                review={review}
-                setReview={setReview}
-                acceptedLimit={acceptedLimit}
-                setAcceptedLimit={setAcceptedLimit}
-                goToConnections={() => setTab("connections")}
-              />
-            </>
+            </section>
           )}
 
-          {(tab === "workspace" || tab === "library") && (
+          {tab === "library" && (
             <LibrarySection
               project={project}
               sources={sources}
@@ -774,7 +1105,6 @@ export default function App() {
             <ConnectionsSection
               connections={connections}
               diagnosticError={diagnosticError}
-              inFirefox={inFirefox}
               inDesktop={inDesktop}
               demo={demo}
               host={host}
@@ -790,12 +1120,14 @@ export default function App() {
             />
           )}
 
-          <footer className="footer">
-            <span>
-              <YukiMark size="sm" />
-              Yuki · Um espaço. Mais possibilidades.
-            </span>
-          </footer>
+          {!isChat && (
+            <footer className="footer">
+              <span>
+                <YukiMark size="sm" />
+                Yuki · Um espaço. Mais possibilidades.
+              </span>
+            </footer>
+          )}
         </main>
       </div>
 
