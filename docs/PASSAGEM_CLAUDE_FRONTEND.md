@@ -234,3 +234,13 @@ navegadores. Aplicado:
 
 Mantido: Enter com IME já checava `isComposing`; diálogos de edição continuam sem
 fechar por clique fora, para não perder rascunho.
+
+## Ícone principal (14/11/2026)
+
+Novo ícone aprovado pelo usuário: floco de seis braços com ramos e centro
+hexagonal, preto em quadrado branco com degradê gelo. Arquivos em
+`desktop/ui/icon.svg` e `desktop/ui/icon.png` (512 px). Aplicado no favicon do
+shell, da página inicial e do frontend, na marca do shell, da página inicial e
+no `YukiMark`. Fora da área de interface, a pedido do usuário: uma linha em
+`desktop/main.cjs` (`icon` do `BrowserWindow`) para a janela e a barra de tarefas.
+Ícones de instalador (`.ico`/`.icns`) ainda não existem.
