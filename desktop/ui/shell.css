@@ -283,8 +283,7 @@ input:focus-visible {
 
 #back,
 #forward,
-#reload,
-#home {
+#reload {
   width: 27px;
   height: 27px;
   min-height: 27px;
