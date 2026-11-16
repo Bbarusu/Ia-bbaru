@@ -3,7 +3,52 @@
 Registro de 12/11/2026. Responsável: Claude (interface), conforme atribuição
 explícita do usuário para `frontend/` e `desktop/ui/`. Base: `codex/browser-capture-clis`
 em 4e6679e. Branch de entrega: `claude/friendly-curie-pxw81w`.
-Nenhuma alteração em backend, gateway, contratos, Electron/IPC ou persistência.
+Sem alteração em backend, gateway, contratos ou persistência. Fora de `frontend/` e
+`desktop/ui/`, a pedido explícito do usuário: remoção do suporte ao Firefox
+(`extension/`, `native_host/install.py`), uma linha de ícone em `desktop/main.cjs`,
+testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
+em `.agents/`. Tudo na PR #11, para integração pelo Codex.
+
+## Pendências por responsável (16/11/2026)
+
+Estado da interface aceito pelo usuário "por hora". Formato de
+DIVISAO_RESPONSABILIDADES.md: problema, evidência, arquivos, proposta. Detalhes nas
+seções indicadas abaixo.
+
+### Codex — backend, contratos, runtime e integração
+
+| # | Pendência | Evidência / arquivos | Proposta |
+| --- | --- | --- | --- |
+| C1 | Revisar e integrar a PR #11 em `codex/browser-capture-clis` | Commits separados: chat, remoção do Firefox, ícone, skills, ajustes | Revisar em especial `extension/` e `native_host/` removidos e os testes adaptados; as skills em `.agents/` (commits 7de089d e 1addacd) podem ser descartadas se não quiser no repositório |
+| C2 | Resposta exibida cortada na primeira geração real | Windows, Sonnet, tarefa "Concluída", texto exibido só `-48dc-b51a-4c4ebcb0da4e).`; a interface mostra `task.output` inteiro | Conferir a leitura da saída da CLI no adaptador e o que chega a `task.output`; texto completo da tarefa ainda não enviado pelo usuário (U1) |
+| C3 | Prompt pede "cite o id da fonte" | `integrations/prompt.py`; a interface já troca o id pelo título só na exibição | Pedir o título da fonte em vez do id |
+| C4 | Contrato de conversa | Itens 1–8 de "Dependências de backend/IPC" | `conversation_id`/`turn_id`, histórico montado no backend, aceite inicial revogável, snapshot de contexto por turno, projeto implícito, envio idempotente numa operação, `context` em `tasks.list` |
+| C5 | Captura da página inteira | Item 4; a interface só anexa o trecho selecionado | Captura da aba com identidade do documento e detecção de navegação |
+| C6 | Runtime do painel | Itens 9, 11, 12 | Sinal do shell ao abrir o painel (foco), cancelamento, painel redimensionável e atalho |
+| C7 | Visão | Item 13 | Contrato para imagens; hoje o menu avisa que o Claude não analisa prints/imagens |
+| C8 | Tipo de tarefa fixo em "study" | `frontend/src/App.tsx` (`shortcut:`) | Inferir o tipo no backend ou pedir de volta o seletor |
+| C9 | Ícones do instalador | Só `desktop/ui/icon.svg` e `icon.png` existem | Gerar `.ico`/`.icns` ao empacotar |
+| C10 | Documentação comum | `docs/STATUS.md` e `DIVISAO_RESPONSABILIDADES.md` ainda citam Gemini no frontend e o caminho Firefox | Atualizar: frontend com o Claude de interface, produto só Chromium |
+| C11 | Validação no Windows | Testes desta entrega rodaram só em Linux (Xvfb) | Repetir `npm --prefix desktop run test:ui` e `scripts/verify_ui.py` no Windows |
+
+### Claude da CLI — análise em `integrations/docs/ANALISE_CLI_CLAUDE.md`
+
+| # | Pendência | Evidência | Proposta |
+| --- | --- | --- | --- |
+| A1 | Formato da saída que gerou a resposta cortada (C2) | Primeira geração real concluída, 1 tentativa, término informado pelo provedor | Analisar com fixture do formato real da CLI; não executar geração real |
+| A2 | Limite de uso da conta no Windows | `provider_quota_exceeded` (HTTP 429) registrado em STATUS.md | Registrar como a CLI sinaliza a janela de uso, para a mensagem da interface |
+
+### Usuário
+
+| # | Pendência | Como |
+| --- | --- | --- |
+| U1 | Enviar o texto completo da resposta do teste real | No painel: "Detalhes técnicos" → "Abrir detalhes da tarefa" (print) ou "Copiar"; não gasta cota |
+| U2 | Conferir a interface no Windows | `git pull` em `W:\Projeto\Ia-bbaru-chat` e abrir com `iniciar-ia-bbaru.ps1` |
+| U3 | Ativar as skills no PC, se quiser | `npx skills add DietrichGebert/ponytail --skill '*'`; telemetria: `setx DISABLE_TELEMETRY 1` |
+
+Gemini não tem pendências: a frente de interface passou ao Claude de interface, e a
+branch `gemini/chromium-ui` não foi incorporada (PR #10 continua aberta para a `main`;
+decidir se fecha).
 
 ## O que foi entregue
 
@@ -134,12 +179,12 @@ salvo e ainda não enviado) e “Conexões”. Seletores alterados: o envio cham
 
 ## Pendências da própria interface
 
-- `frontend/src/style.css` ainda tem regras dos componentes removidos
-  (`WorkspaceComposer`, `AgentsSection`, `ContextGuideCard`); limpeza em entrega própria.
-- `validateDraft` em `logic.mjs` ficou sem uso na interface (continua testada).
-- A página inicial e o guia ainda dizem “Perguntar ao Yuki”; alinhar ao novo rótulo.
-- Acessibilidade do painel verificada por papéis e nomes nos testes; auditoria
-  axe do painel não foi executada (o pacote não está instalado aqui).
+Resolvido em 16/11: regras de CSS dos componentes removidos, `validateDraft` sem uso
+e o rótulo "Perguntar ao Yuki" no guia. Continuam:
+- Auditoria axe do painel não executada (o pacote não está instalado aqui).
+- Menus nativos: sair com Tab deixa o menu aberto até um clique fora.
+- No painel estreito, trocar de projeto exige voltar ao chat (o seletor fica no
+  compositor).
 
 ## Remoção do suporte ao Firefox (12/11/2026)
 
