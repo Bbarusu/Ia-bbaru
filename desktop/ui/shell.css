@@ -582,3 +582,8 @@ input:focus-visible {
   background: var(--surface-hover);
   color: var(--text);
 }
+
+/* Com as ações abertas, a mensagem de status cede o espaço (janela de 900 px). */
+.subbar:has(#shell-actions:not([hidden])) #message {
+  display: none;
+}

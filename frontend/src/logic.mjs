@@ -21,16 +21,6 @@ export function taskState(status) {
   );
 }
 
-export function validateDraft({ projectId, text, selectedModels, review }) {
-  if (!projectId) return "Escolha ou crie um projeto.";
-  if (!text.trim()) return "Descreva o que você quer fazer.";
-  if (text.length > 8000) return "O pedido pode ter até 8.000 caracteres.";
-  if (!selectedModels.length) return "Selecione um agente disponível.";
-  if (review && selectedModels.length < 2)
-    return "A revisão precisa de dois agentes diferentes.";
-  return null;
-}
-
 export function formatBilling(billing) {
   return (
     {

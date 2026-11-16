@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   sourceContent,
   taskState,
-  validateDraft,
   formatBilling,
   formatOutputLimit,
   formatCancellation,
@@ -28,25 +27,6 @@ test("partial or failed results are never labelled as successful", () => {
     assert.notEqual(taskState(state), "Concluída");
   }
   assert.equal(taskState("completed"), "Concluída");
-});
-
-test("planning requires context owner, a prompt and available selected agents", () => {
-  const valid = {
-    projectId: "p",
-    text: "Explique",
-    selectedModels: ["a"],
-    review: false,
-  };
-  assert.equal(validateDraft(valid), null);
-  for (const change of [
-    { projectId: "" },
-    { text: " " },
-    { text: "x".repeat(8001) },
-    { selectedModels: [] },
-    { review: true },
-  ]) {
-    assert.ok(validateDraft({ ...valid, ...change }));
-  }
 });
 
 test("1.1 capability helpers translate billing, output limits, cancellation and finish reasons accurately", () => {
