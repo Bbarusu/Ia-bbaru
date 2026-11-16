@@ -244,3 +244,21 @@ shell, da página inicial e do frontend, na marca do shell, da página inicial e
 no `YukiMark`. Fora da área de interface, a pedido do usuário: uma linha em
 `desktop/main.cjs` (`icon` do `BrowserWindow`) para a janela e a barra de tarefas.
 Ícones de instalador (`.ico`/`.icns`) ainda não existem.
+
+## Menos botões e chat no estilo Atlas (16/11/2026)
+
+Pedido do usuário, com captura do painel lateral do Atlas como referência.
+
+- **Barra do navegador:** visíveis só voltar, avançar, recarregar, endereço (com
+  segurança e favorito), "⋯", "❄ Perguntar ao Claude" e ampliar. "⋯" troca os
+  favoritos pelas ações menos usadas (capturar trecho, print, imagem, buscar, zoom,
+  histórico, página inicial, reabrir aba). Não é menu suspenso porque a página web
+  cobre o shell abaixo de 106 px. Saíram os atalhos "Resumir página / Analisar
+  print / Extrair imagem" (repetiam o "+" do chat). Ids e handlers mantidos.
+- **Nova aba:** só marca, título, uma frase e o atalho do Claude. Saíram os quatro
+  cartões sem ação e o guia de 5 passos (continua em "Conhecendo o Yuki").
+- **Painel:** topo só com ampliar, nova conversa e "⋯". Modelo e projeto foram para
+  a barra do compositor ("+", modelo, projeto, enviar). Saíram a fileira de atalhos,
+  o tipo de tarefa (fixo em "study", marcado com `shortcut:`) e a dica de teclado.
+  Mensagens: trechos acima do balão, resposta em texto corrido sem avatar, ações em
+  ícones, espera em uma linha. O modelo usado aparece em "Detalhes técnicos".

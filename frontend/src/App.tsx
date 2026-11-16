@@ -41,7 +41,7 @@ import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatThread } from "./components/ChatThread";
-import { ChatHeader, ModelPill } from "./components/ChatHeader";
+import { ChatHeader } from "./components/ChatHeader";
 import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
@@ -99,7 +99,8 @@ export default function App() {
     return () => query.removeEventListener("change", onChange);
   }, []);
   const [draftReady, setDraftReady] = useState(false);
-  const [kind, setKind] = useState("study");
+  // shortcut: tipo de tarefa fixo (o compositor segue a referência sem esse seletor); voltar a expor se o roteamento por tipo fizer falta.
+  const kind = "study";
   const [acceptedLimit, setAcceptedLimit] = useState(false);
   const [catalogVersion, setCatalogVersion] = useState("1");
 
@@ -699,15 +700,10 @@ export default function App() {
     ? "Crie perguntas de estudo sobre este trecho."
     : "Crie perguntas de estudo sobre: ";
   const starters = [
-    { label: "✨ Resumir a seleção", hint: canAttachSelection ? "Anexa o trecho selecionado na aba" : "Cole o texto depois dos dois-pontos", run: startWith(P_SUMMARY) },
-    { label: "🔍 Principais pontos", hint: "Argumentos e conclusões centrais", run: startWith(P_POINTS) },
-    { label: "💡 Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith(P_TERMS) },
-    { label: "✍ Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith(P_QUESTIONS) },
-  ];
-  const quickActions = [
-    { label: "✨ Resumir seleção", run: startWith(P_SUMMARY) },
-    { label: "🔍 Principais pontos", run: startWith(P_POINTS) },
-    { label: "💡 Explicar termos", run: startWith(P_TERMS) },
+    { label: "Resumir a seleção", hint: canAttachSelection ? "Anexa o trecho selecionado na aba" : "Cole o texto depois dos dois-pontos", run: startWith(P_SUMMARY) },
+    { label: "Principais pontos", hint: "Argumentos e conclusões centrais", run: startWith(P_POINTS) },
+    { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith(P_TERMS) },
+    { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith(P_QUESTIONS) },
   ];
   const welcomeText = canAttachSelection
     ? "Pergunte sobre um trecho da página, explore conceitos ou converse com Claude."
@@ -804,15 +800,8 @@ export default function App() {
         {narrow ? (
           <>
             <ChatHeader
-              eligibleModels={eligibleModels}
-              chatModel={chatModel}
-              setChatModel={setChatModel}
               online={online}
               checking={checking}
-              projects={projects}
-              projectId={projectId}
-              setProjectId={setProjectId}
-              busy={busy}
               tab={tab}
               setTab={setTab}
               openProject={openProject}
@@ -842,7 +831,8 @@ export default function App() {
               expand={expand}
               openGuide={() => setGuideOpen(true)}
               projectSwitch={
-                <ProjectSwitch
+                // No chat, o projeto fica no compositor.
+                !isChat && <ProjectSwitch
                   projects={projects}
                   projectId={projectId}
                   setProjectId={setProjectId}
@@ -883,14 +873,6 @@ export default function App() {
 
           {isChat && !narrow && (
             <div className="chat-bar">
-              <ModelPill
-                eligibleModels={eligibleModels}
-                chatModel={chatModel}
-                setChatModel={setChatModel}
-                online={online}
-                checking={checking}
-                showStatus={false}
-              />
               <button
                 type="button"
                 className="subtle"
@@ -1040,8 +1022,13 @@ export default function App() {
                   canSubmit={canSubmit}
                   busy={busy}
                   online={online}
-                  kind={kind}
-                  setKind={setKind}
+                  checking={checking}
+                  eligibleModels={eligibleModels}
+                  chatModel={chatModel}
+                  setChatModel={setChatModel}
+                  projects={projects}
+                  projectId={projectId}
+                  setProjectId={setProjectId}
                   capture={chatCapture}
                   removeCapture={removeChatCapture}
                   selectedSourcesCount={selectedSources.length}
@@ -1049,7 +1036,6 @@ export default function App() {
                   attachSelection={attachSelection}
                   openSource={openSource}
                   hasEarlierTurns={turns.length > 0}
-                  quickActions={quickActions}
                 />
               </div>
             </section>

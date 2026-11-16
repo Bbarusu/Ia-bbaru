@@ -59,7 +59,7 @@ def main():
         })();""")
         page.goto(url)
         expect(page.get_by_text('Backend local ativo',exact=True)).to_be_visible()
-        page.get_by_role('button',name='Novo projeto',exact=True).first.click()
+        page.locator('.rail').get_by_role('button',name='Novo projeto').click()
         page.get_by_label('Nome do projeto').fill('Pesquisa da faculdade')
         page.get_by_role('dialog').get_by_role('button',name='Criar projeto',exact=True).click()
         expect(page.locator('#project')).to_have_value(client.get('/v1/projects').json()['items'][0]['id'])

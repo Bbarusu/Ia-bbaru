@@ -39,15 +39,6 @@
         <button id="new" type="button" title="Nova aba (Ctrl+T)" aria-label="Nova aba">
           ＋
         </button>
-        <button
-          id="reopen-tab"
-          type="button"
-          class="win-circle"
-          title="Reabrir última aba fechada (Ctrl+Shift+T)"
-          aria-label="Reabrir aba fechada"
-        >
-          ↺
-        </button>
         <div class="window-actions" role="group" aria-label="Controle da janela">
           <button
             id="minimize"
@@ -105,14 +96,6 @@
         >
           ↻
         </button>
-        <button
-          id="home"
-          type="button"
-          aria-label="Página inicial"
-          title="Ir para a página inicial do Yuki"
-        >
-          ⌂
-        </button>
 
         <form id="navigation">
           <button
@@ -132,24 +115,6 @@
             spellcheck="false"
           />
           <button
-            id="find-toggle"
-            type="button"
-            class="omnibox-action"
-            title="Buscar nesta página (Ctrl+F)"
-            aria-label="Buscar na página"
-          >
-            ⌕
-          </button>
-          <button
-            id="zoom-toggle"
-            type="button"
-            class="omnibox-action zoom-indicator"
-            title="Ajustar zoom da página"
-            aria-label="Zoom da página"
-          >
-            100%
-          </button>
-          <button
             id="bookmark-toggle"
             type="button"
             class="omnibox-action"
@@ -160,45 +125,19 @@
           </button>
         </form>
 
-        <div class="capture-group" role="group" aria-label="Capturar contexto da página">
-          <button
-            id="capture"
-            type="button"
-            class="capture"
-            title="Capturar texto selecionado na página"
-          >
-            ＋ Capturar
-          </button>
-          <button
-            id="capture-print"
-            type="button"
-            class="capture-mode-btn"
-            title="Capturar print da tela/aba para o projeto"
-            aria-label="Capturar print"
-          >
-            📸 Print
-          </button>
-          <button
-            id="capture-image"
-            type="button"
-            class="capture-mode-btn"
-            title="Capturar imagem da página para o projeto"
-            aria-label="Capturar imagem"
-          >
-            🖼 Imagem
-          </button>
-        </div>
+
 
         <button
-          id="history-toggle"
+          id="more"
           type="button"
           class="sub-action"
-          title="Histórico de navegação"
-          aria-label="Histórico de navegação"
+          title="Mais ações: capturas, busca, zoom e histórico"
+          aria-label="Mais ações"
+          aria-controls="shell-actions"
+          aria-expanded="false"
         >
-          🕘
+          ⋯
         </button>
-
         <button
           id="panel"
           type="button"
@@ -206,7 +145,7 @@
           aria-pressed="true"
           title="Abrir ou fechar a conversa com o Claude ao lado da página"
         >
-          ❄ Conversar com Claude
+          ❄ Perguntar ao Claude
         </button>
         <button
           id="expand"
@@ -227,37 +166,15 @@
             role="group"
             aria-label="Barra de favoritos"
           ></div>
-          <span class="subbar-divider" aria-hidden="true"></span>
-          <div
-            id="context-actions"
-            class="context-actions"
-            role="group"
-            aria-label="Ações rápidas com agentes do Yuki"
-          >
-            <button
-              type="button"
-              class="context-chip"
-              data-context="summarize"
-              title="Acionar agente no painel para resumir a aba ativa"
-            >
-              ✨ Resumir página
-            </button>
-            <button
-              type="button"
-              class="context-chip"
-              data-context="print"
-              title="Enviar print da página para análise de um agente"
-            >
-              📸 Analisar print
-            </button>
-            <button
-              type="button"
-              class="context-chip"
-              data-context="image"
-              title="Extrair ou anexar imagem da página ao agente"
-            >
-              🖼 Extrair imagem
-            </button>
+          <div id="shell-actions" class="shell-actions" role="group" aria-label="Mais ações do navegador" hidden>
+            <button id="capture" type="button" class="shell-action" title="Salvar o texto selecionado na biblioteca">Capturar trecho</button>
+            <button id="capture-print" type="button" class="shell-action" title="Salvar um print da aba na biblioteca">Capturar print</button>
+            <button id="capture-image" type="button" class="shell-action" title="Salvar uma imagem da página na biblioteca">Capturar imagem</button>
+            <button id="find-toggle" type="button" class="shell-action" title="Buscar nesta página (Ctrl+F)">Buscar na página</button>
+            <button id="zoom-toggle" type="button" class="shell-action" aria-label="Zoom da página" title="Ajustar zoom da página">100%</button>
+            <button id="history-toggle" type="button" class="shell-action" title="Histórico de navegação">Histórico</button>
+            <button id="home" type="button" class="shell-action" title="Ir para a página inicial do Yuki">Página inicial</button>
+            <button id="reopen-tab" type="button" class="shell-action" title="Reabrir última aba fechada (Ctrl+Shift+T)">Reabrir aba</button>
           </div>
         </div>
 

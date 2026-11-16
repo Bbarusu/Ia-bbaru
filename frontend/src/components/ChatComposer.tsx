@@ -5,17 +5,16 @@ import {
   Camera,
   ChevronDown,
   FileText,
+  Folder,
   Image as ImageIcon,
   Loader2,
   Plus,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
-import type { Capture } from "../types";
+import { shortModelName } from "../logic.mjs";
+import type { Capture, Model, Project } from "../types";
 import type { CaptureMediaKind } from "./SourceModal";
 import { Menu } from "./Menu";
-
-export type QuickAction = { label: string; run: () => void };
 
 interface ChatComposerProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -26,8 +25,13 @@ interface ChatComposerProps {
   canSubmit: boolean;
   busy: boolean;
   online: boolean;
-  kind: string;
-  setKind: (kind: string) => void;
+  checking: boolean;
+  eligibleModels: Model[];
+  chatModel: string;
+  setChatModel: (id: string) => void;
+  projects: Project[];
+  projectId: string;
+  setProjectId: (id: string) => void;
   capture: Capture | null;
   removeCapture: () => void;
   selectedSourcesCount: number;
@@ -35,7 +39,6 @@ interface ChatComposerProps {
   attachSelection: () => void;
   openSource: (mode?: CaptureMediaKind) => void;
   hasEarlierTurns: boolean;
-  quickActions: QuickAction[];
 }
 
 export function ChatComposer({
@@ -47,8 +50,13 @@ export function ChatComposer({
   canSubmit,
   busy,
   online,
-  kind,
-  setKind,
+  checking,
+  eligibleModels,
+  chatModel,
+  setChatModel,
+  projects,
+  projectId,
+  setProjectId,
   capture,
   removeCapture,
   selectedSourcesCount,
@@ -56,7 +64,6 @@ export function ChatComposer({
   attachSelection,
   openSource,
   hasEarlierTurns,
-  quickActions,
 }: ChatComposerProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -66,30 +73,11 @@ export function ChatComposer({
 
   const captureText = typeof capture?.text === "string" ? capture.text : "";
   const captureTitle = capture?.title?.trim() || "Trecho da página";
-
-  const hint =
-    text.length > 0
-      ? `${text.length.toLocaleString("pt-BR")}/8.000`
-      : hasEarlierTurns
-        ? "Sem histórico entre mensagens"
-        : "Enter envia · Shift+Enter quebra linha";
+  const status = checking ? "Verificando…" : online ? "Conectado" : "Desconectado";
 
   return (
     <form className="chat-composer" onSubmit={submit}>
-      <div className="quick-actions" role="group" aria-label="Sugestões rápidas">
-        {quickActions.map((action) => (
-          <button
-            type="button"
-            key={action.label}
-            disabled={!draftReady}
-            onClick={action.run}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="composer-pill">
+      <div className="composer-box">
         {(capture || selectedSourcesCount > 0) && (
           <div className="composer-context" aria-label="Contexto que será enviado">
             {capture && (
@@ -145,75 +133,118 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="composer-row">
-          <div className="attach-anchor">
-            <Menu
-              label="Anexar contexto"
-              triggerClass="attach-button"
-              menuClass="attach-menu"
-              disabled={!online || busy}
-              trigger={<Plus size={17} aria-hidden="true" />}
-            >
-              {(close) => {
-                const choose = (action: () => void) => () => {
-                  close();
-                  action();
-                };
-                return (
-                  <>
-                    <button type="button" onClick={choose(attachSelection)}>
-                      <ArrowDownToLine size={14} aria-hidden="true" />
-                      <span>
-                        Trecho selecionado da aba
-                        <small>Vai junto com a mensagem</small>
-                      </span>
-                    </button>
-                    <button type="button" onClick={choose(() => openSource("screenshot"))}>
-                      <Camera size={14} aria-hidden="true" />
-                      <span>
-                        Capturar print da tela
-                        <small>Fica salvo; o Claude ainda não analisa imagens</small>
-                      </span>
-                    </button>
-                    <button type="button" onClick={choose(() => openSource("image"))}>
-                      <ImageIcon size={14} aria-hidden="true" />
-                      <span>
-                        Importar imagem local
-                        <small>Fica salva; o Claude ainda não analisa imagens</small>
-                      </span>
-                    </button>
-                    <button type="button" onClick={choose(() => openSource("text"))}>
-                      <FileText size={14} aria-hidden="true" />
-                      <span>
-                        Adicionar anotação de texto
-                        <small>Salva na biblioteca do projeto</small>
-                      </span>
-                    </button>
-                  </>
-                );
-              }}
-            </Menu>
-          </div>
+        <label htmlFor="instruction" className="sr-only">
+          Mensagem para o Claude
+        </label>
+        <textarea
+          id="instruction"
+          ref={inputRef}
+          rows={1}
+          placeholder={
+            hasEarlierTurns
+              ? "Nova pergunta (o Claude não vê as mensagens anteriores)"
+              : "Pergunte ao Claude"
+          }
+          value={text}
+          maxLength={8000}
+          disabled={!draftReady}
+          onChange={(event) => changeText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            if (canSubmit) event.currentTarget.form?.requestSubmit();
+          }}
+        />
 
-          <label htmlFor="instruction" className="sr-only">
-            Mensagem para o Claude
-          </label>
-          <textarea
-            id="instruction"
-            ref={inputRef}
-            rows={2}
-            placeholder="Pergunte ao Claude ou anexe um trecho da página… (Enter para enviar)"
-            value={text}
-            maxLength={8000}
-            disabled={!draftReady}
-            aria-describedby="composer-hint"
-            onChange={(event) => changeText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-              event.preventDefault();
-              if (canSubmit) event.currentTarget.form?.requestSubmit();
+        <div className="composer-bar">
+          <Menu
+            label="Anexar contexto"
+            triggerClass="attach-button"
+            menuClass="attach-menu"
+            disabled={!online || busy}
+            trigger={<Plus size={17} aria-hidden="true" />}
+          >
+            {(close) => {
+              const choose = (action: () => void) => () => {
+                close();
+                action();
+              };
+              return (
+                <>
+                  <button type="button" onClick={choose(attachSelection)}>
+                    <ArrowDownToLine size={14} aria-hidden="true" />
+                    <span>
+                      Trecho selecionado da aba
+                      <small>Vai junto com a mensagem</small>
+                    </span>
+                  </button>
+                  <button type="button" onClick={choose(() => openSource("screenshot"))}>
+                    <Camera size={14} aria-hidden="true" />
+                    <span>
+                      Capturar print da tela
+                      <small>Fica salvo; o Claude ainda não analisa imagens</small>
+                    </span>
+                  </button>
+                  <button type="button" onClick={choose(() => openSource("image"))}>
+                    <ImageIcon size={14} aria-hidden="true" />
+                    <span>
+                      Importar imagem local
+                      <small>Fica salva; o Claude ainda não analisa imagens</small>
+                    </span>
+                  </button>
+                  <button type="button" onClick={choose(() => openSource("text"))}>
+                    <FileText size={14} aria-hidden="true" />
+                    <span>
+                      Adicionar anotação de texto
+                      <small>Salva na biblioteca do projeto</small>
+                    </span>
+                  </button>
+                </>
+              );
             }}
-          />
+          </Menu>
+
+          <label className="composer-chip" title={`Modelo Claude · ${status}`}>
+            <span
+              className={`status-dot ${checking ? "wait" : online ? "on" : "off"}`}
+              aria-hidden="true"
+            />
+            <select
+              aria-label="Modelo Claude"
+              value={eligibleModels.some((m) => m.id === chatModel) ? chatModel : "auto"}
+              disabled={!eligibleModels.length}
+              onChange={(event) => setChatModel(event.target.value)}
+            >
+              <option value="auto">{eligibleModels.length ? "Automático" : "Sem modelo"}</option>
+              {eligibleModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {shortModelName(m)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} aria-hidden="true" />
+          </label>
+
+          <label className="composer-chip" title="Projeto onde a conversa fica guardada">
+            <Folder size={13} aria-hidden="true" />
+            <select
+              id="project"
+              aria-label="Projeto atual"
+              value={projectId}
+              disabled={!projects.length || busy}
+              onChange={(event) => setProjectId(event.target.value)}
+            >
+              <option value="" disabled>
+                {projects.length ? "Escolha um projeto" : "Sem projeto"}
+              </option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} aria-hidden="true" />
+          </label>
 
           <button
             type="submit"
@@ -228,31 +259,6 @@ export function ChatComposer({
               <ArrowUp size={17} aria-hidden="true" />
             )}
           </button>
-        </div>
-
-        <div className="composer-footer">
-          <label className="composer-select">
-            <SlidersHorizontal size={12} aria-hidden="true" />
-            <select
-              aria-label="Tipo de tarefa"
-              value={kind}
-              onChange={(event) => setKind(event.target.value)}
-            >
-              <option value="general">Geral</option>
-              <option value="study">Estudo</option>
-              <option value="writing">Escrita</option>
-              <option value="coding">Código</option>
-              <option value="analysis">Análise</option>
-            </select>
-            <ChevronDown size={11} aria-hidden="true" />
-          </label>
-          <span
-            className="composer-hint"
-            id="composer-hint"
-            title="Enter envia e Shift+Enter quebra linha. O Claude ainda não recebe as mensagens anteriores da conversa."
-          >
-            {hint}
-          </span>
         </div>
       </div>
     </form>

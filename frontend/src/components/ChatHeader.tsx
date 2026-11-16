@@ -1,8 +1,6 @@
 import {
   BookOpen,
-  ChevronDown,
   CircleHelp,
-  Folder,
   Maximize2,
   MessageSquare,
   MoreHorizontal,
@@ -11,67 +9,12 @@ import {
   SquarePen,
   Workflow,
 } from "lucide-react";
-import { shortModelName } from "../logic.mjs";
-import type { Model, Project, Tab } from "../types";
+import type { Tab } from "../types";
 import { Menu } from "./Menu";
 
-interface ModelPillProps {
-  eligibleModels: Model[];
-  chatModel: string;
-  setChatModel: (id: string) => void;
+interface ChatHeaderProps {
   online: boolean;
   checking: boolean;
-  /** No painel o estado da conexão aparece no ponto da pílula; na página ampla, na barra superior. */
-  showStatus: boolean;
-}
-
-export function ModelPill({
-  eligibleModels,
-  chatModel,
-  setChatModel,
-  online,
-  checking,
-  showStatus,
-}: ModelPillProps) {
-  const status = checking ? "Verificando…" : online ? "Backend local ativo" : "Modo desconectado";
-  const value = eligibleModels.some((m) => m.id === chatModel) ? chatModel : "auto";
-  return (
-    <>
-      {showStatus && (
-        <span className="sr-only" role="status" aria-live="polite">
-          {status}
-        </span>
-      )}
-      <label className="model-pill" title={`Modelo Claude · ${status}`}>
-        <span
-          className={`status-dot ${checking ? "wait" : online ? "on" : "off"}`}
-          aria-hidden="true"
-        />
-        <span aria-hidden="true">❄</span>
-        <select
-          aria-label="Modelo Claude"
-          value={value}
-          disabled={!eligibleModels.length}
-          onChange={(event) => setChatModel(event.target.value)}
-        >
-          <option value="auto">{eligibleModels.length ? "Automático" : "Sem modelo"}</option>
-          {eligibleModels.map((m) => (
-            <option key={m.id} value={m.id}>
-              {shortModelName(m)}
-            </option>
-          ))}
-        </select>
-        <ChevronDown size={12} aria-hidden="true" />
-      </label>
-    </>
-  );
-}
-
-interface ChatHeaderProps extends Omit<ModelPillProps, "showStatus"> {
-  projects: Project[];
-  projectId: string;
-  setProjectId: (id: string) => void;
-  busy: boolean;
   tab: Tab;
   setTab: (tab: Tab) => void;
   openProject: () => void;
@@ -90,12 +33,10 @@ const AREAS: { id: Tab; label: string; icon: typeof BookOpen }[] = [
   { id: "connections", label: "Conexões", icon: Settings2 },
 ];
 
-/** Topo único do painel lateral (até 700 px): uma linha de 44 px. */
+/** Topo do painel lateral (até 700 px): só ícones, como na referência. */
 export function ChatHeader({
-  projects,
-  projectId,
-  setProjectId,
-  busy,
+  online,
+  checking,
   tab,
   setTab,
   openProject,
@@ -105,32 +46,23 @@ export function ChatHeader({
   canExpand,
   expand,
   sourceCount,
-  ...pill
 }: ChatHeaderProps) {
   return (
     <header className="chat-header">
-      <ModelPill {...pill} showStatus />
-
-      <label className="project-pill" title="Projeto atual">
-        <Folder size={13} aria-hidden="true" />
-        <span className="sr-only">Projeto atual</span>
-        <select
-          id="project"
-          value={projectId}
-          onChange={(event) => setProjectId(event.target.value)}
-          disabled={!projects.length || busy}
+      <span className="sr-only" role="status" aria-live="polite">
+        {checking ? "Verificando…" : online ? "Backend local ativo" : "Modo desconectado"}
+      </span>
+      {canExpand && (
+        <button
+          type="button"
+          className="header-icon"
+          aria-label="Abrir página ampla"
+          title="Abrir página ampla"
+          onClick={expand}
         >
-          <option value="" disabled>
-            {projects.length ? "Escolha um projeto" : "Sem projeto"}
-          </option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-        <ChevronDown size={12} aria-hidden="true" />
-      </label>
+          <Maximize2 size={15} aria-hidden="true" />
+        </button>
+      )}
 
       <div className="chat-header-actions">
         <button
@@ -190,18 +122,6 @@ export function ChatHeader({
             );
           }}
         </Menu>
-
-        {canExpand && (
-          <button
-            type="button"
-            className="header-icon"
-            aria-label="Abrir página ampla"
-            title="Abrir página ampla"
-            onClick={expand}
-          >
-            <Maximize2 size={15} aria-hidden="true" />
-          </button>
-        )}
       </div>
     </header>
   );

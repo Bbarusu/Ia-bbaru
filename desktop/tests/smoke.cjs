@@ -114,6 +114,11 @@ async function main() {
   try {
     app = await launch();
     const shell = await app.firstWindow();
+    // Ações menos usadas ficam atrás de "⋯" (a página web cobre o resto do shell).
+    const shellAction = async (id) => {
+      if (!(await shell.locator(`#${id}`).isVisible())) await shell.locator("#more").click();
+      await shell.locator(`#${id}`).click();
+    };
     const workspace = await workspacePage();
     await expect(
       workspace.getByText("Backend local ativo", { exact: true }),
@@ -198,7 +203,7 @@ async function main() {
       s.removeAllRanges();
       s.addRange(range);
     });
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByRole("dialog")).toBeVisible();
     await expect(workspace.locator("dialog textarea")).toHaveValue(
       /fotossíntese/,
@@ -406,7 +411,7 @@ async function main() {
       .click();
     await workspace.getByLabel("Título", { exact: true }).fill("Meu rascunho");
     await workspace.locator("dialog textarea").fill("Texto manual preservado");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Meu rascunho",
     );
@@ -437,7 +442,7 @@ async function main() {
     await workspace
       .locator("dialog textarea")
       .fill("Rascunho que será substituído pelo botão explícito");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Rascunho substituível",
     );
@@ -561,16 +566,16 @@ async function main() {
     await shell.locator("#address").fill(url);
     await shell.locator("#address").press("Enter");
     await expect(web.locator("h1")).toHaveText("Material da faculdade");
-    await shell.locator("#zoom-toggle").click();
+    await shellAction("zoom-toggle");
     await shell.getByRole("button", { name: "125%", exact: true }).click();
     await expect.poll(() => app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find((w) => w.getURL().startsWith(url)).getZoomFactor(), url)).toBe(1.25);
     await shell.getByRole("button", { name: "100%", exact: true }).click();
-    await shell.locator("#find-toggle").click();
+    await shellAction("find-toggle");
     await shell.locator(".tool-input").fill("fotossíntese");
     await shell.locator(".tool-input").press("Enter");
     await expect(shell.locator("#subbar-tool [role=status]")).toContainText("1 / 1");
     await shell.locator(".tool-close-btn").click();
-    await shell.locator("#capture-print").click();
+    await shellAction("capture-print");
     await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
     await expect(workspace.locator("dialog img")).toBeVisible();
     await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();

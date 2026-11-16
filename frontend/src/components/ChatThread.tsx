@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, RotateCcw } from "lucide-react";
+import { Check, Copy, Globe, Loader2, RotateCcw } from "lucide-react";
 import { request } from "../transport";
 import {
   chatActivityLabel,
@@ -9,7 +9,6 @@ import {
   formatFinishReason,
   formatOutputLimit,
   readableAnswer,
-  shortModelName,
   taskState,
 } from "../logic.mjs";
 import type { Model, Task } from "../types";
@@ -39,28 +38,20 @@ function timeLabel(value: string) {
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function Avatar() {
-  return (
-    <span className="turn-avatar" aria-hidden="true">
-      ❄
-    </span>
-  );
-}
-
 function UserMessage({ text, contextTitles }: { text: string; contextTitles: string[] }) {
   return (
     <div className="turn-user">
-      <p>{text}</p>
       {contextTitles.length > 0 && (
         <div className="turn-sources" aria-label="Contexto enviado">
           {contextTitles.map((title, index) => (
             <span key={`${title}-${index}`} className="source-chip" title={title}>
-              <span aria-hidden="true">🌐 </span>
+              <Globe size={12} aria-hidden="true" />
               {title}
             </span>
           ))}
         </div>
       )}
+      <p>{text}</p>
     </div>
   );
 }
@@ -260,13 +251,12 @@ export function ChatThread({
           <span className="welcome-mark">
             <YukiMark />
           </span>
-          <h2>Como posso ajudar hoje?</h2>
+          <h2>Como posso ajudar?</h2>
           <p>{welcomeText}</p>
           <div className="chat-starters">
             {starters.map((starter) => (
-              <button type="button" key={starter.label} onClick={starter.run}>
-                <strong>{starter.label}</strong>
-                <small>{starter.hint}</small>
+              <button type="button" key={starter.label} title={starter.hint} onClick={starter.run}>
+                {starter.label}
               </button>
             ))}
           </div>
@@ -286,8 +276,6 @@ export function ChatThread({
             : phase === "failed"
               ? describeChatError("pedido_nao_concluido")
               : null);
-        const model = models.find((m) => m.id === task.plan?.[0]?.model_id);
-        const modelName = model ? shortModelName(model) : task.plan?.[0]?.model_id || "";
         const rawAnswer =
           task.output ||
           (phase !== "answered" ? task.results?.[task.results.length - 1]?.output : "") ||
@@ -304,12 +292,7 @@ export function ChatThread({
 
             {phase === "working" && (
               <div className="turn-working" role="status">
-                <Avatar />
-                <span className="thinking-dots" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
+                <Loader2 size={14} className="spin" aria-hidden="true" />
                 <span>{chatActivityLabel(task.status)}</span>
                 {pollError && (
                   <p className="turn-error-line" role="alert">
@@ -321,7 +304,6 @@ export function ChatThread({
 
             {isError && info && (
               <div className="turn-error">
-                <Avatar />
                 <div className={`chat-card ${info.tone}`} role="alert">
                   <strong>{info.message}</strong>
                   <p>{info.hint}</p>
@@ -342,12 +324,6 @@ export function ChatThread({
 
             {!isError && phase !== "working" && (
               <div className="turn-assistant">
-                <div className="turn-author">
-                  <Avatar />
-                  <strong>Claude</strong>
-                  <span>{modelName}</span>
-                </div>
-
                 {info && (
                   <div className={`chat-card ${info.tone}`} role={info.tone === "info" ? "status" : "alert"}>
                     <strong>{info.message}</strong>
@@ -373,23 +349,27 @@ export function ChatThread({
 
                 <div className="turn-actions">
                   {answer && (
-                    <button type="button" onClick={() => copy(task, answer)}>
+                    <button
+                      type="button"
+                      aria-label={copiedId === task.id ? "Resposta copiada" : "Copiar resposta"}
+                      title={copiedId === task.id ? "Copiado" : "Copiar"}
+                      onClick={() => copy(task, answer)}
+                    >
                       {copiedId === task.id ? (
-                        <Check size={13} aria-hidden="true" />
+                        <Check size={14} aria-hidden="true" />
                       ) : (
-                        <Copy size={13} aria-hidden="true" />
+                        <Copy size={14} aria-hidden="true" />
                       )}
-                      {copiedId === task.id ? "Copiado" : "Copiar"}
                     </button>
                   )}
                   {finished && (
                     <button
                       type="button"
-                      title="Coloca o texto no campo de mensagem; nada é enviado sem a sua confirmação"
+                      aria-label="Tentar novamente"
+                      title="Tentar novamente: coloca o texto no campo; nada é enviado sem a sua confirmação"
                       onClick={() => retry(task.instruction)}
                     >
-                      <RotateCcw size={13} aria-hidden="true" />
-                      Tentar novamente
+                      <RotateCcw size={14} aria-hidden="true" />
                     </button>
                   )}
                   <TurnDetails task={task} models={models} openTask={openTask} />

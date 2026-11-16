@@ -418,11 +418,16 @@ $("history-toggle").onclick = () => setSubbarTool("history");
 $("capture-print").onclick = () => command("capture.screenshot");
 $("capture-image").onclick = () => command("capture.image");
 
-document.querySelectorAll("[data-context]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const kind = btn.getAttribute("data-context");
-    command(kind === "summarize" ? "capture.page" : kind === "print" ? "capture.screenshot" : "capture.image");
-  });
+// "⋯" troca os favoritos pelas ações menos usadas; escolher uma ação volta aos favoritos.
+function toggleActions(open = $("shell-actions").hidden) {
+  if (open && activeSubbarMode) closeSubbarTool();
+  $("shell-actions").hidden = !open;
+  $("bookmarks").hidden = open;
+  $("more").setAttribute("aria-expanded", String(open));
+}
+$("more").onclick = () => toggleActions();
+$("shell-actions").addEventListener("click", (event) => {
+  if (event.target.closest("button")) toggleActions(false);
 });
 
 $("bookmark-toggle").onclick = () => {
