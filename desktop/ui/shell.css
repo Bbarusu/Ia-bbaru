@@ -566,6 +566,7 @@ input:focus-visible {
 }
 
 .shell-action {
+  flex-shrink: 0;
   min-height: 24px;
   padding: 2px 10px;
   border-radius: 999px;
