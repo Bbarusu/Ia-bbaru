@@ -2,7 +2,8 @@
 
 Autor: Claude Code (frente de compatibilidade da CLI). Data: 11/11/2026.
 Escopo: `docs/PROMPT_CLAUDE_ESCOPO.md` e `docs/DIVISAO_RESPONSABILIDADES.md`.
-Atualizado em 12/11/2026 com a base `4e6679e` (seção 6).
+Atualizado em 12/11/2026 com a base `4e6679e` (seção 6) e em 16/11/2026 com A1/A2
+da passagem do frontend (seção 7).
 Base lida originalmente: `codex/browser-capture-clis` `36e5402`, que já contém meu trabalho até
 `c22beb0` (merge `875d4b4`) e a correção do Codex `aa3933f`.
 
@@ -332,3 +333,168 @@ O teste opcional pede uma resposta de **uma palavra** com teto 128. Portanto:
   levantada, então não proponho a frase.
 
 Sem outros achados novos nesta atualização.
+
+## 7. Resposta cortada (A1) e sinalização do limite de uso (A2) — 16/11/2026
+
+Pedidos A1 e A2 de `docs/PASSAGEM_CLAUDE_FRONTEND.md` (branch
+`claude/friendly-curie-pxw81w`, `b2735ca`). Base inalterada desde `4e6679e`.
+**Nenhuma geração.** Evidência [P]: binários oficiais lidos com `strings`:
+- 2.1.325, a CLI instalada neste contêiner, que se atualizou sozinha;
+- 2.1.322 e 2.1.307, os pacotes linux-x64 do npm, que são as versões do Windows.
+
+Os trechos citados existem nas três versões, com nomes de variáveis diferentes.
+Reprodução das classificações chamando as funções existentes do gateway, sem
+alterar o repositório.
+
+### 7.1 A1 — como a CLI monta `result`
+
+O que o binário mostra, nas três versões:
+
+1. **Cada bloco de conteúdo vira uma mensagem `assistant` separada.** No evento
+   `content_block_stop` da API, a CLI emite uma mensagem com o mesmo `id` da
+   resposta e `content` contendo **só aquele bloco**. Na saída `stream-json`, isso
+   aparece como vários eventos `assistant` com o mesmo `message.id`.
+2. **`result` guarda só o texto do último bloco.** O laço que monta o resultado
+   final faz, para cada mensagem `assistant`:
+   `texto = (último bloco é texto) ? bloco.text : ""`. O valor anterior é
+   **substituído**, não concatenado. No fim, `result = erro ? texto_do_erro : texto`.
+   2.1.325: `let Ts=H?se:yt`; 2.1.322: `let ws=Pe?fe:at`; 2.1.307: `let ks=pt?ts:Vt`.
+3. **`stop_reason` não muda com isso.** Ele vem do `message_delta` final, então uma
+   resposta assim termina com `end_turn` e o gateway devolve `finish_reason: stop`.
+   É o que a captura mostrou ("término informado pelo provedor").
+
+Consequência: se o modelo responder em **mais de um bloco de texto**, a saída
+`--output-format json` (a usada pelo gateway) traz **só o último bloco**. Nada no
+resultado indica a perda: `is_error: false`, `subtype: "success"`, `stop_reason`
+normal.
+
+Ligação com C2 (resposta "-48dc-b51a-4c4ebcb0da4e)."): o texto exibido é o **final**
+de um UUID seguido de ")." e de fim de frase. É compatível com o último de vários
+blocos de texto. **Não está comprovado** que foi isso:
+
+| Hipótese | Situação | Como distinguir, sem gerar |
+| --- | --- | --- |
+| H-A. Resposta em vários blocos de texto; `result` só com o último | Mecanismo comprovado [P]. **Gatilho desconhecido**: não levantei quando a API divide o texto de uma resposta sem ferramentas em blocos (citações e ferramentas de servidor estão fora do uso do gateway) | Corpo gravado pelo gateway para aquele `request_id` (tabela de deduplicação): se `output` já é o trecho final e `usage.output_tokens` é muito maior que ~15 tokens, o corte veio da CLI. Ressalva: tokens de raciocínio também contam |
+| H-B. Corte depois do gateway (backend, armazenamento ou exibição) | Não verificado. A interface diz mostrar `task.output` inteiro. `readableAnswer` só troca ids **completos** por títulos, então não produz o recorte | Mesmo corpo do gateway: se lá o texto estiver completo, o corte é depois dele |
+| H-C. O modelo respondeu só isso | Improvável, sem evidência | `usage.output_tokens` da etapa |
+
+O que falta é o texto completo da tarefa (U1) e, principalmente, o corpo gravado
+pelo gateway e o `usage` daquela etapa. Os dois são leituras, sem geração, e
+ficam com o Codex.
+
+**Problema P-7 (alta, se H-A se confirmar):** `ClaudeCodeAdapter.parse` usa só
+`result` da saída `json`. Com mais de um bloco de texto, a resposta é aceita como
+completa e com `finish_reason: stop`, mas faltando partes. Os dublês nunca
+cobriram esse formato: o `fake_claude.py` emite um único `result` coerente.
+
+Proposta (Codex; muda o parser, **não** o contrato):
+- Ler `--output-format stream-json --verbose` **internamente** e montar a saída
+  concatenando, em ordem, os blocos `text` das mensagens `assistant` da última
+  resposta (mesmo `message.id`).
+- Conferir com `result`: o último bloco precisa coincidir. Se não coincidir,
+  `provider_invalid_output`, nunca sucesso.
+- O backend continua recebendo uma resposta completa e não incremental.
+  `streaming: false` não muda, porque `stream-json` aqui é só o formato da CLI.
+- Ganhos extras da mesma leitura:
+  - `init.model`: o modelo resolvido;
+  - `system/model_fallback`: trocas de modelo, que viram falha;
+  - `api_error_params` com o horário de renovação (seção 7.2);
+  - `rate_limit_event`.
+- Fixture proposta: o dublê no modo `stream-json` emitindo duas mensagens
+  `assistant` com o mesmo `id` ("Primeira parte (fonte " / "abc-123).") e um
+  `result` só com a segunda. Esperado: a saída concatenada. Outra variante:
+  `result` diferente do último bloco → `provider_invalid_output`.
+
+### 7.2 A2 — como a CLI sinaliza o limite de uso
+
+**Na saída `json` (a do gateway hoje):** o turno de erro tem `is_error: true`,
+`subtype: "success"` e código de saída 1, como observado no Windows [R]. Também traz:
+- `result`: a frase para o usuário (abaixo);
+- `api_error_status`: o status HTTP, por exemplo 429;
+- `api_error_code` / `api_error_type`: códigos do servidor, quando existem;
+- `api_error`: **tipo do erro, sem precisar ler texto**. Para limite da conta ou
+  do plano, `"usage_limit_reached"`. Outros relacionados:
+  `model_requires_usage_credits`, `long_context_credits_required`,
+  `no_allowed_fallback`, `model_substitution_disabled`, `max_output_tokens`.
+
+`api_error` é marcado como "@internal" e a própria CLI avisa que novos valores
+aparecem com o tempo: "treat an unknown value as absent". A CLI só o preenche
+quando a frase é reconhecida como limite (prefixos "You've hit your",
+"You've reached your", "You're out of usage credits"...) ou com uso pausado. A
+sobrecarga temporária do servidor também usa `rate_limit`, mas **sem** esse tipo.
+
+**Horário de renovação e tipo de janela:** **não** vêm na saída `json`. O schema
+de `result` não tem `api_error_params`. Eles aparecem só no `stream-json`:
+- na mensagem `assistant` do erro, em `api_error_params.rate_limit_info`:
+  - `status` (`allowed` / `allowed_warning` / `rejected`);
+  - `resetsAt` (segundos Unix);
+  - `rateLimitType` (`five_hour`, `seven_day`, `seven_day_opus`,
+    `seven_day_sonnet`, `seven_day_overage_included`, `overage`);
+  - `utilization` e, por janela, `unifiedWindows`;
+- nos eventos `rate_limit_event`, emitidos "quando a informação de limite muda",
+  inclusive **antes** de bater no limite (`allowed_warning`).
+
+**Frase para o usuário** (montada pela CLI): `You've hit your <janela><sufixos>`.
+- Janelas: "5-hour limit", "weekly limit", "Opus limit", "Sonnet limit",
+  "Fable limit", "usage credit limit", "usage limit", "monthly spend limit".
+- Sufixo " · resets <hora local>" **só quando a renovação é conhecida**, mais
+  " · progress saved" em alguns casos.
+- Variantes: "You're out of usage credits…", "Usage is paused for your
+  organization…", "Your seat type doesn't include usage credits".
+
+**Problema P-6 (alta): limite sem horário de renovação vira `provider_error`.**
+- **Onde:** `integrations/failures.py`, categoria `quota`. Reconhece só "usage
+  limit", "limit reached", "rate limit", "quota" e "resets". Os marcadores de
+  `failure_diagnostics.py` também não pegam essas frases.
+- **Reprodução feita** com `categorize` + `error_for`:
+
+  | Frase | Resultado |
+  | --- | --- |
+  | "You've hit your 5-hour limit · resets 5pm …" | `provider_quota_exceeded` |
+  | "You've hit your 5-hour limit · progress saved" | `provider_error` |
+  | "You've hit your weekly limit" | `provider_error` |
+  | "You've hit your Sonnet limit" | `provider_error` |
+  | "Usage is paused for your organization…" | `provider_error` |
+
+- **Impacto:** a interface mostra uma falha genérica para um limite de uso. A
+  deduplicação continua correta (não repete).
+- **Relação com a falha original "Revise":** o código de `fa24ef3` tinha as mesmas
+  frases. Um limite sem horário de renovação teria virado `provider_error`, e no
+  mesmo dia o teste seguinte bateu em cota (429). Isso vira a hipótese
+  **H5, plausível e não comprovada**. Não substitui H1, H2 e H4.
+- **Proposta (Codex):** classificar primeiro pelo campo tipado `api_error` do
+  resultado:
+  - `usage_limit_reached` → cota;
+  - `model_requires_usage_credits` / `long_context_credits_required` → créditos;
+  - `model_substitution_disabled` / `no_allowed_fallback` → modelo indisponível;
+  - `max_output_tokens` → teto de saída (P-1, C-7).
+
+  Usar o texto só quando o tipo estiver ausente ou desconhecido, e acrescentar
+  "You've hit your" e "You've reached your" às frases. Usar `api_error_status` em
+  vez de procurar "API Error: NNN" no texto. Fixture: o dublê `usage_limit` com
+  `api_error: "usage_limit_reached"`, `api_error_status: 429` e a frase **sem**
+  " · resets".
+
+**Para a mensagem da interface (F-3 revisto):**
+- Hoje o gateway não sabe quando o limite renova, então a interface não deve
+  prometer horário. Pode dizer "limite de uso da conta atingido; confira no
+  Claude Code".
+- Com a leitura `stream-json` (P-7), o gateway passaria a ter `resetsAt` e
+  `rateLimitType` **sem guardar texto da CLI**.
+- Levar isso ao backend e à interface exige um campo de contrato, por exemplo
+  `retry_after`/`limit_window` no erro 429. É decisão do Codex.
+- O mesmo vale para avisar **antes** do limite (`allowed_warning`).
+
+R-2 (seção 6) fica respondido: os campos de `rate_limit_event` agora estão levantados.
+
+### 7.3 Pendências novas
+
+| Id | Para | O quê |
+| --- | --- | --- |
+| P-6 | Codex | Classificar pelo `api_error` tipado; frases "You've hit/reached your"; `api_error_status` direto |
+| P-7 | Codex | Ler `stream-json` internamente e concatenar os blocos de texto; conferir com `result` |
+| E-1 | Codex | Ler, sem gerar, o corpo gravado pelo gateway e o `usage` da etapa da resposta cortada (C2), para distinguir H-A de H-B |
+| C-11 | Codex | Se quiser mostrar renovação ou aviso prévio: campo de contrato para janela e renovação do limite |
+| F-3 | Frontend | Mantido: não prometer horário de renovação enquanto C-11 não existir. Mensagem de limite também para `provider_error` só se o backend mandar código específico (P-6), nunca por adivinhação |
+
+Nenhuma implementação comigo.
