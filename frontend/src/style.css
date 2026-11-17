@@ -2911,3 +2911,26 @@ dialog.kinfo-guide-dialog {
 .header-menu button[aria-current="true"] {
   font-weight: 600;
 }
+
+/* Trecho vindo do navegador: confirmação curta acima do compositor. */
+.capture-confirm {
+  margin-bottom: 8px;
+}
+.capture-confirm small {
+  display: block;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.capture-preview {
+  max-height: 7.5em;
+  overflow: auto;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}

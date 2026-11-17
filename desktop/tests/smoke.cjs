@@ -203,6 +203,16 @@ async function main() {
       s.removeAllRanges();
       s.addRange(range);
     });
+    // Fora da Biblioteca, o trecho só pede confirmação para ir ao chat: sem título nem salvamento.
+    await shellAction("capture");
+    const captureConfirm = workspace.getByRole("group", { name: "Confirmar trecho" });
+    await expect(captureConfirm).toContainText("fotossíntese");
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await captureConfirm.getByRole("button", { name: "Usar no chat", exact: true }).click();
+    await expect(workspace.getByRole("button", { name: "Remover trecho da página" })).toBeVisible();
+    await workspace.getByRole("button", { name: "Remover trecho da página" }).click();
+    // Na Biblioteca, a captura continua virando material revisado.
+    await openArea(workspace, "Biblioteca");
     await shellAction("capture");
     await expect(workspace.getByRole("dialog")).toBeVisible();
     await expect(workspace.locator("dialog textarea")).toHaveValue(
@@ -211,6 +221,7 @@ async function main() {
     await workspace
       .getByRole("button", { name: "Salvar no projeto", exact: true })
       .click();
+    await openArea(workspace, "Chat");
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
     const saved = await workspace.evaluate(async () => {
       const req = (operation, params = {}) =>

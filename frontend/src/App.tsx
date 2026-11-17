@@ -94,6 +94,8 @@ const chromiumGuideUrl =
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("workspace");
+  const tabRef = useRef<Tab>("workspace");
+  tabRef.current = tab;
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const projectRef = useRef("");
@@ -110,6 +112,10 @@ export default function App() {
   // Perfil de resposta (quick/normal/deep) ou um modelo escolhido pelo nome.
   const [chatChoice, setChatChoice] = useState("normal");
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  // Trecho vindo do navegador (botão, menu de contexto): só confirma se vai para o chat.
+  const [incomingCapture, setIncomingCapture] = useState<Capture | null>(null);
+  const chatCaptureRef = useRef<string | undefined>(undefined);
+  chatCaptureRef.current = chatCapture?.id;
   const [pageStatus, setPageStatus] = useState<PageStatus | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -443,6 +449,15 @@ export default function App() {
       setChatCapture(value);
       return;
     }
+    // Fora da Biblioteca, texto capturado vai para o chat: sem título nem salvamento,
+    // só a confirmação do que será enviado. Na Biblioteca, segue o fluxo de material.
+    if (value && !value.media && tabRef.current !== "library") {
+      if (chatCaptureRef.current !== value.id) {
+        setIncomingCapture(value);
+        setTab("workspace");
+      }
+      return;
+    }
     const decision = decideIncomingCapture(editRef.current, value);
     if (decision.action === "queue" && decision.queuedCapture) {
       setQueuedCapture(decision.queuedCapture);
@@ -645,6 +660,21 @@ export default function App() {
   }
   const attachSelection = () => captureForChat(selectCapture);
   const attachPage = () => captureForChat(capturePage);
+
+  function acceptIncomingCapture() {
+    const next = incomingCapture;
+    if (!next) return;
+    if (chatCapture && chatCapture.id !== next.id) clearCapture(chatCapture.id).catch(() => {});
+    setChatCapture(next);
+    setIncomingCapture(null);
+    inputRef.current?.focus();
+  }
+
+  function discardIncomingCapture() {
+    const current = incomingCapture;
+    setIncomingCapture(null);
+    if (current) clearCapture(current.id).catch(() => {});
+  }
 
   function removeChatCapture() {
     const current = chatCapture;
@@ -1402,6 +1432,24 @@ export default function App() {
               />
 
               <div className="chat-dock">
+                {incomingCapture && (
+                  <div className="chat-card capture-confirm" role="group" aria-label="Confirmar trecho">
+                    <strong>Enviar este trecho no chat?</strong>
+                    <small>
+                      {incomingCapture.title?.trim() || "Trecho da página"}
+                      {incomingCapture.url && ` · ${(() => { try { return new URL(incomingCapture.url).hostname; } catch { return ""; } })()}`}
+                    </small>
+                    <p className="capture-preview">{incomingCapture.text}</p>
+                    <div className="chat-card-actions">
+                      <button type="button" className="dark-button" onClick={acceptIncomingCapture}>
+                        Usar no chat
+                      </button>
+                      <button type="button" className="plain-button" onClick={discardIncomingCapture}>
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {consentChip}
                 <ChatComposer
                   inputRef={inputRef}

@@ -9,6 +9,15 @@ Sem alteração em backend, gateway, contratos ou persistência. Fora de `fronte
 testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
 em `.agents/`. Tudo na PR #11, para integração pelo Codex.
 
+## Captura simplificada e pedidos aos outros agentes (17/11/2026)
+
+Fora da Biblioteca, “Capturar trecho” e o menu de contexto não abrem mais o diálogo
+de material: o painel pergunta “Enviar este trecho no chat?” (prévia, “Usar no chat”,
+“Descartar”). Na Biblioteca, o fluxo de material segue igual. Leitura visual da
+página, ampliação das capacidades da IA e as páginas do navegador no modelo do
+Safari estão designadas em [PEDIDO_VISAO_E_NAVEGADOR.md](PEDIDO_VISAO_E_NAVEGADOR.md);
+o desenho dessas páginas está no Canvas, para aprovação.
+
 ## Guia da Frente 3 — ajustes (17/11/2026)
 
 - Shell: `#panel` com `aria-keyshortcuts` e atalho Ctrl+Shift+L no título; Ctrl+L
