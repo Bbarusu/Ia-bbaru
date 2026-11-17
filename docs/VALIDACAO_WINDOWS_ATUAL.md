@@ -63,9 +63,9 @@ powershell -ExecutionPolicy Bypass -File .\integrations\scripts\iniciar-ia-bbaru
 
 Abrir/consultar não gera. Scripts usam protocolo1.2 e teto2048 para novos pedidos.
 Aceites/planos1.1 continuam históricos e precisam ser refeitos; sem migração
-silenciosa de tarefas. A UI da PR11 ainda usa tarefas independentes até o Claude
-frontend ligar o contrato de conversa documentado. Não anunciar continuidade
-entre mensagens nem visão ativa na interface antes dessa ligação.
+silenciosa de tarefas. A interface integrada até 629254c já usa conversas persistentes e aceite único.
+Conferir resposta no chat, retomada após reabrir e revogação. Visão segue
+experimental; captura disponível não prova análise visual real.
 
 Visão real e nova geração textual exigem etapa posterior com a conta disponível,
 prévia e autorização. Configuração experimental da visão, somente quando for
@@ -86,3 +86,9 @@ nome do teste e traceback, sem bancos pessoais ou texto da página. Novos contro
 visuais pertencem à branch da Frente 3; não confundir validação do IPC com todos
 os botões já ligados na interface. Maximizar/restaurar e arraste da janela devem
 ser conferidos separadamente quando a barra nativa for alterada pela integração.
+
+Integração até 629254c validada somente em Linux: backend96, gateway108 (107 ok,
+1 real ignorado), frontend22, desktop6, build/ícones, verify_ui.py e smoke aprovados.
+O smoke agora também simula erro HTTP após persistir turno, consulta 404 e replay;
+confere um único despacho e restauração de envio pendente sem gerar ao reiniciar.
+Windows permanece pendente. Não é necessário consumir cota para esses testes.

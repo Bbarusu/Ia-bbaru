@@ -1,7 +1,7 @@
 # Estado atual — Yuki, Chromium e Claude
 
 Atualizado em 17/11/2026. Branch codex/browser-capture-clis, PR #7, fora da main.
-PR #11 integrada até b2735ca; análise da CLI integrada até 856cfa5.
+Interface integrada até 629254c por fast-forward sobre 93b44f6; análise CLI até 856cfa5.
 
 - Produto somente Electron/Chromium. Extensão, instalador e guia Firefox removidos;
   a ponte native_host permanece porque o desktop a usa. Dados antigos preservados.
@@ -28,14 +28,21 @@ PR #11 integrada até b2735ca; análise da CLI integrada até 856cfa5.
 - Ícones .ico/.icns gerados do PNG aprovado e configurados para empacotamento.
   Instalador assinado/publicado não foi produzido.
 
-## Integração de interface ainda necessária
+## Interface integrada
 
-A UI aprovada da PR11 foi preservada e integrada. Ela ainda usa tarefas independentes,
-aceite por mensagem e capturas de seleção. O Claude de interface deve ligar as
-operações novas; isso não está marcado como concluído. Prompt fechado em
-[PROMPT_CLAUDE_FRONTEND_CHAT.md](PROMPT_CLAUDE_FRONTEND_CHAT.md), contrato em
-[ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md). Não apresentar histórico real,
-aceite único, visão ou handle de largura como funções visuais já entregues.
+Chat lateral usa conversations.*, corpo/turn_id persistidos antes do envio,
+aceite revogável, perfis e snapshots de página/seleção. Imagem e revisão pedem
+confirmação; print integral passa pela revisão da biblioteca. Histórico de
+conversas e consulta de envio pendente sobrevivem ao reinício sem nova geração.
+HTTP 5xx mantém o pedido pendente; 404 em consulta não prova que o envio parou.
+Somente consulta ou replay do mesmo corpo ficam disponíveis nessa incerteza.
+
+Histórico de navegação, favoritos e preferências ativas ainda usam localStorage
+compartilhado entre barra e painel, com efeito real. Migração para processo
+principal pendente, preservando os dados. Downloads e controles sem runtime
+continuam desativados. Bolinha verde usa maximize; barra nativa Windows pendente.
+Captura limpa no IPC ainda exige fechar explicitamente sua revisão no painel;
+não fechar rascunhos automaticamente. Contrato em [ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).
 
 Codex: backend/gateway/contratos/runtime e integração. Claude de interface:
 frontend/ e desktop/ui/. Claude analista: somente ANALISE_CLI_CLAUDE.md.
@@ -47,8 +54,9 @@ Testes desta rodada Linux: 96 backend aprovados; gateway108 executados (107 apro
 6 testes de política/captura desktop aprovados. Smoke Chromium integrado aprovado,
 incluindo página visual maior que a janela, identidade de documento, recusa de
 menu antigo, maximize, navegação, isolamento, capturas, rascunhos, conversa pelo
-IPC e persistência após reiniciar. Build/ícones, verify_ui.py e 16 testes frontend
-aprovados na rodada anterior; frontend sem alterações nesta rodada. Xvfb, com sandbox do
+IPC e persistência após reiniciar, perda de resposta, replay idempotente e
+restauração de envio pendente sem despacho automático. Build/ícones, verify_ui.py
+e 22 testes frontend aprovados nesta integração. Xvfb, com sandbox do
 sistema desativada só no teste Linux. Nenhuma geração real nesta rodada.
 
 Windows: usuário forneceu tarefa3ca05830-926f-47ca-96d8-0ccfe7399a4d com resposta
@@ -62,8 +70,7 @@ Cancelamento de chamada em curso e entrega progressiva não estão no contrato a
 Renovação de cota não é exposta; não inventar horário. Históricos de implantação,
 limpeza de cópias e testes anteriores em [HISTORICO_STATUS.md](HISTORICO_STATUS.md).
 
-Pedido do navegador lido até `claude/friendly-curie-pxw81w@1224556`, sem incorporar
-as mudanças visuais recentes. [Resposta por item](RESPOSTA_VISAO_E_NAVEGADOR.md):
+Pedido e interface incorporados até `claude/friendly-curie-pxw81w@629254c`. [Resposta por item](RESPOSTA_VISAO_E_NAVEGADOR.md):
 captura integral limitada, N7 e maximize entregues; anexos diretos no turno,
 multimagem/1.3, PDF, streaming, cancelamento, ajustes persistidos, downloads e
 extensões continuam pendentes. Preservar o painel aprovado, não recriar a visão

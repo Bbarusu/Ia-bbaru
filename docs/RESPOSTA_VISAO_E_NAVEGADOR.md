@@ -3,9 +3,9 @@
 17/11/2026. Base de integração: `codex/browser-capture-clis` (PR #7).
 Pedido lido de `claude/friendly-curie-pxw81w`, commit `1224556`; cópia em
 [PEDIDO_VISAO_E_NAVEGADOR.md](PEDIDO_VISAO_E_NAVEGADOR.md).
-Esta entrega implementa a base do chat e os itens abaixo de runtime; não incorpora
-as alterações visuais recentes dessa branch. A interface integrada nesta base
-continua sendo a PR #11, até `b2735ca`.
+Atualização: interface integrada até `629254c`, inclusive controles de captura
+integral e maximize. A tabela abaixo registra pendências de runtime após essa
+integração; downloads gerenciados aprovados e extensões adiadas pelo usuário.
 
 ## Disponível para a Frente 3
 

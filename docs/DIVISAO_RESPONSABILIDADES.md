@@ -29,7 +29,7 @@ seus testes coerentes com o escopo atribuído.
 Responsável único: **Codex**. Inclui adaptador Claude, runner, parser, modelos,
 classificação de erros, diagnóstico, fixtures e testes envolvidos. Claude não
 abre uma segunda correção desses arquivos enquanto esta reserva existir.
-Análise integrada até 856cfa5; interface integrada da PR #11 até b2735ca.
+Análise integrada até 856cfa5; interface integrada até 629254c.
 Não reaplicar patches antigos. Validação desta integração no Windows pendente.
 
 Tarefa atual de Claude: consolidar evidências existentes e pendências em
@@ -80,3 +80,17 @@ renderer. Novo pedido lido até `claude/friendly-curie-pxw81w@1224556`;
 RESPOSTA_VISAO_E_NAVEGADOR.md distingue entrega e pendência por item. Não incorpora
 automaticamente as mudanças visuais posteriores à PR #11. Frente 1 segue no
 relatório CLI, incluindo V4 (múltiplas imagens/eco/limites), sem código concorrente.
+
+## Integração da Frente 3 — 17/11/2026
+
+Interface integrada até 629254c (fast-forward sobre 93b44f6, sem conflito).
+Codex revisou a recuperação: HTTP 5xx mantém o mesmo corpo/UUID; consulta 404
+não autoriza outro envio enquanto o anterior pode estar chegando. Smoke cobre
+resposta perdida, consulta, replay e restauração pendente sem geração automática.
+Os testes fecham explicitamente a revisão após capture.clear; publicação de null
+continua opcional e requer preservar rascunhos editados. Backend/runtime/gateway
+não mudaram nesta integração. main preservada; sem force push.
+
+Nova decisão do usuário: downloads gerenciados (destino confirmado, progresso,
+cancelamento, sem abertura automática); extensões adiadas. Codex implementará
+base de histórico/ajustes e avaliará visão direta/múltipla e barra Windows.

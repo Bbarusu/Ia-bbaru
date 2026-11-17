@@ -2,9 +2,8 @@
 
 Entrega Codex, 16/11/2026. Base: `codex/browser-capture-clis`, incorporando a PR #11
 (`b2735ca`) e a análise CLI (`eb6c671`). Produto exclusivamente Chromium/Electron.
-A interface dessa PR ainda usa tarefas independentes; as operações abaixo estão
-implementadas e testadas, mas seus controles visuais precisam ser ligados pelo
-Claude de interface. Não confundir integração da PR com conclusão dessa ligação.
+Atualização 17/11: interface integrada até 629254c, com operações de conversa
+ligadas e testadas. Os contratos abaixo permanecem vigentes.
 
 ## Conversa, aceite e envio
 

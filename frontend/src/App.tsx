@@ -897,7 +897,8 @@ export default function App() {
         setSendLost(true);
         return;
       }
-      // Recusa definitiva: nenhum turno foi criado; o texto continua no campo.
+      // Recusa definitiva: preserve também o texto recuperado após reiniciar.
+      if (!textRef.current) setText(pending.turn.instruction);
       writePendingSend(null);
       setPendingSend(null);
       if (consentRejected(e)) {
@@ -923,14 +924,6 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function discardLostSend() {
-    writePendingSend(null);
-    setPendingSend(null);
-    setSendLost(false);
-    setLostMissing(false);
-    inputRef.current?.focus();
   }
 
   function finishSend(pending: PendingSend, turn: Turn) {
@@ -1174,8 +1167,8 @@ export default function App() {
         <strong>Enviando…</strong>
       ) : lostMissing ? (
         <>
-          <strong>O backend não registrou este envio.</strong>
-          <p>Nada foi gerado. Você pode reenviar o mesmo pedido ou editar o texto antes de enviar.</p>
+          <strong>O envio ainda não foi encontrado.</strong>
+          <p>A consulta não confirma se o pedido anterior ainda está chegando. Consulte novamente ou reenvie o mesmo pedido, preservando seu identificador.</p>
         </>
       ) : (
         <>
@@ -1202,11 +1195,6 @@ export default function App() {
           >
             Reenviar o mesmo pedido
           </button>
-          {lostMissing && (
-            <button type="button" className="plain-button" disabled={busy} onClick={discardLostSend}>
-              Editar o texto
-            </button>
-          )}
         </div>
       )}
     </div>
