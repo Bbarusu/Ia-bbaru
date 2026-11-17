@@ -8,6 +8,7 @@ from .contracts import StrictModel, TaskKind
 from .capabilities import plan_step, policy_error, model_family, review_eligible
 from .gateway import GatewayUnavailable
 from .gateway_errors import ERROR_STATUS
+from .visual import visual_policy
 
 
 def now():
@@ -26,6 +27,7 @@ class TaskInput(StrictModel):
     allow_unenforced_output_limit: bool = Field(default=False, strict=True)
     max_output_tokens: int | None = Field(default=None, ge=1, le=4096, strict=True)
     response_profile: Literal["quick", "normal", "deep"] | None = None
+    allow_visual_input: bool = Field(default=False, strict=True)
 
     @field_validator("instruction")
     @classmethod
@@ -42,7 +44,7 @@ class TaskInput(StrictModel):
         return value
 
 
-def build_task(project_id, data, context, gateway, catalog=None):
+def build_task(project_id, data, context, gateway, catalog=None, attachments=None):
     if data.mode == "single" and data.reviewer_model_id:
         raise HTTPException(422, "reviewer_requires_review_mode")
     chars = len(data.instruction) + sum(len(s["content"]) + len(s["title"]) for s in context)
@@ -57,6 +59,15 @@ def build_task(project_id, data, context, gateway, catalog=None):
         raise HTTPException(422, "model_unknown_or_unavailable")
     policy_errors = {mid: policy_error(available[mid], data.allow_unenforced_output_limit)
                      for mid in data.allowed_model_ids}
+    if attachments:
+        if catalog.protocol_version != "1.2":
+            raise HTTPException(422, "visual_context_not_supported")
+        if not data.allow_visual_input:
+            raise HTTPException(422, "visual_input_not_accepted")
+        if len(attachments) > 1:
+            raise HTTPException(422, "context_too_large")
+        for mid in policy_errors:
+            policy_errors[mid] = policy_errors[mid] or visual_policy(available[mid])
     for explicit in (data.preferred_model_id, data.reviewer_model_id):
         if policy_errors.get(explicit):
             raise HTTPException(422, policy_errors[explicit])
@@ -105,5 +116,6 @@ def build_task(project_id, data, context, gateway, catalog=None):
                     f"Perfil {data.response_profile}; preferência de família configurada, sem garantia de qualidade ou acesso." if data.response_profile else
                     "Compatibilidade de contexto, categorias configuradas e sua ordem de preferência. Não é um ranking de qualidade."},
         "results": [], "error": None, "output": None,
+        "attachment_refs": attachments or [], "allow_visual_input": data.allow_visual_input,
     }
     return task

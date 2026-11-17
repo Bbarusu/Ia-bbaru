@@ -99,8 +99,8 @@ export default function App() {
     return () => query.removeEventListener("change", onChange);
   }, []);
   const [draftReady, setDraftReady] = useState(false);
-  // shortcut: tipo de tarefa fixo (o compositor segue a referência sem esse seletor); voltar a expor se o roteamento por tipo fizer falta.
-  const kind = "study";
+  // General is neutral until the user chooses a response profile; do not label every request as study.
+  const kind = "general";
   const [acceptedLimit, setAcceptedLimit] = useState(false);
   const [catalogVersion, setCatalogVersion] = useState("1");
 
@@ -588,6 +588,7 @@ export default function App() {
           kind,
           source_ids: sourceIds,
           allowed_model_ids: chatModelIds,
+          preferred_model_id: chatModel === "auto" ? null : chatModel,
           mode: "single",
           allow_unenforced_output_limit: needsLimitAcceptance && acceptedLimit,
         },

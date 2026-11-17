@@ -98,10 +98,19 @@ class CliSettings:
 
 @dataclass
 class ClaudeCodeSettings(CliSettings):
+    vision_models: list[str] = field(default_factory=list)
     env_prefix = "IA_BBARU_CLAUDE_CODE"
+
+    @classmethod
+    def from_env(cls):
+        settings = super().from_env()
+        settings.vision_models = _list(f"{cls.env_prefix}_VISION_MODELS")
+        return settings
 
     def validate(self):
         super().validate()
+        if not set(self.vision_models).issubset(self.models):
+            raise RuntimeError("VISION_MODELS must be explicitly configured models")
         for model in self.models:
             if not is_checkable(model):
                 raise RuntimeError(

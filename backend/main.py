@@ -21,6 +21,7 @@ from .worker import DurableWorker
 from .media import MediaInput, validate_media
 from .planning import TaskInput, build_task
 from .conversations import attach_conversations
+from .visual import source_attachment, dispatch_attachments
 
 
 def now():
@@ -174,18 +175,20 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
         project_exists(project_id)
         if data.mode == "single" and data.reviewer_model_id:
             raise HTTPException(422, "reviewer_requires_review_mode")
-        context = []
+        context, attachments = [], []
         with store.connect() as conn:
             for source_id in data.source_ids:
                 row = conn.execute("SELECT id,title,content FROM sources WHERE id=? AND project_id=?",
                                    (source_id, project_id)).fetchone()
                 if row is None:
                     raise HTTPException(422, "source_not_in_project")
-                if (conn.execute("SELECT 1 FROM source_media WHERE source_id=?", (source_id,)).fetchone()
-                        or "AnexoVisual:" in row["content"]):
+                if "AnexoVisual:" in row["content"]:
                     raise HTTPException(422, "visual_context_not_supported")
+                image = source_attachment(conn, source_id, project_id)
+                if image:
+                    attachments.append(image.model_dump(exclude={"data_base64"}))
                 context.append(dict(row))
-        task = build_task(project_id, data, context, gateway)
+        task = build_task(project_id, data, context, gateway, attachments=attachments)
         with store.connect() as conn:
             conn.execute("INSERT INTO tasks VALUES (?,?,?,?)",
                          (task["id"], project_id, task["status"], json.dumps(task)))
@@ -272,6 +275,13 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             version = task.get("gateway_protocol_version", "1")
             if version != "1":
                 request_fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
+            if version == "1.2":
+                try:
+                    request_fields.update(attachments=dispatch_attachments(store, task), allow_visual_input=task.get("allow_visual_input", False))
+                except ValueError:
+                    task.update(status="failed", error="attachment_changed_replan_required")
+                    store.save_task(task)
+                    return public_task(task)
             request = REQUESTS[version](**request_fields, protocol_version=version)
             try:
                 result = gateway.generate(request)

@@ -1,3 +1,7 @@
+> Atualização16/11: análise até eb6c671 integrada. Leia RESPOSTA_ANALISE_CLI.md
+> e revise somente achados novos. Implementação permanece com Codex; frontend
+> está com outro chat Claude. Não executar geração real.
+
 # Novo prompt para Claude Code — escopo delimitado
 
 Repositório: https://github.com/Bbarusu/Ia-bbaru.
@@ -29,7 +33,7 @@ uma dúvida concreta. Inclua:
    criar teste nesta tarefa.
 4. Recomendações de compatibilidade e, quando fundamentadas, propostas de visão
    ou streaming, explicitando dependências de contrato sob responsabilidade Codex.
-5. Pendências para Codex e Gemini, sem assumir implementações ainda não transferidas.
+5. Pendências para Codex e o Claude de interface, sem assumir implementações ainda não transferidas.
 
 Pode ler o repositório e rodar testes existentes com dublês, mantendo
 IA_BBARU_REAL_TEST ausente. Não executar chamadas reais, nem para “testar sem

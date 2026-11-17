@@ -94,6 +94,10 @@ class HttpGateway:
             result = schema.model_validate(raw)
             if result.request_id != request.request_id or result.model_id != request.model_id:
                 raise ValueError("Gateway response does not match the request")
+            if self.protocol_version == "1.2":
+                expected = [{"id": a.id, "sha256": a.sha256} for a in request.attachments]
+                if [a.model_dump() for a in result.attachments_used] != expected:
+                    raise ValueError("Gateway did not confirm the image input")
             return result
         except (ValueError, AttributeError) as exc:
             raise GatewayUnavailable("gateway_invalid_response") from exc

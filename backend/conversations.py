@@ -18,6 +18,7 @@ from .contracts import StrictModel
 from .gateway import GatewayUnavailable
 from .planning import TaskInput, build_task, now
 from .store import queued
+from .visual import source_attachment, visual_policy
 
 BUSY = {"planned", "queued", "running", "waiting", "blocked"}
 
@@ -82,6 +83,7 @@ class ConsentInput(StrictModel):
     confirmed: bool = Field(default=False, strict=True)
     allowed_model_ids: list[str] = Field(min_length=1, max_length=20)
     allow_unenforced_output_limit: bool = Field(default=False, strict=True)
+    allow_visual_input: bool = Field(default=False, strict=True)
     max_output_tokens: int = Field(default=2048, ge=1, le=4096, strict=True)
 
     @field_validator("allowed_model_ids")
@@ -186,6 +188,8 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
             error = policy_error(models[mid], data.allow_unenforced_output_limit)
             if error:
                 raise HTTPException(422, error)
+            if data.allow_visual_input and (catalog.protocol_version != "1.2" or visual_policy(models[mid])):
+                raise HTTPException(422, "visual_input_not_supported")
             step = plan_step("answer", models[mid])
             step["max_output_tokens"] = min(step["max_output_tokens"], data.max_output_tokens)
             steps.append(step)
@@ -239,14 +243,15 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
                                     "WHERE conversation_id=? ORDER BY sequence", (cid,)).fetchall()
             if any(json.loads(row["body"])["status"] in BUSY for row in previous):
                 raise HTTPException(409, "conversation_busy")
-            selected = []
+            selected, attachments = [], []
             for sid in data.source_ids:
                 source = conn.execute("SELECT id,title,content FROM sources WHERE id=? AND project_id=?",
                                       (sid, conversation["project_id"])).fetchone()
                 if source is None:
                     raise HTTPException(422, "source_not_in_project")
-                if conn.execute("SELECT 1 FROM source_media WHERE source_id=?", (sid,)).fetchone():
-                    raise HTTPException(422, "visual_context_not_supported")
+                image = source_attachment(conn, sid, conversation["project_id"])
+                if image:
+                    attachments.append(image.model_dump(exclude={"data_base64"}))
                 selected.append(dict(source))
         if not worker:
             raise HTTPException(503, "durable_execution_unavailable")
@@ -258,7 +263,8 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
             if consent.get("id") != str(data.consent_id):
                 raise HTTPException(422, "conversation_consent_revoked")
             if (not set(data.allowed_model_ids).issubset(consent["allowed_model_ids"])
-                    or data.max_output_tokens > consent["max_output_tokens"]):
+                    or data.max_output_tokens > consent["max_output_tokens"]
+                    or (data.allow_visual_input and not consent.get("allow_visual_input", False))):
                 raise HTTPException(422, "conversation_consent_scope_changed")
             try:
                 current = gateway.catalog()
@@ -282,6 +288,9 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
             history = []
             for row in previous:
                 task = json.loads(row["body"])
+                for ref in task.get("attachment_refs", []):
+                    if ref not in attachments:
+                        attachments.append(ref)
                 history.append({"turn_id": row["id"], "instruction": task["instruction"],
                                 "status": task["status"], "output": task.get("output"),
                                 "error": task.get("error"), "sources": json.loads(row["context"])})
@@ -289,7 +298,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
                                "content": json.dumps(history, ensure_ascii=False)})
         values = data.model_dump(exclude={"turn_id", "confirmed", "consent_id", "snapshots"})
         values["allow_unenforced_output_limit"] = acceptance
-        task = build_task(conversation["project_id"], TaskInput(**values), context, gateway, catalog=current)
+        task = build_task(conversation["project_id"], TaskInput(**values), context, gateway, catalog=current, attachments=attachments)
         task.update(conversation_id=cid, turn_id=tid, authorization=authorization,
                     history_turn_ids=[row["id"] for row in previous])
         queued(task)

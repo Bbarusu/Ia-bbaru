@@ -1132,6 +1132,11 @@
             "title": "Allow Unenforced Output Limit",
             "default": false
           },
+          "allow_visual_input": {
+            "type": "boolean",
+            "title": "Allow Visual Input",
+            "default": false
+          },
           "max_output_tokens": {
             "type": "integer",
             "maximum": 4096.0,
@@ -1194,6 +1199,63 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageCapability": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported",
+            "default": false
+          },
+          "mime_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "image/png",
+                "image/jpeg"
+              ]
+            },
+            "type": "array",
+            "title": "Mime Types"
+          },
+          "max_images": {
+            "type": "integer",
+            "const": 1,
+            "title": "Max Images",
+            "default": 1
+          },
+          "max_bytes_per_image": {
+            "type": "integer",
+            "const": 480000,
+            "title": "Max Bytes Per Image",
+            "default": 480000
+          },
+          "max_pixels": {
+            "type": "integer",
+            "const": 16000000,
+            "title": "Max Pixels",
+            "default": 16000000
+          },
+          "transport": {
+            "type": "string",
+            "const": "cli_stream_input",
+            "title": "Transport",
+            "default": "cli_stream_input"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageCapability"
+      },
+      "InputCapabilities": {
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/ImageCapability"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "InputCapabilities"
       },
       "MediaInput": {
         "properties": {
@@ -1339,10 +1401,9 @@
           },
           "models": {
             "items": {
-              "$ref": "#/components/schemas/ModelProfileV11"
+              "$ref": "#/components/schemas/ModelProfileV12"
             },
             "type": "array",
-            "maxItems": 100,
             "title": "Models"
           }
         },
@@ -1500,6 +1561,91 @@
           "capabilities"
         ],
         "title": "ModelProfileV11"
+      },
+      "ModelProfileV12": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputCapabilities"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens",
+          "capabilities"
+        ],
+        "title": "ModelProfileV12"
       },
       "ProjectInput": {
         "properties": {
@@ -1665,6 +1811,11 @@
               }
             ],
             "title": "Response Profile"
+          },
+          "allow_visual_input": {
+            "type": "boolean",
+            "title": "Allow Visual Input",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -1846,6 +1997,11 @@
               }
             ],
             "title": "Response Profile"
+          },
+          "allow_visual_input": {
+            "type": "boolean",
+            "title": "Allow Visual Input",
+            "default": false
           },
           "turn_id": {
             "type": "string",

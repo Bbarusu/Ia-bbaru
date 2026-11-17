@@ -41,10 +41,13 @@ def policy_error(model, accepted):
 
 
 def plan_step(role, model):
-    return {"role": role, "model_id": model.id, "provider": model.provider,
+    step = {"role": role, "model_id": model.id, "provider": model.provider,
             "context_char_limit": model.context_char_limit,
             "max_output_tokens": min(4096, model.max_output_tokens),
             "capabilities": capabilities(model)}
+    if getattr(model, "input", None):
+        step["input"] = model.input.model_dump()
+    return step
 
 
 def preflight_error(task, catalog, steps):
@@ -58,6 +61,10 @@ def preflight_error(task, catalog, steps):
         model = available.get(step["model_id"])
         if model is None:
             return "model_unavailable_replan_required"
+        if task.get("attachment_refs"):
+            from .visual import visual_policy
+            if catalog.protocol_version != "1.2" or visual_policy(model) or not task.get("allow_visual_input"):
+                return "visual_input_not_supported"
         error = policy_error(model, accepted)
         if error:
             return error

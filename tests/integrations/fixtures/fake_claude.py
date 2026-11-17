@@ -24,7 +24,7 @@ import time
 
 FLAGS = ("--print", "--output-format", "--model", "--system-prompt", "--tools",
          "--strict-mcp-config", "--safe-mode", "--no-session-persistence",
-         "--disable-slash-commands", "--permission-prompts")
+         "--disable-slash-commands", "--permission-prompts", "--verbose", "--input-format", "--replay-user-messages")
 
 
 FAKE_ALIASES = {"sonnet": "claude-sonnet-5-5", "haiku": "claude-haiku-5-5",
@@ -37,6 +37,18 @@ FAKE_CANARY = "conteudo-sensivel-canario-7f3a"
 def usage_entry(output_tokens):
     return {"inputTokens": 100, "outputTokens": output_tokens, "cacheReadInputTokens": 20,
             "cacheCreationInputTokens": 0, "costUSD": 0.0}
+
+
+def stream_events(payload, model="claude-sonnet-5-5", mode="success"):
+    events = [{"type": "system", "subtype": "init", "model": model, "tools": []}]
+    parts = [payload["result"]]
+    if mode in {"multi_block", "block_mismatch"}:
+        parts = ["Primeira parte (fonte ", "Aula)."]
+        payload["result"] = parts[-1] if mode == "multi_block" else "inconsistent"
+    for i, part in enumerate(parts):
+        events.append({"type": "assistant", "uuid": f"fixture-{i}", "message": {
+            "id": "message-1", "model": model, "content": [{"type": "text", "text": part}]}})
+    return events + [payload]
 
 
 def main():
@@ -145,7 +157,16 @@ def main():
         del payload["modelUsage"]
     if mode == "no_stop_reason":
         del payload["stop_reason"]
-    print(json.dumps(payload))
+    if "stream-json" in args:
+        if "--input-format" in args and mode != "visual_no_echo":
+            echo = json.loads(stdin)
+            if mode == "visual_changed_echo":
+                echo["message"]["content"][-1]["source"]["data"] = "wrong"
+            print(json.dumps(echo))
+        for event in stream_events(payload, served, mode):
+            print(json.dumps(event))
+    else:
+        print(json.dumps(payload))
     return 1 if mode == "exit_nonzero_with_result" else 0
 
 

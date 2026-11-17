@@ -180,7 +180,7 @@ export function eligibleChatModels(models, catalogVersion) {
     (m) =>
       m &&
       m.available &&
-      (catalogVersion !== "1.1" ||
+      (catalogVersion === "1" ||
         (m.capabilities && m.capabilities.tools === "disabled")),
   );
 }
@@ -284,7 +284,7 @@ export function describeChatError(error) {
     return {
       tone: "warn",
       message: "O limite de uso da sua conta Claude foi atingido.",
-      hint: "Seu texto continua preservado. Envie de novo quando a cota for renovada.",
+      hint: "Seu texto continua preservado. Confira a disponibilidade no Claude Code; o horário de renovação não foi informado.",
     };
   if (CHAT_LOGIN_ERRORS.includes(error))
     return {
@@ -304,10 +304,21 @@ export function describeChatError(error) {
       message: "Resposta recebida, mas o término não foi confirmado.",
       hint: "O texto recebido está preservado abaixo e pode estar incompleto.",
     };
-  if (
-    error === "output_token_limit_reached" ||
-    error === "provider_output_limit_reached"
-  )
+  if (error === "provider_output_limit_reached")
+    return {
+      tone: "warn",
+      message: "O Claude atingiu o limite de saída deste pedido.",
+      hint: "A CLI não entregou o texto parcial. Revise o limite antes de um novo envio; não haverá repetição automática.",
+    };
+  if (error === "provider_model_requires_credits" || error === "provider_model_unavailable")
+    return {
+      tone: "warn",
+      message: error === "provider_model_requires_credits" ? "Este modelo exige créditos de uso na sua conta." : "Este modelo não está disponível para sua conta agora.",
+      hint: "Confira /model no Claude Code e escolha um modelo disponível. Não houve troca automática de modelo.",
+    };
+  if (error === "provider_rate_limited")
+    return { tone: "warn", message: "O Claude limitou a taxa de pedidos.", hint: "Confira a disponibilidade no Claude Code. Não haverá repetição automática." };
+  if (error === "output_token_limit_reached")
     return {
       tone: "info",
       message: "A resposta parou no limite de saída.",
@@ -384,7 +395,7 @@ export function shortModelName(model) {
 
 /**
  * Troca, só na exibição, os ids das fontes citadas pelo Claude pelo título da
- * fonte. O gateway pede que o modelo cite o id; para quem lê, o título diz mais.
+ * fonte, para respostas antigas. O gateway atual pede o título diretamente.
  */
 export function readableAnswer(output, context) {
   let text = typeof output === "string" ? output : "";

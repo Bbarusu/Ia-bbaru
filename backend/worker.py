@@ -1,5 +1,6 @@
 """One durable queue consumer per database. Unconfirmed calls are never replayed."""
 import os
+import copy
 import threading
 import time
 from datetime import datetime, timezone
@@ -8,6 +9,7 @@ from .capabilities import preflight_error
 from .protocols import REQUESTS
 from .gateway import GatewayUnavailable
 from .gateway_errors import WAIT_CODES, PRESTART_CODES, UNCERTAIN_CODES
+from .visual import dispatch_attachments
 
 
 class WorkerLock:
@@ -136,11 +138,26 @@ class DurableWorker:
             version = task.get("gateway_protocol_version", "1")
             if version != "1":
                 fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
+            if version == "1.2":
+                try:
+                    fields.update(attachments=dispatch_attachments(self.store, task),
+                                  allow_visual_input=task.get("allow_visual_input", False))
+                except ValueError:
+                    self.fail(task, step, "attachment_changed_replan_required", "validation"); return
             request = REQUESTS[version](**fields, protocol_version=version)
             step["request"] = request.model_dump()
+            for image in step["request"].get("attachments", []):
+                image.pop("data_base64", None)
         else:
             schema = REQUESTS[task["gateway_protocol_version"]]
-            request = schema.model_validate(step["request"])
+            fields = copy.deepcopy(step["request"])
+            if fields.get("attachments"):
+                try:
+                    fields["attachments"] = dispatch_attachments(self.store, task)
+                except ValueError:
+                    code = "request_outcome_uncertain" if step.get("error_code") == "request_in_progress" else "attachment_changed_replan_required"
+                    self.fail(task, step, code, "validation"); return
+            request = schema.model_validate(fields)
         if self.stop_event.is_set():
             task["status"] = "queued"; self.store.save_task(task); return
         previously_in_progress = replay and step.get("error_code") == "request_in_progress"

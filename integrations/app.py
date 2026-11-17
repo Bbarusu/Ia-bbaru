@@ -59,7 +59,7 @@ def to_v11(request: GenerateRequestV11, result: ProviderResult) -> GenerateRespo
 
 def to_v12(request: GenerateRequestV12, result: ProviderResult) -> GenerateResponseV12:
     return GenerateResponseV12(**to_v11(request, result).model_dump(exclude={"protocol_version"}),
-                               served_model=result.served_model)
+                               served_model=result.served_model, attachments_used=result.attachments_used)
 
 
 def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | None = None,
@@ -127,7 +127,7 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
 
     @app.get("/v1.2/models", response_model=ModelCatalogV12, dependencies=protected)
     def models_v12():
-        return ModelCatalogV12(models=[p for group in each_adapter(lambda a: a.profiles_v11()) for p in group])
+        return ModelCatalogV12(models=[p for group in each_adapter(lambda a: a.profiles_v12()) for p in group])
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():

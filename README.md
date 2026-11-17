@@ -17,8 +17,8 @@ pode usar outro modelo Claude. Fable não é habilitado por padrão e pode exigi
 créditos adicionais: confira `/model` e a modalidade de uso na CLI.
 
 Navegação, busca, zoom, reabertura de abas e captura de texto/print/imagem já estão
-ligados ao runtime. Imagens ficam na biblioteca local; o gateway textual 1.1 não
-faz análise visual. A fila durável exige confirmação para iniciar geração.
+ligados ao runtime. Imagens ficam na biblioteca local; o contrato1.2 oferece visão experimental,
+com modelo e aceite explícitos. Ver [contrato do chat](docs/ENTREGA_BACKEND_CHAT.md). A fila durável exige confirmação para iniciar geração.
 
 ## Iniciar no Windows
 
@@ -43,8 +43,8 @@ cota da conta e depende das condições do plano.
 
 ## Desenvolvimento coordenado
 
-- [Prompt para Gemini — frontend](docs/PROMPT_GEMINI_CLAUDE_ONLY.md).
-- [Prompt para Code / Claude Code — integração](docs/PROMPT_CODE_CLAUDE_ONLY.md).
+- [Prompt para Claude de interface](docs/PROMPT_CLAUDE_FRONTEND_CHAT.md).
+- [Prompt para Claude analista da CLI](docs/PROMPT_CLAUDE_ESCOPO.md).
 - Runtime, backend e ponte: desenvolvimento nesta sessão.
 
 Os nomes dos colaboradores não representam provedores do aplicativo. Passagens
@@ -80,7 +80,7 @@ Para usar o gateway Claude desta branch, configure no backend:
 
 ```sh
 export GATEWAY_URL=http://127.0.0.1:8010
-export GATEWAY_PROTOCOL_VERSION=1.1
+export GATEWAY_PROTOCOL_VERSION=1.2
 # Configure GATEWAY_TOKEN com o mesmo segredo de serviço usado no gateway.
 ```
 

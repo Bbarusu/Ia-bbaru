@@ -3,17 +3,31 @@
   "productName": "Ia-bbaru",
   "version": "0.2.0",
   "private": true,
-  "description": "Navegador Chromium com espaço local de agentes",
+  "description": "Navegador Chromium com espa\u00e7o local de agentes",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "build": "npm --prefix ../frontend run build",
+    "build": "npm run build:icons && npm --prefix ../frontend run build",
     "test": "node --test tests/*.test.cjs",
-    "test:ui": "node tests/smoke.cjs"
+    "test:ui": "node tests/smoke.cjs",
+    "build:icons": "node scripts/build-icons.cjs"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
     "electron": "45.2.3",
     "playwright": "1.65.0"
+  },
+  "build": {
+    "appId": "com.bbarusu.yuki",
+    "productName": "Yuki",
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "icon": "ui/icon.png"
+    }
   }
 }

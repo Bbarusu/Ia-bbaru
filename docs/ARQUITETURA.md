@@ -3,8 +3,7 @@
 Em 9/11/2026, o usuário escolheu **Chromium** para iniciar o navegador independente.
 A base está na `main`. A revisão de captura/CLIs está em `codex/browser-capture-clis`.
 Usamos Electron, com Chromium incorporado e interface própria. Não é um fork do
-código do Chrome. A extensão Firefox permanece como alternativa de desenvolvimento;
-Gecko deixou de ser a direção do navegador.
+código do Chrome. O produto suporta somente Chromium; o código da antiga extensão foi removido.
 
 ## Componentes
 
@@ -16,7 +15,7 @@ flowchart LR
     M -->|Mensagens protocolo 0| N[Ponte Python]
     N -->|HTTP loopback com token interno| B[Backend FastAPI]
     B --> D[SQLite do perfil]
-    B -->|Contrato 1 ou 1.1| G[Gateway separado]
+    B -->|Contrato 1.2 (1/1.1 legados)| G[Gateway separado]
     G --> C[Claude Code oficial e conta Claude]
     C --> S1[Modelo Claude autorizado para resposta]
     C --> S2[Modelo Claude autorizado para revisão]
@@ -26,7 +25,7 @@ flowchart LR
   IPC restrito e ciclo de vida do backend/ponte.
 - `desktop/ui/`: abas, endereço, controles, atalhos e página inicial do navegador.
 - `frontend/`: projetos, materiais, rascunhos, modelos, planos e histórico. O
-  adaptador usa `window.iaDesktop` no app ou `browser` na extensão Firefox.
+  adaptador usa `window.iaDesktop` no app.
 - `desktop/local-service.cjs`: provisiona segredo/porta local e inicia Python.
   O gateway é configurado separadamente; não é iniciado nem autenticado pelo app.
 - `backend/` e `native_host/`: contratos, persistência e operações locais existentes.
@@ -83,14 +82,14 @@ declarado por modelo. Ver [contrato local de capturas](CONTRATO_CAPTURAS.md).
 
 | Frente | Responsável | Área |
 | --- | --- | --- |
-| Runtime Chromium, IPC e captura | Codex | `desktop/*.cjs`, `extension/` |
+| Runtime Chromium, IPC e captura | Codex | `desktop/*.cjs` |
 | Dados, tarefas e execução durável | Codex | `backend/`, `native_host/` |
-| Interface do navegador e painel | Gemini, sobre a base Codex | `desktop/ui/`, `frontend/` |
-| Integrações e autenticação elegível | Claude | `integrations/`, `tests/integrations/` |
+| Interface do navegador e painel | Claude de interface | `desktop/ui/`, `frontend/` |
+| Integrações e autenticação elegível | Codex | `integrations/`, `tests/integrations/` |
 
 Usar a nova base, preservar transporte/aceite e não sobrescrever branches de outras
-frentes. Prompts atuais: [Gemini](PROMPT_GEMINI_CLAUDE_ONLY.md) e
-[Claude Code](PROMPT_CODE_CLAUDE_ONLY.md).
+frentes. Prompts atuais: [Claude de interface](PROMPT_CLAUDE_FRONTEND_CHAT.md) e
+[Claude analista](PROMPT_CLAUDE_ESCOPO.md).
 
 ## Teste e distribuição
 
@@ -99,3 +98,6 @@ no Windows e testes. O Python continua externo e Electron é obtido via npm.
 Instalador assinado, backend empacotado, autoatualização e validação de logins web
 são etapas posteriores. Atualizações do Chromium devem acompanhar as versões do
 Electron, com testes de regressão.
+
+Contrato de conversas, contexto, aceite, diagnóstico e visão1.2:
+[ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).

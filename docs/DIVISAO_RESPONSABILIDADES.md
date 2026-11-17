@@ -5,10 +5,8 @@ Esta divisão substitui os escopos amplos anteriores dos prompts e passagens.
 O produto continua integrado exclusivamente com Claude Code; os nomes dos
 colaboradores não são provedores disponíveis no aplicativo.
 
-Atualização posterior do usuário: um novo chat do Claude substituiu Gemini na
-frente frontend/UI. Todas as atribuições de interface ao Gemini abaixo passam
-a esse Claude de frontend. O Claude da integração permanece no escopo documental;
-os dois chats têm papéis distintos e Codex mantém a integração final.
+Produto somente Chromium/Electron. Há dois chats Claude: interface e análise CLI.
+Entrega atual: [ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).
 
 ## Responsáveis
 
@@ -17,13 +15,13 @@ os dois chats têm papéis distintos e Codex mantém a integração final.
 | Backend, conversas, contexto, fila, persistência e políticas | Codex | backend/, native_host/ e testes correspondentes |
 | Contratos e integração do gateway | Codex | Schemas dos dois lados, OpenAPI, servidor, configuração, deduplicação, códigos de erro, diagnósticos e comandos |
 | Electron, IPC, capturas, inicialização e validação integrada | Codex | Runtime desktop, scripts e testes de integração/UI |
-| Experiência visual, chat lateral e mensagens da interface | Gemini | frontend/ e desktop/ui/; dependências de IPC/backend são documentadas |
+| Experiência visual, chat lateral e mensagens da interface | Claude de interface | frontend/ e desktop/ui/; dependências de IPC/backend são documentadas |
 | Compatibilidade e comportamento da CLI oficial Claude | Claude Code | Análise técnica e relatório próprio; código somente em tarefa transferida explicitamente |
 | Integração final, merges e estado geral | Codex | codex/browser-capture-clis, PR #7, docs/STATUS.md e documentação comum |
 
-Codex não implementará o novo frontend em paralelo ao Gemini. Ajustes pequenos de
-interface indispensáveis a um contrato serão registrados para Gemini incorporá-los.
-Gemini não substituirá backend/runtime por mocks em produção. Cada frente mantém
+Codex não implementará o novo frontend em paralelo ao Claude de interface. Ajustes pequenos de
+interface indispensáveis a um contrato serão registrados para o Claude de interface incorporá-los.
+O Claude de interface não substituirá backend/runtime por mocks em produção. Cada frente mantém
 seus testes coerentes com o escopo atribuído.
 
 ## Reserva atual: provider_error
@@ -31,8 +29,8 @@ seus testes coerentes com o escopo atribuído.
 Responsável único: **Codex**. Inclui adaptador Claude, runner, parser, modelos,
 classificação de erros, diagnóstico, fixtures e testes envolvidos. Claude não
 abre uma segunda correção desses arquivos enquanto esta reserva existir.
-Seu trabalho até c22beb0 já foi integrado em 875d4b4; não reaplicar patches antigos.
-A geração real ainda depende do teste Windows.
+Análise integrada até eb6c671; interface integrada da PR #11 até b2735ca.
+Não reaplicar patches antigos. Validação desta integração no Windows pendente.
 
 Tarefa atual de Claude: consolidar evidências existentes e pendências em
 **integrations/docs/ANALISE_CLI_CLAUDE.md**, único arquivo autorizado a editar.
@@ -62,10 +60,14 @@ exige nova autorização do usuário para cada edição dentro de uma tarefa atr
 - Dependências fora do escopo vão para documento com problema, evidência,
   arquivos envolvidos, proposta e responsável. Não criar contrato alternativo,
   segunda fila ou estrutura de chat para contornar a dependência.
-- Claude e Gemini não enviam roteiros concorrentes de instalação, merges ou
+- Claude e O Claude de interface não enviam roteiros concorrentes de instalação, merges ou
   geração real ao usuário. Codex consolida a validação Windows. Distinguir
   dublês, inspeção de pacote e execução real nas evidências.
 - Não iniciar geração real, comprar créditos ou alterar a conta como parte de
   teste automático. Não registrar credenciais ou conteúdo pessoal.
 
 Prompt vigente: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
+
+Prompt do frontend: [PROMPT_CLAUDE_FRONTEND_CHAT.md](PROMPT_CLAUDE_FRONTEND_CHAT.md).
+Compatibilidade mínima da interface pode ser corrigida pelo Codex durante a integração;
+o restante da ligação dos controles ao novo contrato pertence ao Claude de interface.

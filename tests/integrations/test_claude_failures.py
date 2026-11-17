@@ -12,6 +12,7 @@ from integrations.runner import ProcessResult
 from integrations.dedup import read_failures
 from integrations.adapters.claude_code import classify_failure
 from test_gateway import FAKE, GatewayTestCase, request_body
+from fixtures.fake_claude import stream_events
 
 LOGGER = "ia_bbaru.claude_failure"
 
@@ -114,7 +115,7 @@ class ParserFailureTests(unittest.TestCase):
         request = GenerateRequestV11(**request_body(
             protocol_version="1.1", allow_unenforced_output_limit=True))
         with patch.object(self.adapter, "runner", return_value=ProcessResult(
-                0, json.dumps(payload), "quota warning")), self.assertNoLogs(LOGGER):
+                0, "\n".join(json.dumps(item) for item in stream_events(payload)), "quota warning")), self.assertNoLogs(LOGGER):
             result = self.adapter.generate(request)
         self.assertEqual(result.output, payload["result"])
         self.assertEqual(result.finish_reason, "stop")

@@ -74,6 +74,27 @@
   },
   "components": {
     "schemas": {
+      "AttachmentReceipt": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Id"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "sha256"
+        ],
+        "title": "AttachmentReceipt"
+      },
       "ContextItem": {
         "properties": {
           "id": {
@@ -161,6 +182,19 @@
             "type": "boolean",
             "title": "Allow Unenforced Output Limit",
             "default": false
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/VisualAttachment"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Attachments"
+          },
+          "allow_visual_input": {
+            "type": "boolean",
+            "title": "Allow Visual Input",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -241,6 +275,14 @@
               }
             ],
             "title": "Served Model"
+          },
+          "attachments_used": {
+            "items": {
+              "$ref": "#/components/schemas/AttachmentReceipt"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Attachments Used"
           }
         },
         "additionalProperties": false,
@@ -265,6 +307,63 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageCapability": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported",
+            "default": false
+          },
+          "mime_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "image/png",
+                "image/jpeg"
+              ]
+            },
+            "type": "array",
+            "title": "Mime Types"
+          },
+          "max_images": {
+            "type": "integer",
+            "const": 1,
+            "title": "Max Images",
+            "default": 1
+          },
+          "max_bytes_per_image": {
+            "type": "integer",
+            "const": 480000,
+            "title": "Max Bytes Per Image",
+            "default": 480000
+          },
+          "max_pixels": {
+            "type": "integer",
+            "const": 16000000,
+            "title": "Max Pixels",
+            "default": 16000000
+          },
+          "transport": {
+            "type": "string",
+            "const": "cli_stream_input",
+            "title": "Transport",
+            "default": "cli_stream_input"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageCapability"
+      },
+      "InputCapabilities": {
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/ImageCapability"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "InputCapabilities"
       },
       "ModelCapabilities": {
         "properties": {
@@ -338,10 +437,9 @@
           },
           "models": {
             "items": {
-              "$ref": "#/components/schemas/ModelProfileV11"
+              "$ref": "#/components/schemas/ModelProfileV12"
             },
             "type": "array",
-            "maxItems": 100,
             "title": "Models"
           }
         },
@@ -352,7 +450,7 @@
         ],
         "title": "ModelCatalogV12"
       },
-      "ModelProfileV11": {
+      "ModelProfileV12": {
         "properties": {
           "id": {
             "type": "string",
@@ -418,6 +516,9 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputCapabilities"
           }
         },
         "additionalProperties": false,
@@ -432,7 +533,7 @@
           "max_output_tokens",
           "capabilities"
         ],
-        "title": "ModelProfileV11"
+        "title": "ModelProfileV12"
       },
       "TokenUsage": {
         "properties": {
@@ -494,6 +595,79 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VisualAttachment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Id"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256"
+          },
+          "project_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "screenshot"
+            ],
+            "title": "Kind"
+          },
+          "mime_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg"
+            ],
+            "title": "Mime Type"
+          },
+          "byte_count": {
+            "type": "integer",
+            "maximum": 480000.0,
+            "minimum": 1.0,
+            "title": "Byte Count"
+          },
+          "width": {
+            "type": "integer",
+            "maximum": 8000.0,
+            "minimum": 1.0,
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "maximum": 8000.0,
+            "minimum": 1.0,
+            "title": "Height"
+          },
+          "data_base64": {
+            "type": "string",
+            "maxLength": 640000,
+            "minLength": 1,
+            "title": "Data Base64"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "sha256",
+          "project_id",
+          "kind",
+          "mime_type",
+          "byte_count",
+          "width",
+          "height",
+          "data_base64"
+        ],
+        "title": "VisualAttachment"
       }
     },
     "securitySchemes": {

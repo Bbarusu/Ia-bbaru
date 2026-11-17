@@ -4,7 +4,7 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, replace, field
 from pathlib import Path
 
 from backend.contracts import TokenUsage
@@ -49,6 +49,7 @@ class ProviderResult:
     finish_reason: str  # stop | length | unknown
     # Model reported by the CLI. Exposed in 1.2; omitted in strict 1/1.1 responses.
     served_model: str | None = None
+    attachments_used: list = field(default_factory=list)
 
 
 class NotStarted(Exception):

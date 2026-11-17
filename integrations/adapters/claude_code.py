@@ -23,12 +23,14 @@ import tempfile
 from dataclasses import replace
 
 from backend.contracts import ModelProfile, TokenUsage
+from backend.contracts_v1_2 import ModelProfileV12
 
 from .. import errors
 from ..config import ClaudeCodeSettings
 from ..contracts_v1_1 import ModelCapabilities, ModelProfileV11
 from ..failure_diagnostics import ERROR_SUBTYPES, log_failure
-from ..failures import categorize, error_texts, signature
+from ..failures import categorize, category_from, signature
+from ..stream_output import decode_output, assemble, echoed_images
 from ..models import served_pattern
 from ..prompt import CLI_ARGUMENT_PROMPT, SYSTEM_PROMPT, build_user_prompt
 from ..runner import ProcessStartError, ProcessTimeout, child_env, run_process
@@ -42,7 +44,7 @@ PROVIDER = "claude-code"
 REQUIRED_FLAGS = (
     "--print", "--output-format", "--model", "--system-prompt", "--tools",
     "--strict-mcp-config", "--safe-mode", "--no-session-persistence",
-    "--disable-slash-commands", "--permission-prompts",
+    "--disable-slash-commands", "--permission-prompts", "--verbose", "--input-format", "--replay-user-messages",
 )
 SUBSCRIPTION_AUTH = {"claude.ai", "oauth_token"}
 STOP_REASONS_COMPLETE = {"end_turn", "stop_sequence"}
@@ -126,10 +128,22 @@ class ClaudeCodeAdapter(CliAdapterBase):
 
     # ----- generation -----
 
+    def profiles_v12(self):
+        return [ModelProfileV12(**p.model_dump(), input={"image": {
+            "supported": self.model_for(p.id) in self.settings.vision_models}}) for p in self.profiles_v11()]
+
+    def check_request(self, request):
+        super().check_request(request)
+        if getattr(request, "attachments", []):
+            if not request.allow_visual_input:
+                raise errors.invalid_request("visual_input_not_accepted")
+            if self.model_for(request.model_id) not in self.settings.vision_models:
+                raise errors.invalid_request("visual_input_not_supported")
+
     def build_args(self, model: str) -> list[str]:
         return self.command() + [
             "--print", CLI_ARGUMENT_PROMPT,
-            "--output-format", "json",
+            "--output-format", "stream-json", "--verbose",
             "--model", model,
             "--system-prompt", SYSTEM_PROMPT,
             "--tools", "",
@@ -151,7 +165,15 @@ class ClaudeCodeAdapter(CliAdapterBase):
         })
         with tempfile.TemporaryDirectory(prefix="ia-bbaru-cc-") as cwd:
             try:
-                proc = self.runner(self.build_args(model), build_user_prompt(request),
+                args, document = self.build_args(model), build_user_prompt(request)
+                attachments = getattr(request, "attachments", [])
+                if attachments:
+                    args += ["--input-format", "stream-json", "--replay-user-messages"]
+                    content = [{"type": "text", "text": document}] + [{"type": "image", "source": {
+                        "type": "base64", "media_type": a.mime_type, "data": a.data_base64}} for a in attachments]
+                    document = json.dumps({"type": "user", "message": {"role": "user", "content": content},
+                                           "parent_tool_use_id": None}) + "\n"
+                proc = self.runner(args, document,
                                    self.settings.timeout_s, env, cwd)
             except ProcessStartError:
                 error = errors.provider_unavailable("provider_cli_not_runnable")
@@ -162,7 +184,21 @@ class ClaudeCodeAdapter(CliAdapterBase):
                 error.diagnostic = self._signature("timeout", model)
                 raise error
         try:
-            return self.parse(model, proc)
+            result = self.parse(model, proc, stream=True)
+            if attachments:
+                envelope, events = decode_output(proc.stdout)
+                try:
+                    echoed = echoed_images(events)
+                except ValueError:
+                    echoed = None
+                expected = [{"type": "image", "source": {"type": "base64", "media_type": a.mime_type,
+                             "data": a.data_base64}} for a in attachments]
+                if echoed != expected:
+                    error = errors.provider_error("visual_input_unconfirmed")
+                    error.diagnostic = self._signature("visual_confirmation", model, proc=proc, data=envelope)
+                    raise error
+                result.attachments_used = [{"id": str(a.id), "sha256": a.sha256} for a in attachments]
+            return result
         except errors.GatewayError as exc:
             log_failure(request, proc, exc.code, self._status.version if self._status else None)
             raise
@@ -171,7 +207,7 @@ class ClaudeCodeAdapter(CliAdapterBase):
         version = self._status.version if self._status else None
         return signature(stage, model=model, cli_version=version, **kw)
 
-    def parse(self, model: str, proc) -> "ProviderResult":
+    def parse(self, model: str, proc, stream=False) -> "ProviderResult":
         data = None
 
         def fail(error, stage, **kw):
@@ -179,9 +215,7 @@ class ClaudeCodeAdapter(CliAdapterBase):
             return error
 
         try:
-            data = json.loads(proc.stdout)
-            if not isinstance(data, dict):
-                raise ValueError
+            data, events = decode_output(proc.stdout, allow_legacy=not stream)
         except (ValueError, RecursionError):
             data = None
             raise fail(errors.provider_error("provider_invalid_output"), "parse_json")
@@ -189,7 +223,7 @@ class ClaudeCodeAdapter(CliAdapterBase):
         subtype = data.get("subtype")
         failed_subtype = isinstance(subtype, str) and subtype in ERROR_SUBTYPES
         if data.get("is_error") or proc.returncode != 0 or failed_subtype:
-            category = categorize(error_texts(data))
+            category = category_from(data)
             raise fail(error_for(category), "result_error", category=category)
         if not isinstance(result, str):
             raise fail(errors.provider_error("provider_invalid_output"), "result_shape")
@@ -197,6 +231,15 @@ class ClaudeCodeAdapter(CliAdapterBase):
             raise fail(errors.provider_error("provider_empty_output"), "empty_output")
         if len(result) > 100000:
             raise fail(errors.provider_error("provider_output_too_large"), "output_too_large")
+        if stream:
+            try:
+                result = assemble(events, data, served_pattern(model))
+            except LookupError:
+                raise fail(errors.provider_error("provider_model_mismatch"), "model_check")
+            except OverflowError:
+                raise fail(errors.provider_error("provider_output_too_large"), "output_too_large")
+            except ValueError:
+                raise fail(errors.provider_error("provider_invalid_output"), "stream_shape")
         try:
             served = served_model(model, data.get("modelUsage"))
         except errors.GatewayError as error:

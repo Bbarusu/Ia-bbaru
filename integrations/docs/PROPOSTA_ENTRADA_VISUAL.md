@@ -1,3 +1,8 @@
+> Atualização Codex16/11: contrato1.2 implementado. Decisão final em
+> [ENTREGA_BACKEND_CHAT.md](../../docs/ENTREGA_BACKEND_CHAT.md): uma imagem,
+> cli_stream_input, confirmação de eco completo e habilitação explícita por modelo.
+> Os números e nomes da proposta abaixo são históricos; vale o OpenAPI publicado.
+
 # Proposta: entrada visual no gateway (contrato 1.2)
 
 **Estado: proposta. Nada aqui está implementado.** Atualizada em 11/11/2026

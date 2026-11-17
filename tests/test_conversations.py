@@ -13,6 +13,7 @@ from backend.gateway import GatewayUnavailable
 from backend.main import create_app
 from native_host.bridge import Bridge
 from test_backend_v11 import TOKEN, profile
+from test_media import picture
 
 
 class ChatGateway:
@@ -33,7 +34,8 @@ class ChatGateway:
         if self.failure:
             raise GatewayUnavailable(self.failure, 429)
         return GenerateResponseV12(request_id=request.request_id, model_id=request.model_id,
-            output=self.output, finish_reason=self.finish, served_model="claude-sonnet-5-5")
+            output=self.output, finish_reason=self.finish, served_model="claude-sonnet-5-5",
+            attachments_used=[{"id": a.id, "sha256": a.sha256} for a in request.attachments])
 
 
 class ConversationTests(unittest.TestCase):
@@ -233,6 +235,39 @@ class ConversationTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertTrue(call("conversations.turns.get", {"conversation_id": self.cid, "turn_id": result["data"]["id"]})["ok"])
         self.assertEqual(call("conversations.get", {"conversation_id": "../../etc"})["error"]["code"], "invalid_request")
+        self.assertEqual(self.gateway.calls, [])
+
+    def test_visual_turn_requires_consent_keeps_history_and_persists_only_references(self):
+        self.gateway.models[0]['input'] = {'image': {'supported': True}}
+        project = self.client.get(f'/v1/conversations/{self.cid}').json()['project_id']
+        source = self.client.post(f'/v1/projects/{project}/sources', json={
+            'title': 'Diagrama', 'content': 'Descrição', 'media': {'kind': 'image', 'data_url': picture()}}).json()
+        self.assertEqual(self.send(source_ids=[source['id']]).json()['detail'], 'visual_input_not_accepted')
+        sent = self.send(source_ids=[source['id']], allow_visual_input=True)
+        self.assertEqual(sent.status_code, 202, sent.text)
+        self.gateway.failure = 'gateway_busy'
+        waiting = self.process()
+        self.assertNotIn('data_base64', json.dumps(waiting))
+        waiting['execution']['steps'][0]['next_attempt_at'] = 0
+        self.store.save_task(waiting)
+        self.gateway.failure = None
+        final = self.process()
+        self.assertEqual(self.gateway.calls[0], self.gateway.calls[1])
+        self.assertEqual(len(final['results'][0]['attachments_used']), 1)
+        self.assertNotIn('data_base64', json.dumps(self.store.task(final['id'])))
+        self.assertEqual(self.send().json()['detail'], 'visual_input_not_accepted')
+        self.send(allow_visual_input=True); self.process()
+        self.assertEqual(self.gateway.calls[0].attachments, self.gateway.calls[-1].attachments)
+
+    def test_changed_image_is_refused_before_dispatch(self):
+        self.gateway.models[0]['input'] = {'image': {'supported': True}}
+        project = self.client.get(f'/v1/conversations/{self.cid}').json()['project_id']
+        source = self.client.post(f'/v1/projects/{project}/sources', json={
+            'title': 'Diagrama', 'content': 'Descrição', 'media': {'kind': 'image', 'data_url': picture()}}).json()
+        self.send(source_ids=[source['id']], allow_visual_input=True)
+        with self.store.connect() as conn:
+            conn.execute('DELETE FROM source_media WHERE source_id=?', (source['id'],))
+        self.assertEqual(self.process()['error'], 'attachment_changed_replan_required')
         self.assertEqual(self.gateway.calls, [])
 
 

@@ -25,7 +25,7 @@ CATEGORIES = (
     ("auth", re.compile(r"/login|not logged in|invalid api key|authentication|oauth|\b401\b", re.I)),
     # Distinguish the already recognized literal rate-limit phrase; no reset time inferred.
     ("rate_limit", re.compile(r"rate limit", re.I)),
-    ("quota", re.compile(r"usage limit|limit reached|quota|resets", re.I)),
+    ("quota", re.compile(r"usage limit|limit reached|quota|resets|you've (?:hit|reached) your|usage is paused", re.I)),
     ("overloaded", re.compile(r"overloaded|\b529\b", re.I)),
     ("api_timeout", re.compile(r"request timed out|timeout", re.I)),
     ("api_invalid_request", re.compile(r"invalid_request_error|\b400\b", re.I)),
@@ -38,6 +38,16 @@ KNOWN_STOP = {"end_turn", "stop_sequence", "max_tokens", "refusal", "pause_turn"
 IDENT = re.compile(r"[a-z][a-z0-9_]{0,39}")
 MODEL_KEY = re.compile(r"claude-[a-z0-9.-]{1,60}(\[1m\])?")
 API_STATUS = re.compile(r"API Error:\s*(\d{3})\b")
+API_CATEGORIES = {
+    "usage_limit_reached": "quota", "model_requires_usage_credits": "usage_credits",
+    "long_context_credits_required": "usage_credits", "model_substitution_disabled": "model_unavailable",
+    "no_allowed_fallback": "model_unavailable", "max_output_tokens": "output_limit_reached",
+}
+
+
+def category_from(data):
+    code = data.get("api_error") if isinstance(data, dict) else None
+    return API_CATEGORIES.get(code, categorize(error_texts(data))) if isinstance(code, str) else categorize(error_texts(data))
 
 
 def categorize(texts) -> str:
@@ -93,10 +103,10 @@ def signature(stage: str, *, model: str, cli_version=None, proc=None, data=None,
             stop_reason=stop if stop is None or (isinstance(stop, str) and stop in KNOWN_STOP) else "other",
             api_error=_ident(data.get("api_error")),
             terminal_reason=_ident(data.get("terminal_reason")),
-            api_status=int(status.group(1)) if status else None,
+            api_status=data["api_error_status"] if type(data.get("api_error_status")) is int and 100 <= data["api_error_status"] <= 599 else int(status.group(1)) if status else None,
             served_models=sorted(k for k in usage if MODEL_KEY.fullmatch(str(k)))[:5]
             if isinstance(usage, dict) else None,
-            category=category or categorize(texts),
+            category=category or category_from(data),
         )
     elif category:
         sig["category"] = category

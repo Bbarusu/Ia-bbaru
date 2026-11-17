@@ -1,3 +1,6 @@
+> Roteiro vigente: [VALIDACAO_WINDOWS_ATUAL.md](VALIDACAO_WINDOWS_ATUAL.md).
+> As instruções abaixo descrevem etapas anteriores de desenvolvimento.
+
 # Testar o navegador Ia-bbaru (Chromium)
 
 Base integrada: branch `main` em https://github.com/Bbarusu/Ia-bbaru.

@@ -1,3 +1,7 @@
+> Atualização16/11: diagnóstico unificado, códigos próprios e parser interno de
+> blocos entregues. Ver [RESPOSTA_ANALISE_CLI.md](RESPOSTA_ANALISE_CLI.md).
+> Para teste atual, usar [VALIDACAO_WINDOWS_ATUAL.md](VALIDACAO_WINDOWS_ATUAL.md).
+
 # provider_error — correção de leitura e validação Windows
 
 11/11/2026 · base `codex/browser-capture-clis` / PR #7.
