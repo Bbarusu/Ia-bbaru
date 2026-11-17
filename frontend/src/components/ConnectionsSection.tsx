@@ -10,7 +10,6 @@ import type { Model, Connection } from "../types";
 interface ConnectionsSectionProps {
   connections: Connection[];
   diagnosticError: string;
-  inFirefox: boolean;
   inDesktop: boolean;
   demo: boolean;
   host: boolean;
@@ -28,7 +27,6 @@ interface ConnectionsSectionProps {
 export function ConnectionsSection({
   connections,
   diagnosticError,
-  inFirefox,
   inDesktop,
   demo,
   host,
@@ -56,9 +54,9 @@ export function ConnectionsSection({
         <p>Seu espaço usa um componente local para acessar os projetos.</p>
 
         <div className="connection-line">
-          <span>{inDesktop ? "Navegador Chromium" : "Extensão Firefox"}</span>
-          <span className={inFirefox || inDesktop ? "good" : ""}>
-            {inFirefox || inDesktop
+          <span>Navegador Chromium</span>
+          <span className={inDesktop ? "good" : ""}>
+            {inDesktop
               ? "Disponível"
               : demo
                 ? "Demonstração"

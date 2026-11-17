@@ -24,7 +24,7 @@ const STEPS = [
       { text: "📝 Texto", variant: "default" },
       { text: "📸 Print", variant: "default" },
       { text: "🖼 Imagem", variant: "default" },
-      { text: "❄ Perguntar ao Yuki", variant: "accent" },
+      { text: "❄ Perguntar ao Claude", variant: "accent" },
     ],
     title: "Capture textos, prints e imagens num clique",
     description:

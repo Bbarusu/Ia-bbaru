@@ -283,8 +283,7 @@ input:focus-visible {
 
 #back,
 #forward,
-#reload,
-#home {
+#reload {
   width: 27px;
   height: 27px;
   min-height: 27px;
@@ -358,11 +357,6 @@ input:focus-visible {
   border-color: #b6c8de;
 }
 
-.zoom-indicator {
-  font-size: 10.5px;
-  font-weight: 600;
-}
-
 .sub-action {
   width: 28px;
   height: 28px;
@@ -380,46 +374,6 @@ input:focus-visible {
   color: #0b0f17;
   border-color: #b6c8de;
   background: #dce8f6;
-}
-
-.capture-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.capture {
-  min-height: 28px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border-color: #c5d4e6;
-  background: #ffffff;
-  color: var(--text);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.capture:hover:not(:disabled) {
-  background: #eaf1f8;
-  border-color: #adc2dc;
-}
-
-.capture-mode-btn {
-  min-height: 28px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border-color: #d4e0ee;
-  background: #f5f9fd;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 550;
-}
-
-.capture-mode-btn:hover:not(:disabled) {
-  background: #eaf1f8;
-  border-color: #b6c8de;
-  color: var(--text);
 }
 
 /* Solid snow/ice button with black font (#0b0f17 on #eaf1f8 = 16.0:1 contrast) */
@@ -492,26 +446,17 @@ input:focus-visible {
 
 .subbar-default::-webkit-scrollbar,
 .subbar-tool::-webkit-scrollbar,
-.bookmarks::-webkit-scrollbar,
-.context-actions::-webkit-scrollbar {
+.bookmarks::-webkit-scrollbar {
   display: none;
 }
 
-.bookmarks,
-.context-actions {
+.bookmarks {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
-}
-
-.subbar-divider {
-  width: 1px;
-  height: 14px;
-  background: #c9d8e8;
-  flex-shrink: 0;
 }
 
 /* Transparent Bookmark Item: only the site legend, no pill, no border */
@@ -529,31 +474,6 @@ input:focus-visible {
 .bookmark-chip:hover:not(:disabled) {
   background: transparent;
   color: var(--text);
-}
-
-/* Claude context Quick Agent Trigger Chips */
-.context-chip {
-  min-height: 22px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  border: 1px solid #d4e0ee;
-  background: #ffffff;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 550;
-}
-
-.context-chip:hover:not(:disabled) {
-  background: #dfeaf5;
-  border-color: #b6c8de;
-  color: var(--text);
-}
-
-.context-chip.active {
-  background: #dce8f6;
-  border-color: #9cb4d0;
-  color: #0b0f17;
-  font-weight: 600;
 }
 
 .tool-label {
@@ -612,12 +532,6 @@ input:focus-visible {
 }
 
 @media (max-width: 1080px) {
-  .capture-mode-btn,
-  .zoom-indicator,
-  .context-actions,
-  .subbar-divider {
-    display: none;
-  }
   .tab {
     min-width: 80px;
     max-width: 160px;
@@ -633,4 +547,43 @@ input:focus-visible {
   *::after {
     transition: none !important;
   }
+}
+
+/* "⋯": ações menos usadas no lugar dos favoritos (a página web cobre o resto do shell). */
+.bookmarks[hidden],
+.shell-actions[hidden] {
+  display: none;
+}
+
+.shell-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shell-action {
+  flex-shrink: 0;
+  min-height: 24px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--text-muted);
+}
+
+#zoom-toggle::before {
+  content: "Zoom ";
+}
+
+#more[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Com as ações abertas, a mensagem de status cede o espaço (janela de 900 px). */
+.subbar:has(#shell-actions:not([hidden])) #message {
+  display: none;
 }

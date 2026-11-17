@@ -114,6 +114,11 @@ async function main() {
   try {
     app = await launch();
     const shell = await app.firstWindow();
+    // Ações menos usadas ficam atrás de "⋯" (a página web cobre o resto do shell).
+    const shellAction = async (id) => {
+      if (!(await shell.locator(`#${id}`).isVisible())) await shell.locator("#more").click();
+      await shell.locator(`#${id}`).click();
+    };
     const workspace = await workspacePage();
     await expect(
       workspace.getByText("Backend local ativo", { exact: true }),
@@ -153,10 +158,13 @@ async function main() {
       });
     });
     assert.equal(secondCode, 0);
-    await workspace
-      .getByRole("button", { name: "Novo projeto", exact: true })
-      .first()
-      .click();
+    // No painel lateral, projetos e áreas ficam no menu "Mais opções" do topo.
+    const openArea = async (page, name) => {
+      await page.getByRole("button", { name: "Mais opções", exact: true }).click();
+      // O papel menuitem vem do focusgroup do Chromium; o Playwright não o infere.
+      await page.locator(".header-menu").getByRole("button", { name, exact: false }).click();
+    };
+    await openArea(workspace, "Novo projeto");
     await workspace.getByLabel("Nome do projeto").fill("Teste Chromium");
     await workspace
       .getByRole("dialog")
@@ -195,7 +203,7 @@ async function main() {
       s.removeAllRanges();
       s.addRange(range);
     });
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByRole("dialog")).toBeVisible();
     await expect(workspace.locator("dialog textarea")).toHaveValue(
       /fotossíntese/,
@@ -237,43 +245,66 @@ async function main() {
     );
     assert.match(detail.data.content, /fotossíntese/);
     assert.ok(detail.data.content.includes(url));
+    // Chat lateral: sem modal e sem cadastro manual de plano. Nada é salvo nem
+    // gerado antes dos aceites desta mensagem.
+    const listTasks = () =>
+      workspace.evaluate(
+        (project) =>
+          window.iaDesktop.runtime.sendMessage({
+            type: "bridge.request",
+            request: {
+              protocol_version: "0",
+              request_id: crypto.randomUUID(),
+              operation: "tasks.list",
+              params: { project_id: project },
+            },
+          }),
+        saved.projects[0].id,
+      );
     await workspace
-      .getByRole("button", { name: "Agente de teste local", exact: false })
-      .click();
+      .getByLabel("Modelo Claude")
+      .selectOption({ label: "Agente de teste local" });
+    await expect(workspace.locator("#instruction")).toBeVisible();
     await workspace
       .locator("#instruction")
       .fill("Explique este material em uma frase.");
-    await workspace
-      .getByRole("button", { name: "Criar plano", exact: true })
-      .click();
-    await expect(
-      workspace.getByText(
-        "Aceite o limite indicativo antes de criar este plano.",
-        { exact: true },
-      ),
-    ).toBeVisible();
-    await workspace
+    await workspace.locator("#instruction").press("Enter");
+    const confirmSend = workspace.getByRole("group", { name: "Confirmar envio" });
+    const sendToClaude = confirmSend.getByRole("button", {
+      name: "Enviar ao Claude",
+      exact: true,
+    });
+    await expect(sendToClaude).toBeDisabled();
+    await confirmSend
       .getByRole("checkbox", {
         name: "Aceito o limite indicativo para esta tarefa",
       })
       .check();
-    await workspace
-      .getByRole("button", { name: "Criar plano", exact: true })
-      .click();
-    await expect(workspace.getByRole("dialog")).toBeVisible();
-    const tasks = await workspace.evaluate(
-      (project) =>
-        window.iaDesktop.runtime.sendMessage({
-          type: "bridge.request",
-          request: {
-            protocol_version: "0",
-            request_id: crypto.randomUUID(),
-            operation: "tasks.list",
-            params: { project_id: project },
-          },
-        }),
-      saved.projects[0].id,
-    );
+    // O aceite do limite sozinho não autoriza a execução.
+    await expect(sendToClaude).toBeDisabled();
+    assert.equal((await listTasks()).data.items.length, 0);
+    assert.equal(generations.length, 0);
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-consent.png") });
+    await confirmSend
+      .getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" })
+      .check();
+    await sendToClaude.click();
+    // The worker continues while the panel is hidden.
+    await shell.locator("#panel").click();
+    await expect.poll(() => generations.length).toBe(1);
+    await shell.locator("#panel").click();
+    // A resposta aparece na conversa, sem abrir diálogo.
+    await expect(
+      workspace
+        .getByRole("log", { name: "Conversa com o Claude" })
+        .getByText("Resposta simulada da fila durável.", { exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await expect(workspace.locator("#instruction")).toHaveValue("");
+    await expect(workspace.locator("#instruction")).toBeVisible();
+    const tasks = await listTasks();
+    assert.equal(tasks.data.items.length, 1);
     const task = await workspace.evaluate(
       (id) =>
         window.iaDesktop.runtime.sendMessage({
@@ -289,8 +320,18 @@ async function main() {
     );
     assert.equal(task.data.allow_unenforced_output_limit, true);
     assert.equal(task.data.gateway_protocol_version, "1.2");
-    assert.equal(task.data.status, "planned");
-    assert.equal(generations.length, 0);
+    assert.equal(task.data.status, "completed");
+    assert.equal(generations[0].request_id, `${task.data.id}:0`);
+    assert.equal(generations[0].allow_unenforced_output_limit, true);
+    assert.equal(generations.length, 1);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
+    // Detalhes técnicos ficam recolhidos e continuam acessíveis para diagnóstico.
+    await expect(workspace.getByText("Limite indicativo (64 tokens)")).not.toBeVisible();
+    await workspace.getByText("Detalhes técnicos", { exact: true }).click();
+    await workspace
+      .getByRole("button", { name: "Abrir detalhes da tarefa", exact: true })
+      .click();
+    await expect(workspace.getByRole("dialog").getByRole("heading", { name: "Concluída", exact: true })).toBeVisible();
     await expect(
       workspace.getByRole("dialog").getByText("Assinatura (cota da conta)"),
     ).toBeVisible();
@@ -302,30 +343,29 @@ async function main() {
         .getByRole("dialog")
         .getByText(/Término informado pelo provedor/),
     ).toBeVisible();
-    await expect(workspace.getByRole("button", { name: "Executar tarefa", exact: true })).toBeDisabled();
     assert.equal(await workspace.locator("dialog").evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth), true);
-    await workspace.screenshot({ path: path.join(artifacts, "execution-consent.png") });
-    await workspace.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
-    await workspace.getByRole("button", { name: "Executar tarefa", exact: true }).click();
-    // The worker continues while the panel is hidden.
-    await shell.locator("#panel").click();
-    await expect.poll(() => generations.length).toBe(1);
-    await shell.locator("#panel").click();
-    await expect(workspace.getByRole("dialog").getByRole("heading", { name: "Concluída", exact: true })).toBeVisible({ timeout: 15000 });
-    await expect(workspace.getByRole("dialog").getByText("Resposta simulada da fila durável.", { exact: true })).toBeVisible();
-    assert.equal(generations[0].request_id, `${task.data.id}:0`);
-    assert.equal(generations[0].allow_unenforced_output_limit, true);
-    assert.equal(generations.length, 1);
-    await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
     await workspace
       .getByRole("dialog")
       .getByRole("button", { name: "Fechar", exact: true })
       .click();
+    // Os aceites valem só para a mensagem enviada; a próxima começa desmarcada.
+    await workspace.locator("#instruction").fill("Segunda mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
     await expect(
-      workspace.getByRole("checkbox", {
+      confirmSend.getByRole("checkbox", {
         name: "Aceito o limite indicativo para esta tarefa",
       }),
     ).not.toBeChecked();
+    await expect(
+      confirmSend.getByRole("checkbox", {
+        name: "Autorizo executar esta tarefa com minha conta",
+      }),
+    ).not.toBeChecked();
+    await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
+    // Cancelar preserva o rascunho e não cria tarefa.
+    await expect(workspace.locator("#instruction")).toHaveValue("Segunda mensagem");
+    assert.equal((await listTasks()).data.items.length, 1);
+    await workspace.locator("#instruction").fill("");
     const rejected = await workspace.evaluate(async () => {
       try {
         await window.iaDesktop.runtime.sendMessage({
@@ -365,12 +405,13 @@ async function main() {
       .click();
     await expect(shell.locator("#tabs .choose")).toHaveCount(1);
     // A new capture while manually editing must not erase the draft (Path A: save then review queued).
+    await openArea(workspace, "Biblioteca");
     await workspace
       .getByRole("button", { name: "Adicionar texto", exact: true })
       .click();
     await workspace.getByLabel("Título", { exact: true }).fill("Meu rascunho");
     await workspace.locator("dialog textarea").fill("Texto manual preservado");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Meu rascunho",
     );
@@ -401,7 +442,7 @@ async function main() {
     await workspace
       .locator("dialog textarea")
       .fill("Rascunho que será substituído pelo botão explícito");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Rascunho substituível",
     );
@@ -525,16 +566,16 @@ async function main() {
     await shell.locator("#address").fill(url);
     await shell.locator("#address").press("Enter");
     await expect(web.locator("h1")).toHaveText("Material da faculdade");
-    await shell.locator("#zoom-toggle").click();
+    await shellAction("zoom-toggle");
     await shell.getByRole("button", { name: "125%", exact: true }).click();
     await expect.poll(() => app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find((w) => w.getURL().startsWith(url)).getZoomFactor(), url)).toBe(1.25);
     await shell.getByRole("button", { name: "100%", exact: true }).click();
-    await shell.locator("#find-toggle").click();
+    await shellAction("find-toggle");
     await shell.locator(".tool-input").fill("fotossíntese");
     await shell.locator(".tool-input").press("Enter");
     await expect(shell.locator("#subbar-tool [role=status]")).toContainText("1 / 1");
     await shell.locator(".tool-close-btn").click();
-    await shell.locator("#capture-print").click();
+    await shellAction("capture-print");
     await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
     await expect(workspace.locator("dialog img")).toBeVisible();
     await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
@@ -580,7 +621,7 @@ async function main() {
     await expect(workspace.locator("dialog textarea")).not.toHaveValue(/base64/);
     await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
-    await workspace.getByRole("button", { name: "Conexões", exact: true }).first().click();
+    await openArea(workspace, "Conexões");
     await expect(workspace.getByText("Claude Code · 2.1.307", { exact: true })).toBeVisible();
     // Exercise the new chat contract through real IPC/backend, without depending
     // on the separately owned frontend implementation of conversation widgets.
@@ -651,8 +692,10 @@ async function main() {
             "web navigation and back",
             "remote isolation",
             "selection capture and SQLite source",
-            "1.2 acceptance required and persisted",
-            "1.2 capability badges in plan modal (Término informado pelo provedor)",
+            "chat send without modal; nothing saved or generated before consents",
+            "1.2 acceptance required per message and persisted",
+            "answer shown in the conversation; technical details collapsed",
+            "1.2 capability badges in task details dialog (Término informado pelo provedor)",
             "synchronous execution denied; durable enqueue confirmed",
             "native zoom and findInPage",
             "native screenshot and separate local image storage",
