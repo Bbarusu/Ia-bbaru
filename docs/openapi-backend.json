@@ -1890,6 +1890,30 @@
               }
             ],
             "title": "Captured At"
+          },
+          "tab_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tab Id"
+          },
+          "documentVersion": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentversion"
           }
         },
         "additionalProperties": false,

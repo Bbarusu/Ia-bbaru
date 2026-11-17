@@ -20,6 +20,9 @@ OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
               "conversations.consent.get", "conversations.consent.set", "conversations.consent.revoke")
 
 CHAT_ERRORS = {
+    "source_snapshot_conflict": "Este material mudou desde o envio anterior. Use uma nova captura ou uma nova conversa.",
+    "context_too_large": "O contexto excede o limite. Abra uma nova conversa ou envie menos material.",
+    "no_model_fits_context": "O contexto e a reserva de resposta excedem o limite dos modelos permitidos.",
     "conversation_busy": "A conversa tem uma tarefa pendente. Consulte seu estado antes de enviar outra mensagem.",
     "conversation_changed": "A conversa mudou. Consulte seu estado e mantenha o mesmo identificador do envio.",
     "turn_id_conflict": "Este identificador já foi usado em outro envio. O pedido não foi executado novamente.",

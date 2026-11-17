@@ -9,6 +9,7 @@ from .capabilities import plan_step, policy_error, model_family, review_eligible
 from .gateway import GatewayUnavailable
 from .gateway_errors import ERROR_STATUS
 from .visual import visual_policy
+from .prompting import planned_budget
 
 
 def now():
@@ -71,8 +72,12 @@ def build_task(project_id, data, context, gateway, catalog=None, attachments=Non
     for explicit in (data.preferred_model_id, data.reviewer_model_id):
         if policy_errors.get(explicit):
             raise HTTPException(422, policy_errors[explicit])
+    def fits(model, role="answer"):
+        cap = min(model.max_output_tokens, 4096, data.max_output_tokens or 4096)
+        return planned_budget(data.instruction, context, cap, role) <= model.context_char_limit
+
     candidates = [available[mid] for mid in data.allowed_model_ids
-                  if not policy_errors[mid] and available[mid].context_char_limit >= chars]
+                  if not policy_errors[mid] and fits(available[mid])]
     # Stable sorting preserves the order explicitly supplied by the user.
     candidates.sort(key=lambda model: data.kind not in model.task_kinds)
     if not candidates:
@@ -92,7 +97,7 @@ def build_task(project_id, data, context, gateway, catalog=None, attachments=Non
     plan = [plan_step("answer", writer)]
     if data.mode == "review":
         # Review receives the answer too. Recheck its actual size at execution.
-        reviewers = [m for m in candidates if m.id != writer.id]
+        reviewers = [m for m in candidates if m.id != writer.id and fits(m, "review")]
         if data.reviewer_model_id:
             reviewers = [m for m in reviewers if m.id == data.reviewer_model_id]
         else:

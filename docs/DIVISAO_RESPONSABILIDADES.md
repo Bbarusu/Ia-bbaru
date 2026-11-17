@@ -29,7 +29,7 @@ seus testes coerentes com o escopo atribuído.
 Responsável único: **Codex**. Inclui adaptador Claude, runner, parser, modelos,
 classificação de erros, diagnóstico, fixtures e testes envolvidos. Claude não
 abre uma segunda correção desses arquivos enquanto esta reserva existir.
-Análise integrada até eb6c671; interface integrada da PR #11 até b2735ca.
+Análise integrada até 856cfa5; interface integrada da PR #11 até b2735ca.
 Não reaplicar patches antigos. Validação desta integração no Windows pendente.
 
 Tarefa atual de Claude: consolidar evidências existentes e pendências em
@@ -60,7 +60,7 @@ exige nova autorização do usuário para cada edição dentro de uma tarefa atr
 - Dependências fora do escopo vão para documento com problema, evidência,
   arquivos envolvidos, proposta e responsável. Não criar contrato alternativo,
   segunda fila ou estrutura de chat para contornar a dependência.
-- Claude e O Claude de interface não enviam roteiros concorrentes de instalação, merges ou
+- Claude da CLI e Claude de interface não enviam roteiros concorrentes de instalação, merges ou
   geração real ao usuário. Codex consolida a validação Windows. Distinguir
   dublês, inspeção de pacote e execução real nas evidências.
 - Não iniciar geração real, comprar créditos ou alterar a conta como parte de
@@ -71,3 +71,12 @@ Prompt vigente: [PROMPT_CLAUDE_ESCOPO.md](PROMPT_CLAUDE_ESCOPO.md).
 Prompt do frontend: [PROMPT_CLAUDE_FRONTEND_CHAT.md](PROMPT_CLAUDE_FRONTEND_CHAT.md).
 Compatibilidade mínima da interface pode ser corrigida pelo Codex durante a integração;
 o restante da ligação dos controles ao novo contrato pertence ao Claude de interface.
+
+## Entrega Frente 2 — 17/11/2026
+
+Histórico, autorização, idempotência e migração de turnos ficam com Codex.
+Frente 3 usa os payloads de ENTREGA_BACKEND_CHAT.md; não replica essas regras no
+renderer. Novo pedido lido até `claude/friendly-curie-pxw81w@1224556`;
+RESPOSTA_VISAO_E_NAVEGADOR.md distingue entrega e pendência por item. Não incorpora
+automaticamente as mudanças visuais posteriores à PR #11. Frente 1 segue no
+relatório CLI, incluindo V4 (múltiplas imagens/eco/limites), sem código concorrente.

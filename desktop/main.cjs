@@ -1,3 +1,4 @@
+const { captureFullPage } = require("./page-capture.cjs");
 const {
   app,
   BrowserWindow,
@@ -76,7 +77,7 @@ function contextStatus() {
   const tab = active();
   const url = tab?.view.webContents.getURL() || "";
   const document_id = tab && isWeb(url) ? `${tab.id}:${tab.documentVersion || 0}` : null;
-  return { document_id, url: isWeb(url) ? url : null, title: tab?.title || "",
+  return { document_id, tab_id: document_id ? tab.id : null, documentVersion: document_id ? tab.documentVersion || 0 : null, url: isWeb(url) ? url : null, title: tab?.title || "",
     capture_is_current: Boolean(document_id && !tab.loading && capture?.document_id === document_id && capture?.url === url) };
 }
 function focusWorkspace() {
@@ -268,15 +269,18 @@ function newTab(url = null) {
   });
   wc.on("context-menu", (_event, params) => {
     const selected = params.selectionText?.trim();
+    const version = tab.documentVersion, origin = wc.getURL();
     Menu.buildFromTemplate([
       { label: "Capturar print da página", enabled: isWeb(wc.getURL()), click: () => captureScreenshot(tab).catch(captureFailure) },
       { label: "Capturar área visível da imagem", enabled: params.mediaType === "image" && isWeb(wc.getURL()),
         click: () => captureImageAt(tab, params.x, params.y).catch(captureFailure) },
       {
-        label: "Adicionar seleção ao Ia-bbaru",
+        label: "Perguntar ao Claude sobre a seleção",
         enabled: !!selected && selected.length <= 38000 && isWeb(wc.getURL()),
         click: () => {
           try {
+            if (wc.isDestroyed() || tab !== active() || tab.loading || tab.documentVersion !== version || wc.getURL() !== origin)
+              throw new Error("A página mudou. Selecione o trecho novamente.");
             saveCapture(tab, selected);
           } catch (error) {
             workspace.webContents.send("workspace:changed", {
@@ -342,6 +346,8 @@ function saveCapture(tab, text, media = undefined, title = undefined, originUrl 
     text,
     kind: media?.kind || kind,
     document_id: originUrl === "" ? null : `${tab.id}:${tab.documentVersion || 0}`,
+    tab_id: originUrl === "" ? null : tab.id,
+    documentVersion: originUrl === "" ? null : tab.documentVersion || 0,
     captured_at: new Date().toISOString(),
     ...(media ? { media } : {}),
   };
@@ -411,6 +417,17 @@ async function captureImageAt(tab, x, y) {
   if (tab !== active() || tab.documentVersion !== version) throw new Error("A página mudou. Capture novamente.");
   return saveCapture(tab, "Recorte visível de uma imagem da página. Descrição: ", rasterAttachment(pixels, "image"), "Imagem: " + tab.title);
 }
+async function capturePageVisual() {
+  if (capture) throw new Error("Salve ou descarte a captura pendente antes de capturar outra.");
+  const tab = active();
+  if (!tab || expanded || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página web visível.");
+  if (tab.loading) throw new Error("Aguarde a página terminar de carregar.");
+  const version = tab.documentVersion, url = tab.view.webContents.getURL();
+  const image = await captureFullPage(tab.view.webContents, () =>
+    tab === active() && !tab.loading && tab.documentVersion === version && tab.view.webContents.getURL() === url);
+  return saveCapture(tab, "Print da página inteira. Descrição: ",
+    { kind: "screenshot", data_url: image.data_url }, "Página inteira: " + tab.title);
+}
 async function capturePageText() {
   const tab = active();
   if (!tab || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página web.");
@@ -432,7 +449,7 @@ async function selectCapture() {
   const text = await tab.view.webContents.executeJavaScript(
     "window.getSelection().toString()",
   );
-  if (before !== tab.view.webContents.getURL() || tab !== active() || tab.documentVersion !== version)
+  if (before !== tab.view.webContents.getURL() || tab !== active() || tab.documentVersion !== version || tab.loading)
     throw new Error("A página mudou. Selecione o trecho novamente.");
   return saveCapture(tab, text);
 }
@@ -560,8 +577,14 @@ app
           case "capture.image":
             await importImage();
             break;
+          case "capture.page.visual":
+            await capturePageVisual();
+            break;
           case "capture.page":
             await capturePageText();
+            break;
+          case "maximize":
+            if (win.isMaximized()) win.unmaximize(); else win.maximize();
             break;
           case "minimize":
             win.minimize();
@@ -600,6 +623,9 @@ app
           return capture;
         case "context.status":
           return contextStatus();
+        case "capture.page.visual":
+          try { return { ok: true, capture: await capturePageVisual() }; }
+          catch (error) { return { ok: false, error: { message: error.message } }; }
         case "capture.page":
           try { return { ok: true, capture: await capturePageText() }; }
           catch (error) { return { ok: false, error: { message: error.message } }; }

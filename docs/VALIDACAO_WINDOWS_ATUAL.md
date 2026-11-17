@@ -1,4 +1,4 @@
-# Validar a integração no Windows — 16/11/2026
+# Validar a integração no Windows — 17/11/2026
 
 Esta versão foi testada em Linux. Não marcar Windows como aprovado sem a saída
 do usuário. Usar a cópia atual W:\Projeto\Ia-bbaru-chat, preservando perfil e bancos.
@@ -71,3 +71,18 @@ Visão real e nova geração textual exigem etapa posterior com a conta disponí
 prévia e autorização. Configuração experimental da visão, somente quando for
 validar: IA_BBARU_CLAUDE_CODE_VISION_MODELS=sonnet, com modelo também em Models.
 Não executar geração agora só para obter um teste verde.
+
+## Conferências adicionais da Frente 2
+
+Os testes atualizados incluem migração de chat_turns para conversation_turns sem
+perda, repetição do mesmo turno sem nova geração, histórico com fontes únicas,
+reserva de saída e revisão. `npm --prefix desktop test` cobre limites e troca de
+documento na captura integral; `test:ui` abre Electron de verdade, captura uma
+página maior que o viewport e rejeita seleção de um menu anterior ao reload.
+
+No Windows, manter a sandbox ativa (variável IA_BBARU_TEST_NO_SANDBOX ausente).
+Não apagar o perfil para “corrigir” eventual falha de migração. Em erro, encaminhar
+nome do teste e traceback, sem bancos pessoais ou texto da página. Novos controles
+visuais pertencem à branch da Frente 3; não confundir validação do IPC com todos
+os botões já ligados na interface. Maximizar/restaurar e arraste da janela devem
+ser conferidos separadamente quando a barra nativa for alterada pela integração.

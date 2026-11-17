@@ -77,6 +77,28 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()["consent"]["id"]
 
+    def test_old_turn_table_upgrade_preserves_data_consent_and_idempotency(self):
+        from backend.store import Store
+        consent = self.consent()
+        body = self.body(confirmed=False, consent_id=consent)
+        first = self.send(body).json()
+        project = self.client.get(f"/v1/conversations/{self.cid}").json()["project_id"]
+        self.client.post(f"/v1/projects/{project}/sources", json={"title": "Diagrama", "content": "original",
+            "media": {"kind": "image", "data_url": picture()}}).raise_for_status()
+        tables = ("projects", "sources", "source_media", "tasks", "conversations", "conversation_turns")
+        with self.store.connect() as conn:
+            before = {table: [tuple(r) for r in conn.execute(f"SELECT * FROM {table}")] for table in tables}
+            conn.execute("ALTER TABLE conversation_turns RENAME TO chat_turns")
+        Store(self.db)
+        Store(self.db)
+        with self.store.connect() as conn:
+            after = {table: [tuple(r) for r in conn.execute(f"SELECT * FROM {table}")] for table in tables}
+            self.assertIsNone(conn.execute("SELECT name FROM sqlite_master WHERE name='chat_turns'").fetchone())
+        self.assertEqual(after, before)
+        self.assertEqual(self.send(body).json()["task_id"], first["task_id"])
+        self.process()
+        self.assertEqual(len(self.gateway.calls), 1)
+
     def test_implicit_project_and_creation_replay(self):
         cid = str(uuid4())
         first = self.create(conversation_id=cid)
@@ -127,13 +149,47 @@ class ConversationTests(unittest.TestCase):
         history = json.loads(self.gateway.calls[-1].context[0].content)
         self.assertEqual(history[0]["turn_id"], first["id"])
         self.assertIn("manga", history[0]["output"])
-        self.assertEqual(history[0]["sources"][0]["content"], "Texto ORIGINAL")
+        self.assertNotIn("content", history[0]["sources"][0])
+        self.assertEqual(self.gateway.calls[-1].context[1].content, "Texto ORIGINAL")
         self.assertEqual(client.get(f"/v1/conversations/{self.cid}/turns").json()["items"][0]["sequence"], 1)
         other = self.create()["id"]
         self.send(cid=other)
         self.process()
         self.assertEqual(self.gateway.calls[-1].context, [])
         self.assertEqual(client.get(f"/v1/conversations/{other}/turns/{first['id']}").status_code, 404)
+
+    def test_reused_snapshot_is_counted_once_and_changed_content_is_rejected(self):
+        snap = {"capture_id": str(uuid4()), "kind": "text", "title": "Aula", "content": "a" * 38000}
+        self.assertEqual(self.send(snapshots=[snap]).status_code, 202)
+        self.process()
+        self.assertEqual(self.send(snapshots=[snap]).status_code, 202)
+        self.process()
+        context = self.gateway.calls[-1].context
+        self.assertEqual(len(context), 2)
+        self.assertEqual(context[1].content, snap["content"])
+        self.assertLess(len(context[0].content), 1000)
+        changed = self.send(snapshots=[{**snap, "content": "changed"}])
+        self.assertEqual(changed.status_code, 409)
+        self.assertEqual(changed.json()["detail"], "source_snapshot_conflict")
+        self.assertEqual(len(self.gateway.calls), 2)
+
+    def test_escaped_json_and_output_reserve_are_checked_before_queueing(self):
+        snap = {"capture_id": str(uuid4()), "kind": "text", "title": "Aula", "content": '"' * 38000}
+        # Raw text fits, but serialized JSON plus 2048-token reserve does not.
+        response = self.send(snapshots=[snap])
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["detail"], "no_model_fits_context")
+        self.assertEqual(self.gateway.calls, [])
+        self.assertEqual(self.client.get(f"/v1/conversations/{self.cid}/turns").json()["items"], [])
+        # A smaller answer budget makes the very same content fit.
+        response = self.send(snapshots=[snap], max_output_tokens=128)
+        self.assertEqual(response.status_code, 202, response.text)
+        self.process()
+        from backend.prompting import planned_budget
+        from integrations.prompt import request_budget
+        request = self.gateway.calls[-1]
+        self.assertEqual(request_budget(request), planned_budget(request.instruction,
+            [s.model_dump() for s in request.context], request.max_output_tokens))
 
     def test_authorization_defaults_strictness_scope_and_revocation(self):
         for fields in ({"confirmed": False}, {"confirmed": "true"}, {"allow_unenforced_output_limit": False}):
@@ -193,6 +249,16 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(len(self.client.get(f"/v1/conversations/{self.cid}/turns").json()["items"]), 1)
         self.assertEqual(len(self.gateway.calls), 1)
 
+    def test_actual_review_budget_is_checked_and_first_answer_preserved(self):
+        self.gateway.output = "a" * 75000
+        self.send(mode="review", allowed_model_ids=["claude-code:sonnet", "claude-code:opus"])
+        self.assertEqual(self.process()["status"], "queued")
+        final = self.process()
+        self.assertEqual(final["error"], "review_context_too_large")
+        self.assertEqual(final["output"], self.gateway.output)
+        self.assertEqual(len(self.gateway.calls), 1)
+        self.assertEqual(final["execution"]["steps"][1]["attempts"], 0)
+
     def test_fable_and_lower_reviewer_require_explicit_choices(self):
         response = self.send(allowed_model_ids=["claude-code:fable"])
         self.assertEqual(response.json()["detail"], "explicit_model_selection_required")
@@ -229,10 +295,23 @@ class ConversationTests(unittest.TestCase):
         bridge = Bridge(self.client)
         def call(op, params):
             return bridge.handle({"protocol_version": "0", "request_id": str(uuid4()), "operation": op, "params": params})
+        created = call("conversations.create", {"conversation_id": str(uuid4())})
+        self.assertTrue(created["ok"], created)
+        self.assertTrue(call("conversations.list", {})["ok"])
+        self.assertTrue(call("conversations.get", {"conversation_id": self.cid})["ok"])
+        self.assertIsNone(call("conversations.consent.get", {"conversation_id": self.cid})["data"]["consent"])
+        consent = call("conversations.consent.set", {"conversation_id": self.cid, "consent": {
+            "policy_version": "1", "confirmed": True, "allowed_model_ids": ["claude-code:sonnet"],
+            "allow_unenforced_output_limit": True}})
+        self.assertTrue(consent["ok"], consent)
+        self.assertEqual(call("conversations.consent.get", {"conversation_id": self.cid})["data"], consent["data"])
+        self.assertIsNone(call("conversations.consent.revoke", {"conversation_id": self.cid})["data"]["consent"])
+        self.assertEqual(call("tasks.execute", {"task_id": str(uuid4())})["error"]["code"], "unsupported_operation")
         result = call("conversations.turns.send", {"conversation_id": self.cid, "turn": self.body(confirmed=False)})
         self.assertEqual(result["error"]["code"], "execution_confirmation_required")
         result = call("conversations.turns.send", {"conversation_id": self.cid, "turn": self.body()})
         self.assertTrue(result["ok"], result)
+        self.assertTrue(call("conversations.turns.list", {"conversation_id": self.cid})["ok"])
         self.assertTrue(call("conversations.turns.get", {"conversation_id": self.cid, "turn_id": result["data"]["id"]})["ok"])
         self.assertEqual(call("conversations.get", {"conversation_id": "../../etc"})["error"]["code"], "invalid_request")
         self.assertEqual(self.gateway.calls, [])
