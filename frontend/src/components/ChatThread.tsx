@@ -6,6 +6,7 @@ import {
   chatTurnPhase,
   describeChatError,
   describeTaskError,
+  formatDuration,
   formatFinishReason,
   formatOutputLimit,
   readableAnswer,
@@ -185,9 +186,18 @@ function TurnDetails({
                 ` · ${formatOutputLimit(step.capabilities.output_limit, step.max_output_tokens)} · ${formatFinishReason(step.capabilities.finish_reason)}`}
               {task.execution?.steps?.[index] &&
                 ` · Tentativas: ${task.execution.steps[index].attempts}`}
+              {formatDuration(task.execution?.steps?.[index]?.duration_ms) &&
+                ` · Duração: ${formatDuration(task.execution?.steps?.[index]?.duration_ms)}`}
+              {task.results?.[index]?.served_model && ` · Servido: ${task.results[index].served_model}`}
             </dd>
           </div>
         ))}
+        {task.response_profile && (
+          <>
+            <dt>Perfil</dt>
+            <dd>{{ quick: "Rápido", normal: "Normal", deep: "Profundo" }[task.response_profile]}</dd>
+          </>
+        )}
         {task.routing?.reason && (
           <>
             <dt>Escolha do modelo</dt>
@@ -204,6 +214,14 @@ function TurnDetails({
         <dd>
           <code>{task.execution?.steps?.[0]?.request_id || task.id}</code>
         </dd>
+        {task.execution?.steps?.[0]?.request_fingerprint && (
+          <>
+            <dt>Impressão do pedido</dt>
+            <dd>
+              <code>{task.execution.steps[0].request_fingerprint}</code>
+            </dd>
+          </>
+        )}
       </dl>
       <button type="button" className="text-button" onClick={() => openTask(task)}>
         Abrir detalhes da tarefa
@@ -287,7 +305,10 @@ export function ChatThread({
           <article key={task.id} className="chat-turn">
             <UserMessage
               text={task.instruction}
-              contextTitles={(task.context || []).map((source) => source.title)}
+              contextTitles={(task.context || [])
+                // O histórico da conversa vai como contexto, mas não é anexo da pessoa.
+                .filter((source) => !source.id.startsWith("conversation:"))
+                .map((source) => source.title)}
             />
 
             {phase === "working" && (

@@ -114,7 +114,11 @@ export function TaskViewModal({ task, models, close, executionEnabled, updateTas
           {task.context!.map((source) => (
             <details key={source.id} className="task-source-subdetails">
               <summary>{source.title}</summary>
-              <pre className="result-text">{source.content}</pre>
+              {/* Turnos de conversa trazem só prévia; o texto completo fica no backend. */}
+              <pre className="result-text">
+                {source.content ??
+                  `${source.preview ?? ""}${source.char_count && source.char_count > (source.preview?.length ?? 0) ? "…" : ""}`}
+              </pre>
             </details>
           ))}
         </details>

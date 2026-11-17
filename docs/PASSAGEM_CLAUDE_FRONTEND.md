@@ -9,46 +9,104 @@ Sem alteração em backend, gateway, contratos ou persistência. Fora de `fronte
 testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
 em `.agents/`. Tudo na PR #11, para integração pelo Codex.
 
-## Pendências por responsável (16/11/2026)
+## Ligação do contrato de conversas (17/11/2026)
 
-Estado da interface aceito pelo usuário "por hora". Formato de
-DIVISAO_RESPONSABILIDADES.md: problema, evidência, arquivos, proposta. Detalhes nas
-seções indicadas abaixo.
+Base `codex/browser-capture-clis` em 31c3d43 (PR #11 integrada pelo Codex).
+Prompt: [PROMPT_CLAUDE_FRONTEND_CHAT.md](PROMPT_CLAUDE_FRONTEND_CHAT.md); contrato:
+[ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md). Arquivos: `frontend/src/*`,
+`desktop/ui/index.html|shell.js|shell.css`, testes de interface
+(`frontend/tests/logic.test.mjs`, `desktop/tests/smoke.cjs`, `scripts/verify_ui.py`).
+Backend, IPC e runtime não foram alterados. Nenhuma geração real.
 
-### Codex — backend, contratos, runtime e integração
+| Item do prompt | Situação na interface |
+| --- | --- |
+| 1. Conversas | Envio por `conversations.turns.send`; `tasks.plan`/`tasks.enqueue` não são mais usados no chat. Seletor “Conversa” lista `conversations.list`; “Nova conversa” gera UUID real, criado no 1º envio com título da mensagem. Histórico vem de `turns.list` + `turns.get`; a conversa ativa volta após reiniciar. Sem filtro por data. |
+| | Antes de enviar, o corpo inteiro e o `turn_id` ficam em `localStorage` (`yuki:pending-send`). Resposta perdida → “Consultar estado” (`turns.get`) ou “Reenviar o mesmo pedido” (mesmo corpo). Após reiniciar, o envio pendente volta para consulta, sem reenvio automático. Recusa definitiva não cria turno e devolve o texto ao campo. |
+| 2. Aceite | Cartão: limite indicativo, autorização e “Não perguntar de novo nesta conversa” (`consent.set`). Com aceite válido e coberto (`consentCovers`), o envio usa `consent_id` sem cartão. Chip “Envio autorizado nesta conversa · Revogar” (`consent.revoke`). `conversation_consent_revoked/scope_changed` limpa o aceite e reabre o cartão. Imagem e revisão sempre pedem confirmação. |
+| 3. Contexto | “+” → “Texto da página inteira” (`capture.page`) e “Trecho selecionado”. Viram `snapshots` do turno; o chat não cria mais material na biblioteca. Chip mostra título, “página”/“trecho” e “página anterior” quando `activePage.document_id` mudou. Remover descarta (`capture.clear`). |
+| 4. Runtime | `focusComposer` foca `#instruction`; `activePage` atualiza o estado da página. Largura: “⋯” → “Largura do painel” (controle deslizante 320–800 px com `panel.resize`). |
+| 5. Perfis | Seletor com “Perfil de resposta” (Rápido/Normal/Profundo → `response_profile`) e “Escolher modelo” (`preferred_model_id`). `kind=general`. Perfis não incluem Fable. Revisão em “Avançado” no cartão, explicando a segunda chamada e a política do revisor. |
+| 6. Visão | Só quando o catálogo é 1.2 e todos os modelos autorizados declaram `input.image.supported`. A Biblioteca libera a seleção de uma imagem; o cartão mostra prévia e pede “Enviar esta imagem ao Claude (experimental)” (`allow_visual_input`). Mais de uma imagem bloqueia o envio. Sem base64 no texto. |
+| 7. Detalhes/erros | “Detalhes técnicos”: modelo servido, duração (ausente não vira zero), impressão do pedido e perfil. Erros tipados do Codex preservados; corte sem texto não é anunciado como parcial. Sem “Parar” nem horário de renovação. |
 
-| # | Pendência | Evidência / arquivos | Proposta |
+Sem execução (`task_execution=false`, inclusive na demonstração), o envio fica
+desativado com aviso e o rascunho permanece. Atividade continua por `tasks.list`.
+
+### Dependências novas (Codex)
+
+| # | Problema | Evidência / arquivos | Proposta |
 | --- | --- | --- | --- |
-| C1 | Revisar e integrar a PR #11 em `codex/browser-capture-clis` | Commits separados: chat, remoção do Firefox, ícone, skills, ajustes | Revisar em especial `extension/` e `native_host/` removidos e os testes adaptados; as skills em `.agents/` (commits 7de089d e 1addacd) podem ser descartadas se não quiser no repositório |
-| C2 | Resposta exibida cortada na primeira geração real | Windows, Sonnet, tarefa "Concluída", texto exibido só `-48dc-b51a-4c4ebcb0da4e).`; a interface mostra `task.output` inteiro | Conferir a leitura da saída da CLI no adaptador e o que chega a `task.output`; texto completo da tarefa ainda não enviado pelo usuário (U1) |
-| C3 | Prompt pede "cite o id da fonte" | `integrations/prompt.py`; a interface já troca o id pelo título só na exibição | Pedir o título da fonte em vez do id |
-| C4 | Contrato de conversa | Itens 1–8 de "Dependências de backend/IPC" | `conversation_id`/`turn_id`, histórico montado no backend, aceite inicial revogável, snapshot de contexto por turno, projeto implícito, envio idempotente numa operação, `context` em `tasks.list` |
-| C5 | Captura da página inteira | Item 4; a interface só anexa o trecho selecionado | Captura da aba com identidade do documento e detecção de navegação |
-| C6 | Runtime do painel | Itens 9, 11, 12 | Sinal do shell ao abrir o painel (foco), cancelamento, painel redimensionável e atalho |
-| C7 | Visão | Item 13 | Contrato para imagens; hoje o menu avisa que o Claude não analisa prints/imagens |
-| C8 | Tipo de tarefa fixo em "study" | `frontend/src/App.tsx` (`shortcut:`) | Inferir o tipo no backend ou pedir de volta o seletor |
-| C9 | Ícones do instalador | Só `desktop/ui/icon.svg` e `icon.png` existem | Gerar `.ico`/`.icns` ao empacotar |
-| C10 | Documentação comum | `docs/STATUS.md` e `DIVISAO_RESPONSABILIDADES.md` ainda citam Gemini no frontend e o caminho Firefox | Atualizar: frontend com o Claude de interface, produto só Chromium |
-| C11 | Validação no Windows | Testes desta entrega rodaram só em Linux (Xvfb) | Repetir `npm --prefix desktop run test:ui` e `scripts/verify_ui.py` no Windows |
+| D1 | O estado do runtime não informa a largura atual do painel | `snapshot()` em `desktop/main.cjs`; o shell mostra a última largura escolhida nele (`shortcut:` em `shell.js`) | Incluir `panelWidth` efetivo no estado publicado |
+| D2 | Alça de arrastar na borda do painel não é possível | A view do painel cobre a borda; `panel.resize` só existe em `navigatorApp` (shell) | Expor `panel.resize` ao workspace ou aceitar o controle na barra “⋯” como definitivo |
+| D3 | O armazenamento do runtime aceita só `draft:*` até 8.000 caracteres | `workspace:storage` em `main.cjs`; corpo com snapshot chega a 38.000 | Hoje uso `localStorage` do painel; se preferir, chave própria `pending-send` com limite maior |
+| D4 | Turno ou conversa inexistente volta como `http_404` genérico | `native_host/bridge.py`; a interface depende desse código para “não registrado” | Códigos explícitos `turn_not_found`/`conversation_not_found` |
+| D5 | Reabrir uma conversa custa 1 + N chamadas | `turns.list` traz só prévia de 500 caracteres | Opção de lista com tarefa completa, se o custo aparecer |
+| D6 | Seletor mostra só a 1ª página de conversas (30) | `conversations.list` | Paginação na interface, quando houver mais de 30 |
 
-### Claude da CLI — análise em `integrations/docs/ANALISE_CLI_CLAUDE.md`
+## Testes faltantes por responsável (17/11/2026)
 
-| # | Pendência | Evidência | Proposta |
+Testes desta entrega, em Linux (Xvfb): backend 92, gateway 103 (1 real ignorado),
+frontend 22, políticas desktop 3, `verify_ui.py` e smoke Electron aprovados. O smoke
+cobre: aceites antes de gerar, 1ª resposta, aceite único da conversa, histórico
+chegando ao gateway (`generations[1]` contém a 1ª pergunta), envio sem cartão com
+aceite, revogação sem despacho, controle de largura, reabrir com a conversa
+restaurada e sem nova geração.
+
+### Claude de interface (frontend/ e desktop/ui/)
+
+| # | Teste que falta | Por que | Como |
 | --- | --- | --- | --- |
-| A1 | Formato da saída que gerou a resposta cortada (C2) | Primeira geração real concluída, 1 tentativa, término informado pelo provedor | Analisar com fixture do formato real da CLI; não executar geração real |
-| A2 | Limite de uso da conta no Windows | `provider_quota_exceeded` (HTTP 429) registrado em STATUS.md | Registrar como a CLI sinaliza a janela de uso, para a mensagem da interface |
+| I1 | Envio perdido de ponta a ponta: perder a resposta de `turns.send`, “Consultar estado” e “Reenviar o mesmo pedido” → um só turno e uma só geração | Só a regra (`sendOutcomeUnknown`) tem teste de unidade | Smoke com resposta descartada no IPC; depende de gancho de teste do Codex (X2) |
+| I2 | Reiniciar com envio pendente em `localStorage` | Caminho de restauração sem teste | Smoke: gravar `yuki:pending-send`, reabrir, ver cartão e nenhuma geração automática |
+| I3 | Contexto não troca ao navegar | Critério do prompt; só o runtime está testado | Anexar “Texto da página inteira”, recarregar, ver “página anterior” e conferir `turn.snapshots[0].document_id` igual ao original |
+| I4 | Foco ao abrir o painel (botão e Ctrl+Shift+L) | `focusComposer` sem asserção | Smoke: fechar/abrir painel e `toBeFocused()` em `#instruction` |
+| I5 | Perfis e escolha explícita | Só `buildTurn` testado | Smoke: “Profundo” envia `response_profile=deep`; modelo pelo nome envia `preferred_model_id`; Fable nunca entra por perfil |
+| I6 | Revisão em “Avançado” | Sem teste de UI | Fixture com 2 modelos: `mode=review`, 2 gerações, “Não perguntar de novo” desativado |
+| I7 | Mudança de escopo depois do aceite | Sem teste de UI | Aceitar com modelo A, trocar para B: cartão reaparece e nada é despachado |
+| I8 | Visão na interface | Catálogo do smoke não declara imagem | Fixture 1.2 com `input.image.supported`: prévia, checkbox obrigatório, 1 imagem, `allow_visual_input=true` |
+| I9 | Mensagens dos erros tipados | `provider_model_requires_credits`, `_unavailable`, `_rate_limited`, `_output_limit_reached` sem teste de `describeChatError` | Testes de unidade em `logic.test.mjs` |
+| I10 | Várias conversas e troca | Seletor sem teste | Duas conversas, alternar, histórico certo em cada; “Nova conversa” bloqueada com envio pendente |
+| I11 | 360 px com seletor de conversa e chip de aceite | `verify_ui.py` mede 360 px sem aceite ativo | Medir `scrollWidth` com o chip visível |
+| I12 | Windows | Tudo acima rodou só em Linux | Repetir `test:ui` e `verify_ui.py` no Windows (com X1) |
+
+### Codex (backend, contratos, runtime e integração)
+
+| # | Teste ou validação que falta | Por que | Como |
+| --- | --- | --- | --- |
+| X1 | Validação Windows desta versão | `VALIDACAO_WINDOWS_ATUAL.md` ainda sem saída do usuário | Roteiro existente, sem geração real |
+| X2 | Gancho para perder resposta de IPC/ponte em teste | Necessário para I1 | Variável só de teste que descarta a 1ª resposta de `conversations.turns.send` depois do backend gravar |
+| X3 | Comparação da resposta cortada (C2) | `inspect_saved_response.py` ainda não rodou no PC | Tarefa `3ca05830-926f-47ca-96d8-0ccfe7399a4d`, leitura `mode=ro` |
+| X4 | Largura após reiniciar | Smoke ajusta 520/320, mas não confere depois de reabrir | Conferir a largura da view na reabertura (com D1) |
+| X5 | Códigos 404 explícitos na ponte | D4 | Teste de `bridge.py` para turno/conversa inexistentes |
+| X6 | Geração real pequena após a correção do `stream-json` | Prova de que a resposta em vários blocos chega inteira; dublês não provam a CLI real | Só com o usuário, autorização explícita, teto 128 |
+| X7 | Visão real | Validada só com dublês | `IA_BBARU_CLAUDE_CODE_VISION_MODELS=sonnet`, 1 PNG pequena, com autorização; falha explícita se a CLI resumir o eco |
+| X8 | Erros reais da CLI | Código de saída/subtipo de teto, recusa de modelo e créditos só lidos no pacote | Observar quando ocorrerem; sem provocar gasto |
+| X9 | Instalador | `.ico`/`.icns` existem, instalador assinado não foi gerado | Empacotar e abrir no Windows |
+
+### Claude da CLI (análise, sem código)
+
+| # | Pendência | Como |
+| --- | --- | --- |
+| A3 | Revisar a montagem `stream-json` do Codex (P-7) contra o pacote da CLI atual | Agrupamento por `message.id`, comparação com `result`, `system/model_fallback` |
+| A4 | Eco da imagem por `--replay-user-messages` | Ler o pacote: o eco é completo ou resumido? O gateway exige eco exato (X7) |
+| A5 | Efeito de `CLAUDE_CODE_NO_MODEL_FALLBACK` em execução | Hoje só `[P]`; indicar o que uma execução real precisa registrar |
+| A6 | Raciocínio (effort/thinking) do Sonnet em `-p` e se conta no teto | Hipótese H2 da falha antiga |
+| A7 | Atualização automática da CLI entre diagnóstico e execução | Propor como registrar a versão usada em cada etapa |
 
 ### Usuário
 
 | # | Pendência | Como |
 | --- | --- | --- |
-| U1 | Enviar o texto completo da resposta do teste real | No painel: "Detalhes técnicos" → "Abrir detalhes da tarefa" (print) ou "Copiar"; não gasta cota |
-| U2 | Conferir a interface no Windows | `git pull` em `W:\Projeto\Ia-bbaru-chat` e abrir com `iniciar-ia-bbaru.ps1` |
-| U3 | Ativar as skills no PC, se quiser | `npx skills add DietrichGebert/ponytail --skill '*'`; telemetria: `setx DISABLE_TELEMETRY 1` |
+| U1 | Rodar a leitura da resposta cortada | `scripts/inspect_saved_response.py` (VALIDACAO_WINDOWS_ATUAL.md); não gera |
+| U2 | Inicialização de teste desta interface | Atualizar `W:\Projeto\Ia-bbaru-chat` com esta branch e seguir o roteiro do Codex; abrir e consultar não gera |
+| U3 | Autorizar ou não X6/X7 | Só quando o Codex conduzir |
 
-Gemini não tem pendências: a frente de interface passou ao Claude de interface, e a
-branch `gemini/chromium-ui` não foi incorporada (PR #10 continua aberta para a `main`;
-decidir se fecha).
+### Pendências de 16/11 já resolvidas
+
+C1 (PR #11 integrada), C3 (prompt pede título), C4 (contrato de conversa), C5
+(captura da página), C6 (foco/atalho/largura; cancelamento fora do contrato), C7
+(visão experimental), C8 (`kind=general` e perfis), C9 (ícones), C10 (STATUS e
+DIVISAO atualizados), A1/A2 (análise integrada). Continuam abertos: C2 (X3), C11 (X1/I12).
 
 ## O que foi entregue
 

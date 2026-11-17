@@ -2268,9 +2268,65 @@ dialog.kinfo-guide-dialog {
 /* Página ampla: só "Nova conversa" acima do chat */
 .chat-bar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 4px;
   flex-shrink: 0;
+}
+
+/* Conversa ativa: lista do backend; ocupa o espaço que sobra. */
+.conversation-picker {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.conversation-picker select {
+  width: 100%;
+  max-width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+}
+
+.consent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.consent-chip .text-button {
+  font-size: 12px;
+}
+
+.image-consent img {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.send-advanced summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.context-chip-title small {
+  color: var(--text-muted);
 }
 
 .chat-bar .subtle {

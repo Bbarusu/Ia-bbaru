@@ -138,10 +138,10 @@ def main():
         demo.get_by_label('Modelo Claude').select_option(label='Agente de exemplo')
         demo.locator('#instruction').fill('Pedido demonstrativo')
         demo.screenshot(path=str(artifacts/'demo-chromium.png'),full_page=True)
-        demo.get_by_role('button',name='Enviar',exact=True).click()
-        # A demonstração não executa nada: o pedido fica salvo, sem resposta inventada.
-        demo.get_by_role('group',name='Confirmar envio').get_by_role('button',name='Salvar pedido',exact=True).click()
-        expect(demo.get_by_text('Pedido salvo. Nenhuma resposta foi gerada.',exact=True)).to_be_visible()
+        # A demonstração não executa nada: sem envio, sem resposta inventada; o rascunho fica.
+        expect(demo.get_by_role('button',name='Enviar',exact=True)).to_be_disabled()
+        expect(demo.get_by_text('Esta conexão não executa pedidos pelo painel.',exact=False)).to_be_visible()
+        expect(demo.locator('#instruction')).to_have_value('Pedido demonstrativo')
         expect(demo.get_by_role('dialog')).to_have_count(0)
         browser.close()
     server.shutdown()

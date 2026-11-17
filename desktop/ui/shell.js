@@ -2,9 +2,11 @@ const api = window.navigatorApp;
 const $ = (id) => document.getElementById(id);
 let state,
   ownMessage = "",
-  activeSubbarMode = null, // null | "find" | "zoom" | "history" | "security" | "capture-media"
+  activeSubbarMode = null, // null | "find" | "zoom" | "width" | "history" | "security" | "capture-media"
   currentZoom = 100,
-  findQuery = "";
+  findQuery = "",
+  // shortcut: o estado do runtime não informa a largura atual; vale a última escolhida aqui (padrão 440).
+  panelWidth = Number(localStorage.getItem("yuki:panel-width")) || 440;
 
 const DEFAULT_BOOKMARKS = [
   { title: "Claude", url: "https://claude.ai/" },
@@ -218,6 +220,42 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
     return;
   }
 
+  if (activeSubbarMode === "width") {
+    // panel.resize aceita 320–800 px; o runtime ainda limita a 65% da janela.
+    const label = document.createElement("label");
+    label.className = "tool-label";
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = "320";
+    input.max = "800";
+    input.step = "20";
+    input.value = String(panelWidth);
+    input.disabled = !state?.panel || state?.expanded;
+    const value = document.createElement("span");
+    value.textContent = `${panelWidth} px`;
+    label.append("Largura do painel ", input, value);
+    let frame = 0;
+    input.oninput = () => {
+      value.textContent = `${input.value} px`;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => command("panel.resize", Number(input.value)));
+    };
+    input.onchange = () => {
+      panelWidth = Number(input.value);
+      try { localStorage.setItem("yuki:panel-width", String(panelWidth)); } catch {}
+    };
+    toolEl.append(label);
+    if (input.disabled) {
+      const note = document.createElement("span");
+      note.className = "tool-note";
+      note.textContent = state?.expanded ? "Saia da tela ampla para ajustar." : "Abra o painel do Claude para ajustar.";
+      toolEl.append(note);
+    }
+    toolEl.appendChild(closeBtn);
+    setTimeout(() => input.focus(), 10);
+    return;
+  }
+
   if (activeSubbarMode === "history") {
     const label = document.createElement("span");
     label.className = "tool-label";
@@ -413,6 +451,7 @@ $("power").onclick = () => {
 $("site-security").onclick = () => setSubbarTool("security");
 $("find-toggle").onclick = () => setSubbarTool("find");
 $("zoom-toggle").onclick = () => setSubbarTool("zoom");
+$("width-toggle").onclick = () => setSubbarTool("width");
 $("history-toggle").onclick = () => setSubbarTool("history");
 
 $("capture-print").onclick = () => command("capture.screenshot");

@@ -19,6 +19,7 @@ interface LibrarySectionProps {
   sources: Source[];
   filteredSources: Source[];
   selectedSources: string[];
+  imagesSelectable: boolean;
   toggleSource: (id: string) => void;
   openSource: (mode?: CaptureMediaKind) => void;
   openProject: () => void;
@@ -49,6 +50,7 @@ export function LibrarySection({
   sources,
   filteredSources,
   selectedSources,
+  imagesSelectable,
   toggleSource,
   openSource,
   openProject,
@@ -144,8 +146,12 @@ export function LibrarySection({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    disabled={Boolean(s.media)}
-                    title={s.media ? "Captura armazenada localmente; o gateway atual recebe apenas texto." : undefined}
+                    disabled={Boolean(s.media) && !imagesSelectable}
+                    title={
+                      s.media && !imagesSelectable
+                        ? "Imagem guardada localmente; o modelo escolhido não declara leitura de imagens."
+                        : undefined
+                    }
                     onChange={() => toggleSource(s.id)}
                     aria-label={`Usar ${s.title} no pedido`}
                   />

@@ -215,7 +215,6 @@ test("decideIncomingCapture protects unsaved manual drafts, edited captures and 
 import {
   chatActivityLabel,
   chatTurnPhase,
-  chatTurns,
   describeChatError,
   readableAnswer,
   shortModelName,
@@ -262,21 +261,6 @@ test("chat: automático nunca autoriza Fable; escolha manual autoriza só o esco
   assert.deepEqual(resolveChatModelIds("claude-code:fable", models, "1.1"), ["claude-code:fable"]);
   // Um modelo que deixou de ser elegível não é enviado.
   assert.deepEqual(resolveChatModelIds("claude-code:gone", models, "1.1"), []);
-});
-
-test("chat: turnos em ordem cronológica e limitados ao início da conversa", () => {
-  const tasks = [
-    { id: "c", created_at: "2026-11-11T12:00:00Z" },
-    { id: "a", created_at: "2026-11-11T10:00:00Z" },
-    { id: "b", created_at: "2026-11-11T11:00:00Z" },
-  ];
-  assert.deepEqual(chatTurns(tasks).map((t) => t.id), ["a", "b", "c"]);
-  assert.deepEqual(
-    chatTurns(tasks, "2026-11-11T10:30:00Z").map((t) => t.id),
-    ["b", "c"],
-  );
-  assert.deepEqual(tasks.map((t) => t.id), ["c", "a", "b"], "não altera a lista original");
-  assert.deepEqual(chatTurns(undefined), []);
 });
 
 test("chat: fase do turno vem do estado real da tarefa", () => {
@@ -338,4 +322,104 @@ test("chat: ids de fontes citados viram o título só na exibição", () => {
   assert.equal(readableAnswer("-47ca-96d8-0ccfe7399a4d).", context), "-47ca-96d8-0ccfe7399a4d).");
   assert.equal(readableAnswer(null, context), "");
   assert.equal(readableAnswer("sem fontes", undefined), "sem fontes");
+});
+
+// ---- Conversas (contrato 16/11/2026) ----
+import {
+  buildConsent,
+  buildTurn,
+  captureIsStale,
+  captureSnapshot,
+  consentCovers,
+  consentRejected,
+  conversationTitle,
+  formatDuration,
+  sendOutcomeUnknown,
+  visionAvailable,
+} from "../src/logic.mjs";
+
+test("conversa: perfil autoriza os modelos automáticos (sem Fable) e vai como response_profile", () => {
+  const models = [
+    { id: "claude-code:sonnet", available: true, capabilities: caps() },
+    { id: "claude-code:fable", available: true, capabilities: caps() },
+  ];
+  assert.deepEqual(resolveChatModelIds("deep", models, "1.2"), ["claude-code:sonnet"]);
+  const turn = buildTurn({ turnId: "t1", instruction: "Oi", choice: "deep", modelIds: ["claude-code:sonnet"] });
+  assert.equal(turn.response_profile, "deep");
+  assert.equal("preferred_model_id" in turn, false);
+  assert.equal(turn.kind, "general");
+  const explicit = buildTurn({ turnId: "t2", instruction: "Oi", choice: "claude-code:fable", modelIds: ["claude-code:fable"] });
+  assert.equal(explicit.preferred_model_id, "claude-code:fable");
+  assert.equal("response_profile" in explicit, false);
+});
+
+test("conversa: sem aceite, confirmed só true no envio individual; com aceite usa consent_id", () => {
+  const single = buildTurn({ turnId: "t", instruction: "x", choice: "normal", modelIds: ["m"], acceptedLimit: true });
+  assert.equal(single.confirmed, true);
+  assert.equal(single.allow_unenforced_output_limit, true);
+  assert.equal("consent_id" in single, false);
+  const consent = { id: "c1", allowed_model_ids: ["m"], max_output_tokens: 2048, allow_unenforced_output_limit: true };
+  const covered = buildTurn({ turnId: "t", instruction: "x", choice: "normal", modelIds: ["m"], consent });
+  assert.equal(covered.confirmed, false);
+  assert.equal(covered.consent_id, "c1");
+  assert.equal(covered.max_output_tokens, 2048);
+  assert.equal(buildTurn({ turnId: "t", instruction: "x", modelIds: ["m"], review: true }).mode, "review");
+});
+
+test("conversa: aceite cobre só os mesmos modelos, teto e visão", () => {
+  const consent = { id: "c", allowed_model_ids: ["a", "b"], max_output_tokens: 2048, allow_visual_input: false };
+  assert.equal(consentCovers(consent, { modelIds: ["a"] }), true);
+  assert.equal(consentCovers(consent, { modelIds: ["a", "z"] }), false);
+  assert.equal(consentCovers(consent, { modelIds: ["a"], maxOutputTokens: 4096 }), false);
+  assert.equal(consentCovers(consent, { modelIds: ["a"], visual: true }), false);
+  assert.equal(consentCovers(null, { modelIds: ["a"] }), false);
+  assert.equal(consentCovers(consent, { modelIds: [] }), false);
+  const body = buildConsent({ modelIds: ["a"], acceptedLimit: true });
+  assert.deepEqual(body, {
+    policy_version: "1", confirmed: true, allowed_model_ids: ["a"],
+    allow_unenforced_output_limit: true, allow_visual_input: false, max_output_tokens: 2048,
+  });
+});
+
+test("conversa: captura vira snapshot de texto; imagem não; contexto antigo é identificado", () => {
+  const cap = { id: "k", kind: "page", title: " Aula ", url: "https://e.org/a", text: "corpo",
+    document_id: "1:2", captured_at: "2026-11-16T10:00:00Z" };
+  assert.deepEqual(captureSnapshot(cap), { capture_id: "k", kind: "page", title: "Aula", content: "corpo",
+    url: "https://e.org/a", document_id: "1:2", captured_at: "2026-11-16T10:00:00Z" });
+  assert.equal(captureSnapshot({ ...cap, kind: undefined }).kind, "selection");
+  assert.equal(captureSnapshot({ ...cap, media: { kind: "image" } }), null);
+  assert.equal(captureSnapshot({ ...cap, text: "  " }), null);
+  assert.equal(captureIsStale(cap, { document_id: "1:2" }), false);
+  assert.equal(captureIsStale(cap, { document_id: "1:3" }), true);
+  assert.equal(captureIsStale(cap, null), false);
+});
+
+test("conversa: envio perdido só consulta/reenvia o mesmo turno; recusa de aceite pede novo aceite", () => {
+  assert.equal(sendOutcomeUnknown(new Error("ipc")), true);
+  assert.equal(sendOutcomeUnknown({ code: "outcome_unknown" }), true);
+  assert.equal(sendOutcomeUnknown({ code: "conversation_changed" }), true);
+  assert.equal(sendOutcomeUnknown({ code: "conversation_busy" }), false);
+  assert.equal(sendOutcomeUnknown({ code: "context_too_large" }), false);
+  assert.equal(consentRejected({ code: "conversation_consent_revoked" }), true);
+  assert.equal(consentRejected({ code: "conversation_busy" }), false);
+});
+
+test("conversa: visão só com catálogo 1.2 e imagem declarada em todos os modelos", () => {
+  const models = [
+    { id: "s", input: { image: { supported: true } } },
+    { id: "h", input: { image: { supported: false } } },
+  ];
+  assert.equal(visionAvailable(models, ["s"], "1.2"), true);
+  assert.equal(visionAvailable(models, ["s"], "1.1"), false);
+  assert.equal(visionAvailable(models, ["s", "h"], "1.2"), false);
+  assert.equal(visionAvailable(models, [], "1.2"), false);
+});
+
+test("conversa: título e duração", () => {
+  assert.equal(conversationTitle("  Explique o segundo ponto\nmais"), "Explique o segundo ponto");
+  assert.equal(conversationTitle(""), "Nova conversa");
+  assert.equal(conversationTitle("a".repeat(80)).length, 60);
+  assert.equal(formatDuration(850), "850 ms");
+  assert.equal(formatDuration(3200), "3,2 s");
+  assert.equal(formatDuration(undefined), "");
 });

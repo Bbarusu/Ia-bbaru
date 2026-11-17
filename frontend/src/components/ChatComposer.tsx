@@ -6,12 +6,13 @@ import {
   ChevronDown,
   FileText,
   Folder,
+  Globe,
   Image as ImageIcon,
   Loader2,
   Plus,
   X,
 } from "lucide-react";
-import { shortModelName } from "../logic.mjs";
+import { RESPONSE_PROFILES, isResponseProfile, shortModelName } from "../logic.mjs";
 import type { Capture, Model, Project } from "../types";
 import type { CaptureMediaKind } from "./SourceModal";
 import { Menu } from "./Menu";
@@ -27,12 +28,14 @@ interface ChatComposerProps {
   online: boolean;
   checking: boolean;
   eligibleModels: Model[];
-  chatModel: string;
-  setChatModel: (id: string) => void;
+  chatChoice: string;
+  setChatChoice: (id: string) => void;
   projects: Project[];
   projectId: string;
   setProjectId: (id: string) => void;
   capture: Capture | null;
+  captureStale: boolean;
+  attachPage: () => void;
   removeCapture: () => void;
   selectedSourcesCount: number;
   clearSelectedSources: () => void;
@@ -52,12 +55,14 @@ export function ChatComposer({
   online,
   checking,
   eligibleModels,
-  chatModel,
-  setChatModel,
+  chatChoice,
+  setChatChoice,
   projects,
   projectId,
   setProjectId,
   capture,
+  captureStale,
+  attachPage,
   removeCapture,
   selectedSourcesCount,
   clearSelectedSources,
@@ -86,11 +91,15 @@ export function ChatComposer({
                   type="button"
                   className="context-chip-title"
                   aria-expanded={previewOpen}
-                  title={`Ver o trecho que será enviado (${captureText.length.toLocaleString("pt-BR")} caracteres)`}
+                  title={`Ver o ${capture.kind === "page" ? "texto da página" : "trecho"} que será enviado (${captureText.length.toLocaleString("pt-BR")} caracteres)${capture.url ? ` · ${capture.url}` : ""}`}
                   onClick={() => setPreviewOpen((open) => !open)}
                 >
                   <span aria-hidden="true">🌐 </span>
                   {captureTitle}
+                  <small>
+                    {capture.kind === "page" ? " · página" : " · trecho"}
+                    {captureStale && " · página anterior"}
+                  </small>
                 </button>
                 <button
                   type="button"
@@ -171,6 +180,13 @@ export function ChatComposer({
               };
               return (
                 <>
+                  <button type="button" onClick={choose(attachPage)}>
+                    <Globe size={14} aria-hidden="true" />
+                    <span>
+                      Texto da página inteira
+                      <small>Texto visível da aba, até 38.000 caracteres</small>
+                    </span>
+                  </button>
                   <button type="button" onClick={choose(attachSelection)}>
                     <ArrowDownToLine size={14} aria-hidden="true" />
                     <span>
@@ -204,23 +220,43 @@ export function ChatComposer({
             }}
           </Menu>
 
-          <label className="composer-chip" title={`Modelo Claude · ${status}`}>
+          <label
+            className="composer-chip"
+            title={`Perfil de resposta ou modelo Claude · ${status}. O perfil só indica preferência de modelo; a escolha pelo nome prevalece.`}
+          >
             <span
               className={`status-dot ${checking ? "wait" : online ? "on" : "off"}`}
               aria-hidden="true"
             />
             <select
               aria-label="Modelo Claude"
-              value={eligibleModels.some((m) => m.id === chatModel) ? chatModel : "auto"}
+              value={
+                isResponseProfile(chatChoice) || eligibleModels.some((m) => m.id === chatChoice)
+                  ? chatChoice
+                  : "normal"
+              }
               disabled={!eligibleModels.length}
-              onChange={(event) => setChatModel(event.target.value)}
+              onChange={(event) => setChatChoice(event.target.value)}
             >
-              <option value="auto">{eligibleModels.length ? "Automático" : "Sem modelo"}</option>
-              {eligibleModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {shortModelName(m)}
-                </option>
-              ))}
+              {!eligibleModels.length && <option value="normal">Sem modelo</option>}
+              {eligibleModels.length > 0 && (
+                <optgroup label="Perfil de resposta">
+                  {RESPONSE_PROFILES.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {eligibleModels.length > 0 && (
+                <optgroup label="Escolher modelo">
+                  {eligibleModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {shortModelName(m)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
             <ChevronDown size={12} aria-hidden="true" />
           </label>

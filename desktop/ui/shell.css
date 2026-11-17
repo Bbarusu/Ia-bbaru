@@ -587,3 +587,14 @@ input:focus-visible {
 .subbar:has(#shell-actions:not([hidden])) #message {
   display: none;
 }
+
+/* Largura do painel: o controle usa panel.resize do runtime. */
+label.tool-label:has(input[type="range"]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+label.tool-label input[type="range"] {
+  width: 180px;
+  accent-color: var(--text);
+}

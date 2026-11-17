@@ -192,28 +192,9 @@ export function eligibleChatModels(models, catalogVersion) {
  */
 export function resolveChatModelIds(choice, models, catalogVersion) {
   const eligible = eligibleChatModels(models, catalogVersion);
-  if (choice && choice !== "auto")
+  if (choice && choice !== "auto" && !isResponseProfile(choice))
     return eligible.filter((m) => m.id === choice).map((m) => m.id);
   return eligible.filter((m) => !/fable/i.test(m.id)).map((m) => m.id);
-}
-
-/** Tarefas do projeto em ordem de conversa (mais antiga primeiro), a partir de `since`. */
-export function chatTurns(tasks, since) {
-  if (!Array.isArray(tasks)) return [];
-  const start = since ? Date.parse(since) : NaN;
-  return tasks
-    .filter((t) => {
-      if (!t || Number.isNaN(start)) return Boolean(t);
-      const created = Date.parse(t.created_at);
-      return Number.isNaN(created) || created >= start;
-    })
-    .slice()
-    .sort((a, b) => {
-      const da = Date.parse(a.created_at);
-      const db = Date.parse(b.created_at);
-      if (Number.isNaN(da) || Number.isNaN(db) || da === db) return 0;
-      return da - db;
-    });
 }
 
 /** Fase de um turno, derivada só do estado real da tarefa. */
@@ -406,4 +387,138 @@ export function readableAnswer(output, context) {
     text = text.split(source.id).join(`“${title}”`);
   }
   return text;
+}
+
+// ---------------------------------------------------------------------------
+// Conversas (contrato docs/ENTREGA_BACKEND_CHAT.md). Só montam e conferem os
+// corpos; quem envia, persiste e consulta é o App, pelo backend real.
+// ---------------------------------------------------------------------------
+
+/** Perfis do backend: regra de preferência de modelo, não avaliação de qualidade. */
+export const RESPONSE_PROFILES = [
+  { id: "quick", label: "Rápido", hint: "Prefere Haiku" },
+  { id: "normal", label: "Normal", hint: "Prefere Sonnet" },
+  { id: "deep", label: "Profundo", hint: "Prefere Opus" },
+];
+
+export function isResponseProfile(choice) {
+  return RESPONSE_PROFILES.some((p) => p.id === choice);
+}
+
+/** Teto padrão de novos chats (1–4096); o aceite cobre até este valor. */
+export const CHAT_MAX_OUTPUT_TOKENS = 2048;
+
+/** Captura do runtime (capture.page/selection) → snapshot de texto do turno. */
+export function captureSnapshot(capture) {
+  if (!capture || capture.media || typeof capture.text !== "string" || !capture.text.trim())
+    return null;
+  return {
+    capture_id: capture.id,
+    kind: capture.kind === "page" ? "page" : "selection",
+    title: (capture.title?.trim() || "Trecho da página").slice(0, 120),
+    content: capture.text,
+    url: capture.url || null,
+    document_id: capture.document_id || null,
+    captured_at: capture.captured_at || null,
+  };
+}
+
+/** A captura anexada é de outro documento que o aberto agora (navegou/recarregou). */
+export function captureIsStale(capture, pageStatus) {
+  if (!capture || !pageStatus || !capture.document_id) return false;
+  return capture.document_id !== pageStatus.document_id;
+}
+
+/** O aceite da conversa cobre este envio? (mesmas regras que o backend confere) */
+export function consentCovers(consent, { modelIds, maxOutputTokens = CHAT_MAX_OUTPUT_TOKENS, visual = false }) {
+  if (!consent || !consent.id || !Array.isArray(consent.allowed_model_ids)) return false;
+  if (!Array.isArray(modelIds) || !modelIds.length) return false;
+  if (!modelIds.every((id) => consent.allowed_model_ids.includes(id))) return false;
+  if (maxOutputTokens > consent.max_output_tokens) return false;
+  return !visual || consent.allow_visual_input === true;
+}
+
+/** Visão só aparece quando o catálogo 1.2 declara imagem para todos os modelos autorizados. */
+export function visionAvailable(models, modelIds, catalogVersion) {
+  if (catalogVersion !== "1.2" || !Array.isArray(modelIds) || !modelIds.length) return false;
+  return modelIds.every((id) => {
+    const model = (models || []).find((m) => m.id === id);
+    return model?.input?.image?.supported === true;
+  });
+}
+
+/**
+ * Corpo de conversations.turns.send. Montado uma vez e persistido inteiro antes
+ * do envio; reenviar exige o MESMO corpo com o MESMO turn_id.
+ */
+export function buildTurn({
+  turnId,
+  instruction,
+  choice,
+  modelIds,
+  consent,
+  acceptedLimit = false,
+  review = false,
+  sourceIds = /** @type {string[]} */ ([]),
+  snapshots = /** @type {any[]} */ ([]),
+  visual = false,
+}) {
+  const explicit = choice && choice !== "auto" && !isResponseProfile(choice);
+  const turn = {
+    turn_id: turnId,
+    instruction,
+    kind: "general",
+    allowed_model_ids: [...modelIds],
+    mode: review ? "review" : "single",
+    confirmed: !consent,
+    allow_unenforced_output_limit: consent ? consent.allow_unenforced_output_limit === true : acceptedLimit === true,
+    max_output_tokens: CHAT_MAX_OUTPUT_TOKENS,
+    source_ids: [...sourceIds],
+    snapshots: snapshots.filter(Boolean),
+    allow_visual_input: visual === true,
+  };
+  if (explicit) turn.preferred_model_id = choice;
+  else if (isResponseProfile(choice)) turn.response_profile = choice;
+  if (consent) turn.consent_id = consent.id;
+  return turn;
+}
+
+/** Corpo do aceite único da conversa (somente após ação da pessoa). */
+export function buildConsent({ modelIds, acceptedLimit = false, visual = false }) {
+  return {
+    policy_version: "1",
+    confirmed: true,
+    allowed_model_ids: [...modelIds],
+    allow_unenforced_output_limit: acceptedLimit === true,
+    allow_visual_input: visual === true,
+    max_output_tokens: CHAT_MAX_OUTPUT_TOKENS,
+  };
+}
+
+/**
+ * Sem resposta definitiva do backend: o turno pode ter sido criado. Só consultar
+ * ou reenviar o mesmo corpo; nunca gerar outro turn_id.
+ */
+export function sendOutcomeUnknown(error) {
+  const code = error?.code;
+  return !code || ["outcome_unknown", "backend_unavailable", "conversation_changed"].includes(code);
+}
+
+/** Recusa do aceite da conversa: pede novo aceite, sem reenviar sozinho. */
+export function consentRejected(error) {
+  return ["conversation_consent_revoked", "conversation_consent_scope_changed"].includes(error?.code);
+}
+
+/** Título da conversa a partir da primeira mensagem (até 60 caracteres). */
+export function conversationTitle(text) {
+  const line = String(text || "").trim().split("\n")[0].trim() || "Nova conversa";
+  return line.length > 60 ? `${line.slice(0, 59).trimEnd()}…` : line;
+}
+
+/** Duração medida pelo backend; ausente (ex.: após crash) não vira zero. */
+export function formatDuration(ms) {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return "";
+  return ms < 1000
+    ? `${ms} ms`
+    : `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
 }

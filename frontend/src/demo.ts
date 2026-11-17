@@ -85,5 +85,8 @@ export function demoRequest(op: string, params: any): unknown {
     tasks.unshift(t);
     return t;
   }
+  if (op === "conversations.list") return { items: [], next_offset: null };
+  if (op === "conversations.get")
+    throw Object.assign(new Error("Conversa não encontrada."), { code: "http_404" });
   throw new Error("Operação não disponível na demonstração.");
 }

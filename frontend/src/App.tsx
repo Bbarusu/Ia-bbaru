@@ -12,27 +12,56 @@ import {
   Unplug,
   Workflow,
 } from "lucide-react";
-import type { Capture, Connection, Media, Model, Page, Project, Source, Tab, Task } from "./types";
+import type {
+  Capture,
+  Connection,
+  Consent,
+  Conversation,
+  Media,
+  Model,
+  Page,
+  PageStatus,
+  PendingSend,
+  Project,
+  Source,
+  Tab,
+  Task,
+  Turn,
+} from "./types";
 import {
+  capturePage,
   clearCapture,
+  contextStatus,
   demo,
   expand,
   inDesktop,
   localBridge,
   pendingCapture,
   readDraft,
+  readPendingSend,
   request,
   selectCapture,
   writeDraft,
+  writePendingSend,
 } from "./transport";
 import {
+  CHAT_MAX_OUTPUT_TOKENS,
+  CHAT_WORKING_STATES,
+  buildConsent,
+  buildTurn,
+  captureIsStale,
+  captureSnapshot,
+  consentCovers,
+  consentRejected,
+  conversationTitle,
   decideIncomingCapture,
-  chatTurns,
   eligibleChatModels,
   requiresLimitAcceptance,
   resolveChatModelIds,
+  sendOutcomeUnknown,
   sourceContent,
   validateChatDraft,
+  visionAvailable,
 } from "./logic.mjs";
 
 import { TopBar } from "./components/TopBar";
@@ -77,14 +106,29 @@ export default function App() {
   const [models, setModels] = useState<Model[]>([]);
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [chatModel, setChatModel] = useState("auto");
-  const [chatSince, setChatSince] = useState("");
+  // Perfil de resposta (quick/normal/deep) ou um modelo escolhido pelo nome.
+  const [chatChoice, setChatChoice] = useState("normal");
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  const [pageStatus, setPageStatus] = useState<PageStatus | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendError, setSendError] = useState("");
   const [authorized, setAuthorized] = useState(false);
-  const [uncertainEnqueue, setUncertainEnqueue] = useState<string[]>([]);
+  const [rememberConsent, setRememberConsent] = useState(false);
+  const [review, setReview] = useState(false);
+  const [sendImage, setSendImage] = useState(false);
+  // Conversa real do backend: histórico, aceite e envio idempotente por turn_id.
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationId, setConversationId] = useState("");
+  const conversationRef = useRef("");
+  conversationRef.current = conversationId;
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [consent, setConsent] = useState<Consent | null>(null);
+  const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
+  const [sendLost, setSendLost] = useState(false);
+  const [lostMissing, setLostMissing] = useState(false);
   const [text, setText] = useState("");
+  const textRef = useRef("");
+  textRef.current = text;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wantsChatCapture = useRef(false);
   // Painel lateral (até 700 px): um topo só, no formato da proposta aprovada.
@@ -174,6 +218,23 @@ export default function App() {
         setModels([]);
         setModelError((e as Error).message);
       }
+
+      // Envio sem confirmação de uma sessão anterior volta para consulta, sem reenvio automático.
+      try {
+        const list = await request<Page<Conversation>>("conversations.list");
+        setConversations(list.items);
+      } catch (e) {
+        // Lista indisponível não derruba a conexão; o envio continua idempotente.
+        setError((e as Error).message);
+      }
+      const unsent = readPendingSend();
+      const lastConversation = unsent?.conversation.conversation_id || (await readDraft("draft:conversation"));
+      setConversationId((old) => old || lastConversation || crypto.randomUUID());
+      if (unsent) {
+        setPendingSend(unsent);
+        setSendLost(true);
+      }
+      contextStatus().then(setPageStatus).catch(() => {});
     } catch (e) {
       setExecutionEnabled(false);
       setHost(hostReady);
@@ -187,8 +248,95 @@ export default function App() {
 
   function updateTask(task: Task) {
     setTasks((old) => old.map((item) => item.id === task.id ? task : item));
+    setTurns((old) => old.map((turn) => turn.task.id === task.id ? { ...turn, task } : turn));
     setTaskView((old) => old?.id === task.id ? task : old);
   }
+
+  function updateTurn(turn: Turn) {
+    setTurns((old) => old.map((item) => (item.id === turn.id ? turn : item)));
+    setTaskView((old) => (old?.id === turn.task.id ? turn.task : old));
+  }
+
+  // Abre a conversa ativa: histórico pelo backend, inclusive após reiniciar.
+  useEffect(() => {
+    if (!online || !conversationId) return;
+    let active = true;
+    setTurns([]);
+    setConsent(null);
+    writeDraft("draft:conversation", conversationId).catch(() => {});
+    (async () => {
+      let conversation: Conversation;
+      try {
+        conversation = await request<Conversation>("conversations.get", { conversation_id: conversationId });
+      } catch (e) {
+        // Ainda não criada: nasce no primeiro envio.
+        if ((e as { code?: string }).code === "http_404") return;
+        throw e;
+      }
+      const loaded: Turn[] = [];
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const page: Page<{ id: string }> = await request("conversations.turns.list", {
+          conversation_id: conversationId,
+          offset,
+        });
+        loaded.push(
+          ...(await Promise.all(
+            page.items.map((item) =>
+              request<Turn>("conversations.turns.get", { conversation_id: conversationId, turn_id: item.id }),
+            ),
+          )),
+        );
+        offset = page.next_offset;
+      }
+      const granted = await request<{ consent: Consent | null }>("conversations.consent.get", {
+        conversation_id: conversationId,
+      });
+      if (!active) return;
+      setTurns(loaded);
+      setConsent(granted.consent);
+      if (conversation.project_id !== projectRef.current) setProjectId(conversation.project_id);
+    })().catch((e) => {
+      if (active) setError(e.message);
+    });
+    return () => {
+      active = false;
+    };
+  }, [conversationId, online]);
+
+  const workingTurns = turns
+    .filter((turn) => CHAT_WORKING_STATES.includes(turn.task.status))
+    .map((turn) => turn.id)
+    .join(",");
+  useEffect(() => {
+    if (!online || !workingTurns) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const target = conversationId;
+    async function poll() {
+      try {
+        const updates = await Promise.all(
+          workingTurns.split(",").map((id) =>
+            request<Turn>("conversations.turns.get", { conversation_id: target, turn_id: id }),
+          ),
+        );
+        if (!stopped) {
+          updates.forEach(updateTurn);
+          setPollError("");
+        }
+      } catch {
+        if (!stopped)
+          setPollError("Não foi possível atualizar o andamento. A mensagem não foi reenviada; reconecte o componente local para consultar.");
+      } finally {
+        if (!stopped) timer = setTimeout(poll, 1500);
+      }
+    }
+    poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [online, workingTurns, conversationId]);
 
   const activeTaskIds = [...new Set([...tasks, ...(taskView ? [taskView] : [])]
     .filter((task) => ["queued", "running", "waiting"].includes(task.status))
@@ -250,13 +398,6 @@ export default function App() {
     setDraftReady(false);
     setSendOpen(false);
     setSendError("");
-    setChatSince("");
-
-    readDraft(`chat-start:${projectId || "new"}`)
-      .then((value) => {
-        if (active) setChatSince(value);
-      })
-      .catch(() => {});
 
     readDraft(`draft:${projectId || "new"}`)
       .then((value) => {
@@ -326,6 +467,14 @@ export default function App() {
       if (changes.pendingCapture?.newValue) {
         receiveCapture(changes.pendingCapture.newValue);
       }
+      // O runtime pede foco ao abrir o painel pelo botão ou Ctrl+Shift+L; nada é enviado.
+      if (changes.focusComposer?.newValue) {
+        setTab("workspace");
+        requestAnimationFrame(() => {
+          if (!document.querySelector("dialog[open]")) inputRef.current?.focus();
+        });
+      }
+      if (changes.activePage?.newValue) setPageStatus(changes.activePage.newValue);
       if (changes.captureError?.newValue) {
         setError(changes.captureError.newValue);
         localBridge.storage.local.remove("captureError");
@@ -470,14 +619,17 @@ export default function App() {
   }
 
   const eligibleModels = eligibleChatModels(models, catalogVersion);
-  const chatModelIds = resolveChatModelIds(chatModel, models, catalogVersion);
+  const chatModelIds = resolveChatModelIds(chatChoice, models, catalogVersion);
   const needsLimitAcceptance = requiresLimitAcceptance(chatModelIds, models);
-  const turns = chatTurns(tasks, chatSince);
+  const canSeeImages = visionAvailable(models, chatModelIds, catalogVersion);
+  const imageSources = sources.filter((s) => selectedSources.includes(s.id) && s.media);
+  const conversationCreated =
+    turns.length > 0 || conversations.some((c) => c.id === conversationId);
 
-  function attachSelection() {
+  function captureForChat(read: () => Promise<Capture>) {
     setError("");
     wantsChatCapture.current = true;
-    selectCapture()
+    read()
       .then((value) => {
         // O runtime também publica a captura; quem chegar primeiro preenche o chip.
         if (wantsChatCapture.current && value && !value.media) {
@@ -490,6 +642,8 @@ export default function App() {
         setError(e.message);
       });
   }
+  const attachSelection = () => captureForChat(selectCapture);
+  const attachPage = () => captureForChat(capturePage);
 
   function removeChatCapture() {
     const current = chatCapture;
@@ -497,24 +651,46 @@ export default function App() {
     if (current) clearCapture(current.id).catch(() => {});
   }
 
-  function newChat() {
-    const now = new Date().toISOString();
-    setChatSince(now);
+  function switchConversation(id: string) {
+    if (pendingSend) {
+      setError("Consulte o envio sem confirmação antes de trocar de conversa.");
+      return;
+    }
     setSendOpen(false);
     setSendError("");
-    writeDraft(`chat-start:${projectId || "new"}`, now).catch(() => {});
+    setConversationId(id);
     inputRef.current?.focus();
+  }
+  const newChat = () => switchConversation(crypto.randomUUID());
+
+  async function revokeConsent() {
+    await act(async () => {
+      await request("conversations.consent.revoke", { conversation_id: conversationId });
+      setConsent(null);
+      setNotice("Autorização revogada. Os próximos envios pedem confirmação.");
+    });
   }
 
   function requestSend(event: FormEvent) {
     event.preventDefault();
-    const warning = validateChatDraft({ text, modelIds: chatModelIds, online });
+    const warning = executionEnabled
+      ? validateChatDraft({ text, modelIds: chatModelIds, online })
+      : "Esta conexão não executa pedidos. O rascunho continua salvo.";
     if (warning) {
       setError(warning);
       return;
     }
+    if (pendingSend) {
+      setError("Há um envio sem confirmação. Consulte o estado antes de enviar outro.");
+      return;
+    }
     setError("");
     setSendError("");
+    // Aceite válido da conversa dispensa a confirmação; imagem e revisão sempre perguntam.
+    if (!review && !imageSources.length && consentCovers(consent, { modelIds: chatModelIds })) {
+      void send(consent);
+      return;
+    }
     setSendOpen(true);
   }
 
@@ -523,108 +699,176 @@ export default function App() {
     setSendError("");
     setAcceptedLimit(false);
     setAuthorized(false);
+    setRememberConsent(false);
+    setSendImage(false);
     inputRef.current?.focus();
   }
 
-  // Envio do chat: persiste o contexto, cria a tarefa e só então enfileira,
-  // sempre com os aceites desta mensagem. Nada é marcado sem a ação da pessoa.
-  async function confirmSend() {
-    const instruction = text;
-    const warning = validateChatDraft({ text: instruction, modelIds: chatModelIds, online });
-    if (warning) {
-      setSendError(warning);
-      return;
+  /** Cria a conversa (idempotente pelo mesmo corpo) e, se preciso, o projeto que a guarda. */
+  async function ensureConversation() {
+    let target = projectRef.current;
+    if (!target) {
+      const created = await request<Project>("projects.create", { title: "Conversas" });
+      await writeDraft(`draft:${created.id}`, textRef.current).catch(() => {});
+      setProjects((old) => [created, ...old]);
+      projectRef.current = created.id;
+      setProjectId(created.id);
+      target = created.id;
     }
+    const body = { conversation_id: conversationId, project_id: target, title: conversationTitle(text) };
+    if (!conversationCreated) {
+      const created = await request<Conversation>("conversations.create", body);
+      setConversations((old) => [created, ...old.filter((c) => c.id !== created.id)]);
+      return { ...body, project_id: created.project_id };
+    }
+    const known = conversations.find((c) => c.id === conversationId);
+    return { ...body, project_id: known?.project_id || target };
+  }
+
+  async function confirmSend() {
     if (needsLimitAcceptance && !acceptedLimit) {
       setSendError("Aceite o limite indicativo antes de enviar.");
       return;
     }
-    if (executionEnabled && !authorized) {
+    if (!authorized) {
       setSendError("Autorize o envio com a sua conta antes de enviar.");
       return;
     }
+    let granted: Consent | null = null;
+    if (rememberConsent) {
+      setBusy(true);
+      try {
+        const conversation = await ensureConversation();
+        const result = await request<{ consent: Consent }>("conversations.consent.set", {
+          conversation_id: conversation.conversation_id,
+          consent: buildConsent({
+            modelIds: chatModelIds,
+            acceptedLimit: needsLimitAcceptance && acceptedLimit,
+            visual: sendImage,
+          }),
+        });
+        granted = result.consent;
+        setConsent(granted);
+      } catch (e) {
+        setSendError((e as Error).message);
+        setBusy(false);
+        return;
+      }
+    }
+    await send(granted);
+  }
+
+  // Envio: o corpo inteiro e o turn_id são guardados ANTES de sair; perda de
+  // resposta só permite consultar ou reenviar o mesmo corpo.
+  async function send(useConsent: Consent | null) {
     setBusy(true);
     setSendError("");
     setError("");
     setNotice("");
     try {
-      let target = projectId;
-      let createdProject = false;
-      if (!target) {
-        createdProject = true;
-        // Projeto não é pré-requisito do chat: o primeiro envio cria um para guardar a conversa.
-        const created = await request<Project>("projects.create", { title: "Conversas" });
-        await writeDraft(`draft:${created.id}`, instruction).catch(() => {});
-        setProjects((old) => [created, ...old]);
-        projectRef.current = created.id;
-        setProjectId(created.id);
-        target = created.id;
-      }
-      const sourceIds = [...selectedSources];
-      const attached = chatCapture;
-      if (attached) {
-        const sourceTitle = attached.title?.trim() || "Trecho da página";
-        const body = sourceContent(sourceTitle, attached.url || "", attached.text || "");
-        if (body.length > 40000)
-          throw new Error("O trecho anexado, incluindo a origem, deve ter até 40.000 caracteres.");
-        const source = await request<Source>("sources.create", {
-          project_id: target,
-          title: sourceTitle.slice(0, 120),
-          content: body,
-        });
-        sourceIds.push(source.id);
-        if (projectRef.current === target)
-          setSources((old) => [
-            ...old.filter((item) => item.id !== source.id),
-            { ...source, preview: body.slice(0, 160), char_count: body.length },
-          ]);
-        await clearCapture(attached.id).catch(() => {});
-        setChatCapture(null);
-      }
-      let task = await request<Task>("tasks.plan", {
-        project_id: target,
-        task: {
-          instruction,
-          kind,
-          source_ids: sourceIds,
-          allowed_model_ids: chatModelIds,
-          preferred_model_id: chatModel === "auto" ? null : chatModel,
-          mode: "single",
-          allow_unenforced_output_limit: needsLimitAcceptance && acceptedLimit,
-        },
-      });
-      const planned = task;
-      // A partir daqui o pedido está salvo: o rascunho pode ser limpo.
-      setText("");
-      writeDraft(`draft:${target}`, "").catch(() => {});
-      writeDraft("draft:new", "").catch(() => {});
-      setSelectedSources([]);
+      const conversation = await ensureConversation();
+      const pending: PendingSend = {
+        conversation,
+        turn: buildTurn({
+          turnId: crypto.randomUUID(),
+          instruction: text,
+          choice: chatChoice,
+          modelIds: chatModelIds,
+          consent: useConsent,
+          acceptedLimit: needsLimitAcceptance && acceptedLimit,
+          review,
+          sourceIds: selectedSources,
+          snapshots: [captureSnapshot(chatCapture)],
+          visual: sendImage && imageSources.length === 1,
+        }),
+        captureId: chatCapture?.id,
+        titles: pendingTitles,
+      };
+      writePendingSend(pending);
+      setPendingSend(pending);
       setSendOpen(false);
-      setAcceptedLimit(false);
-      setAuthorized(false);
-      if (executionEnabled) {
-        try {
-          task = await request<Task>("tasks.enqueue", { task_id: planned.id, confirmed: true });
-        } catch {
-          // Confirmação perdida não autoriza enfileirar de novo: o turno pede consulta de estado.
-          setUncertainEnqueue((old) => [...old, planned.id]);
-        }
-      }
-      if (projectRef.current === target)
-        setTasks((old) => [task, ...old.filter((item) => item.id !== task.id)]);
-      if (createdProject) {
-        // A troca de projeto recarrega a lista em paralelo; garante que o novo turno apareça.
-        const page = await request<Page<Task>>("tasks.list", { project_id: target });
-        if (projectRef.current === target) {
-          setTasks(page.items);
-          setTaskNext(page.next_offset);
-        }
-      }
+      await dispatch(pending);
     } catch (e) {
-      setSendError((e as Error).message);
+      if (sendOpen) setSendError((e as Error).message);
+      else setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function dispatch(pending: PendingSend) {
+    setSendLost(false);
+    setLostMissing(false);
+    try {
+      const turn = await request<Turn>("conversations.turns.send", {
+        conversation_id: pending.conversation.conversation_id,
+        turn: pending.turn,
+      });
+      finishSend(pending, turn);
+    } catch (e) {
+      if (sendOutcomeUnknown(e)) {
+        setSendLost(true);
+        return;
+      }
+      // Recusa definitiva: nenhum turno foi criado; o texto continua no campo.
+      writePendingSend(null);
+      setPendingSend(null);
+      if (consentRejected(e)) {
+        setConsent(null);
+        setSendOpen(true);
+        setSendError(`${(e as Error).message} Confirme de novo para enviar.`);
+      } else setError((e as Error).message);
+    }
+  }
+
+  async function checkLostSend() {
+    if (!pendingSend) return;
+    setBusy(true);
+    try {
+      const turn = await request<Turn>("conversations.turns.get", {
+        conversation_id: pendingSend.conversation.conversation_id,
+        turn_id: pendingSend.turn.turn_id,
+      });
+      finishSend(pendingSend, turn);
+    } catch (e) {
+      if ((e as { code?: string }).code === "http_404") setLostMissing(true);
+      else setError("Não foi possível consultar o envio. Reconecte o componente local e consulte de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function discardLostSend() {
+    writePendingSend(null);
+    setPendingSend(null);
+    setSendLost(false);
+    setLostMissing(false);
+    inputRef.current?.focus();
+  }
+
+  function finishSend(pending: PendingSend, turn: Turn) {
+    writePendingSend(null);
+    setPendingSend(null);
+    setSendLost(false);
+    setLostMissing(false);
+    if (pending.conversation.conversation_id === conversationRef.current)
+      setTurns((old) => [...old.filter((item) => item.id !== turn.id), turn]);
+    if (pending.captureId) {
+      clearCapture(pending.captureId).catch(() => {});
+      setChatCapture((old) => (old?.id === pending.captureId ? null : old));
+    }
+    // Só limpa o campo se ele ainda tem o texto enviado.
+    if (textRef.current === pending.turn.instruction) {
+      setText("");
+      writeDraft(`draft:${projectRef.current || "new"}`, "").catch(() => {});
+      writeDraft("draft:new", "").catch(() => {});
+    }
+    setSelectedSources([]);
+    setAcceptedLimit(false);
+    setAuthorized(false);
+    setRememberConsent(false);
+    setReview(false);
+    setSendImage(false);
   }
 
   async function more(type: "sources" | "tasks" | "projects") {
@@ -677,9 +921,11 @@ export default function App() {
     !busy &&
     draftReady &&
     online &&
+    executionEnabled &&
     eligibleModels.length > 0 &&
     Boolean(text.trim()) &&
-    !sendOpen;
+    !sendOpen &&
+    !pendingSend;
   const canAttachSelection = Boolean(localBridge);
   // Sugestões: com o navegador, anexam o trecho selecionado na aba (o app ainda
   // não lê a página inteira); sem ele, só preenchem o campo.
@@ -709,24 +955,22 @@ export default function App() {
   const welcomeText = canAttachSelection
     ? "Pergunte sobre um trecho da página, explore conceitos ou converse com Claude."
     : "Explore conceitos ou converse com Claude.";
-  const pending = sendOpen
-    ? {
-        text,
-        contextTitles: [
-          ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
-          ...sources
-            .filter((source) => selectedSources.includes(source.id))
-            .map((source) => source.title),
-        ],
-      }
-    : null;
+  const pendingTitles = [
+    ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
+    ...sources.filter((source) => selectedSources.includes(source.id)).map((source) => source.title),
+  ];
+  const pending = pendingSend
+    ? { text: pendingSend.turn.instruction, contextTitles: pendingSend.titles }
+    : sendOpen
+      ? { text, contextTitles: pendingTitles }
+      : null;
+  const imageBlocked = imageSources.length > 0 && !(canSeeImages && imageSources.length === 1 && sendImage);
   const sendConfirm = (
     <div className="chat-card" role="group" aria-label="Confirmar envio">
-      <strong>{executionEnabled ? "Enviar ao Claude?" : "Salvar este pedido?"}</strong>
+      <strong>Enviar ao Claude?</strong>
       <p>
-        {executionEnabled
-          ? "Sua pergunta e o contexto anexado serão enviados ao Claude e usam a cota da sua assinatura."
-          : "Esta conexão não executa pedidos: a mensagem fica salva, sem gerar resposta."}
+        Sua pergunta, o histórico desta conversa e o contexto anexado vão para o Claude e usam a
+        cota da sua assinatura. Teto indicativo de {CHAT_MAX_OUTPUT_TOKENS.toLocaleString("pt-BR")} tokens.
       </p>
       {needsLimitAcceptance && (
         <label className="consent-check">
@@ -745,17 +989,75 @@ export default function App() {
           não garante interrupção no provedor nem devolução de cota.
         </p>
       )}
-      {executionEnabled && (
+      <label className="consent-check">
+        <input
+          type="checkbox"
+          checked={authorized}
+          disabled={busy}
+          onChange={(e) => setAuthorized(e.target.checked)}
+        />
+        <span>Autorizo executar esta tarefa com minha conta</span>
+      </label>
+      <label className="consent-check">
+        <input
+          type="checkbox"
+          checked={rememberConsent && !review}
+          disabled={busy || review}
+          onChange={(e) => setRememberConsent(e.target.checked)}
+        />
+        <span>Não perguntar de novo nesta conversa</span>
+      </label>
+      <p className="consent-note">
+        {review
+          ? "Com revisão, cada mensagem pede confirmação."
+          : "Vale só para esta conversa, estes modelos e este teto. Você pode revogar a qualquer momento; revogar não interrompe uma resposta já enviada."}
+      </p>
+
+      {imageSources.length > 0 &&
+        (canSeeImages && imageSources.length === 1 ? (
+          <div className="image-consent">
+            {imageSources[0].media?.data_url && (
+              <img src={imageSources[0].media.data_url} alt={`Prévia: ${imageSources[0].title}`} />
+            )}
+            <label className="consent-check">
+              <input
+                type="checkbox"
+                checked={sendImage}
+                disabled={busy}
+                onChange={(e) => setSendImage(e.target.checked)}
+              />
+              <span>Enviar esta imagem ao Claude (experimental)</span>
+            </label>
+            <p className="consent-note">
+              Uma imagem por conversa, PNG ou JPEG até 480 KB. A leitura de imagens ainda não foi
+              validada com uma conta real.
+            </p>
+          </div>
+        ) : (
+          <p className="turn-error-line" role="alert">
+            {imageSources.length > 1
+              ? "Só uma imagem pode ir por conversa. Deixe uma imagem selecionada na Biblioteca."
+              : "O modelo escolhido não declara leitura de imagens. Escolha um modelo com visão ou tire a imagem da seleção."}
+          </p>
+        ))}
+
+      <details className="send-advanced">
+        <summary>Avançado</summary>
         <label className="consent-check">
           <input
             type="checkbox"
-            checked={authorized}
+            checked={review}
             disabled={busy}
-            onChange={(e) => setAuthorized(e.target.checked)}
+            onChange={(e) => setReview(e.target.checked)}
           />
-          <span>Autorizo executar esta tarefa com minha conta</span>
+          <span>Revisar a resposta com um segundo modelo</span>
         </label>
-      )}
+        <p className="consent-note">
+          Faz uma segunda chamada ao Claude e usa mais cota. O revisor é de nível igual ou superior
+          (Haiku, Sonnet, Opus); Fable só entra se escolhido. Sem revisor elegível, o pedido é recusado.
+        </p>
+      </details>
+
       {sendError && (
         <p className="turn-error-line" role="alert">
           {sendError}
@@ -765,20 +1067,89 @@ export default function App() {
         <button
           type="button"
           className="dark-button"
-          disabled={
-            busy ||
-            (needsLimitAcceptance && !acceptedLimit) ||
-            (executionEnabled && !authorized)
-          }
+          disabled={busy || (needsLimitAcceptance && !acceptedLimit) || !authorized || imageBlocked}
           onClick={confirmSend}
         >
-          {executionEnabled ? "Enviar ao Claude" : "Salvar pedido"}
+          Enviar ao Claude
         </button>
         <button type="button" className="plain-button" disabled={busy} onClick={cancelSend}>
           Cancelar
         </button>
       </div>
     </div>
+  );
+  const sendStatus = pendingSend && (
+    <div className={`chat-card ${sendLost ? "warn" : "info"}`} role={sendLost ? "alert" : "status"}>
+      {!sendLost ? (
+        <strong>Enviando…</strong>
+      ) : lostMissing ? (
+        <>
+          <strong>O backend não registrou este envio.</strong>
+          <p>Nada foi gerado. Você pode reenviar o mesmo pedido ou editar o texto antes de enviar.</p>
+        </>
+      ) : (
+        <>
+          <strong>Não recebemos a confirmação do envio.</strong>
+          <p>
+            O pedido pode ter chegado ao Claude. Consulte antes de qualquer outra ação: reenviar usa o
+            mesmo identificador e não duplica a geração.
+          </p>
+        </>
+      )}
+      {sendLost && (
+        <div className="chat-card-actions">
+          <button type="button" className="outline-button" disabled={busy} onClick={checkLostSend}>
+            Consultar estado
+          </button>
+          <button
+            type="button"
+            className="outline-button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              dispatch(pendingSend).finally(() => setBusy(false));
+            }}
+          >
+            Reenviar o mesmo pedido
+          </button>
+          {lostMissing && (
+            <button type="button" className="plain-button" disabled={busy} onClick={discardLostSend}>
+              Editar o texto
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+  const conversationPicker = (
+    <label className="conversation-picker" title="Conversas guardadas no backend local">
+      <select
+        aria-label="Conversa"
+        value={conversationId}
+        disabled={!online || busy || Boolean(pendingSend)}
+        onChange={(event) => switchConversation(event.target.value)}
+      >
+        {!conversations.some((c) => c.id === conversationId) && (
+          <option value={conversationId}>Nova conversa</option>
+        )}
+        {conversations.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.title}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const consentChip = consent && (
+    <span
+      className="consent-chip"
+      title={`Vale para ${consent.allowed_model_ids.length} modelo(s) e teto de ${consent.max_output_tokens} tokens. Revogar bloqueia novos envios; não interrompe uma resposta já enviada.`}
+    >
+      Envio autorizado nesta conversa
+      <button type="button" className="text-button" disabled={busy} onClick={revokeConsent}>
+        Revogar
+      </button>
+    </span>
   );
 
   return (
@@ -807,7 +1178,7 @@ export default function App() {
               setTab={setTab}
               openProject={openProject}
               newChat={newChat}
-              canNewChat={turns.length > 0}
+              canNewChat={conversationCreated && !pendingSend}
               openGuide={() => setGuideOpen(true)}
               canExpand={inDesktop}
               expand={expand}
@@ -872,17 +1243,21 @@ export default function App() {
             </div>
           )}
 
-          {isChat && !narrow && (
+          {isChat && (
             <div className="chat-bar">
-              <button
-                type="button"
-                className="subtle"
-                onClick={newChat}
-                disabled={!turns.length}
-                title="Começa uma conversa vazia; a anterior continua em Atividade"
-              >
-                <SquarePen size={14} aria-hidden="true" /> Nova conversa
-              </button>
+              {conversationPicker}
+              {consentChip}
+              {!narrow && (
+                <button
+                  type="button"
+                  className="subtle"
+                  onClick={newChat}
+                  disabled={!conversationCreated || Boolean(pendingSend)}
+                  title="Começa outra conversa; esta continua guardada na lista"
+                >
+                  <SquarePen size={14} aria-hidden="true" /> Nova conversa
+                </button>
+              )}
             </div>
           )}
 
@@ -976,6 +1351,12 @@ export default function App() {
               </div>
             )}
 
+            {isChat && online && !checking && !executionEnabled && eligibleModels.length > 0 && (
+              <div className="alert" role="status">
+                <span>Esta conexão não executa pedidos pelo painel. O rascunho fica salvo.</span>
+              </div>
+            )}
+
             {isChat && online && !checking && !eligibleModels.length && (
               <div className="alert" role="status">
                 <span>
@@ -996,12 +1377,12 @@ export default function App() {
           {isChat && (
             <section className="chat" aria-label="Chat com Claude">
               <ChatThread
-                turns={turns}
+                turns={turns.map((turn) => turn.task)}
                 models={models}
                 executionEnabled={executionEnabled}
                 updateTask={updateTask}
                 pollError={pollError}
-                uncertainEnqueue={uncertainEnqueue}
+                uncertainEnqueue={[]}
                 openTask={setTaskView}
                 retry={(value) => {
                   changeText(value);
@@ -1010,27 +1391,33 @@ export default function App() {
                 starters={starters}
                 welcomeText={welcomeText}
                 pending={pending}
-                confirm={sendConfirm}
+                confirm={pendingSend ? sendStatus : sendConfirm}
               />
 
               <div className="chat-dock">
                 <ChatComposer
                   inputRef={inputRef}
-                  text={sendOpen ? "" : text}
+                  text={sendOpen || pendingSend ? "" : text}
                   changeText={changeText}
-                  draftReady={draftReady && !sendOpen}
+                  draftReady={draftReady && !sendOpen && !pendingSend}
                   submit={requestSend}
                   canSubmit={canSubmit}
                   busy={busy}
                   online={online}
                   checking={checking}
                   eligibleModels={eligibleModels}
-                  chatModel={chatModel}
-                  setChatModel={setChatModel}
+                  chatChoice={chatChoice}
+                  setChatChoice={setChatChoice}
                   projects={projects}
                   projectId={projectId}
-                  setProjectId={setProjectId}
+                  setProjectId={(id) => {
+                    // Materiais pertencem ao projeto da conversa: outro projeto começa outra conversa.
+                    setProjectId(id);
+                    if (conversationCreated) newChat();
+                  }}
                   capture={chatCapture}
+                  captureStale={captureIsStale(chatCapture, pageStatus)}
+                  attachPage={attachPage}
                   removeCapture={removeChatCapture}
                   selectedSourcesCount={selectedSources.length}
                   clearSelectedSources={() => setSelectedSources([])}
@@ -1048,6 +1435,7 @@ export default function App() {
               sources={sources}
               filteredSources={filteredSources}
               selectedSources={selectedSources}
+              imagesSelectable={canSeeImages}
               toggleSource={toggleSource}
               openSource={openSource}
               openProject={openProject}

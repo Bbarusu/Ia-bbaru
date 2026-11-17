@@ -365,6 +365,31 @@ async function main() {
     // Cancelar preserva o rascunho e não cria tarefa.
     await expect(workspace.locator("#instruction")).toHaveValue("Segunda mensagem");
     assert.equal((await listTasks()).data.items.length, 1);
+    // Conversa real: aceite único revogável e histórico montado pelo backend.
+    const chatLog = workspace.getByRole("log", { name: "Conversa com o Claude" });
+    const answers = chatLog.getByText("Resposta simulada da fila durável.", { exact: true });
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await confirmSend.getByRole("checkbox", { name: "Aceito o limite indicativo para esta tarefa" }).check();
+    await confirmSend.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
+    await confirmSend.getByRole("checkbox", { name: "Não perguntar de novo nesta conversa" }).check();
+    await sendToClaude.click();
+    await expect.poll(() => generations.length).toBe(2);
+    assert.ok(JSON.stringify(generations[1]).includes("Explique este material em uma frase."), "history reaches the gateway");
+    await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toBeVisible();
+    await expect(answers).toHaveCount(2, { timeout: 15000 });
+    await workspace.locator("#instruction").fill("Terceira mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(confirmSend).toHaveCount(0);
+    await expect.poll(() => generations.length).toBe(3);
+    await expect(answers).toHaveCount(3, { timeout: 15000 });
+    await workspace.getByRole("button", { name: "Revogar", exact: true }).click();
+    await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toHaveCount(0);
+    await workspace.locator("#instruction").fill("Quarta mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(confirmSend).toBeVisible();
+    await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
+    assert.equal(generations.length, 3, "revoked consent does not dispatch");
+    await workspace.screenshot({ path: path.join(artifacts, "conversation.png") });
     await workspace.locator("#instruction").fill("");
     const rejected = await workspace.evaluate(async () => {
       try {
@@ -657,7 +682,14 @@ async function main() {
     await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), pageCapture.capture.id);
     const resized = await shell.evaluate(() => window.navigatorApp.command("panel.resize", 520));
     assert.equal(resized.ok, true);
+    // Controle visual de largura (barra "⋯"), pelo mesmo panel.resize.
+    const before = await workspace.evaluate(() => innerWidth);
+    await shellAction("width-toggle");
+    await shell.locator('#subbar-tool input[type="range"]').fill("320");
+    await expect.poll(() => workspace.evaluate(() => innerWidth)).toBeLessThan(before);
+    await shell.locator("#subbar-tool .tool-close-btn").click();
     const versions = await app.evaluate(() => process.versions);
+    const generatedBeforeRestart = generations.length;
     await app.close();
     app = null;
     app = await launch();
@@ -665,6 +697,11 @@ async function main() {
     await expect(
       reopened.getByText("Backend local ativo", { exact: true }),
     ).toBeVisible({ timeout: 30000 });
+    // A conversa ativa volta do backend depois de reiniciar, sem gerar nada.
+    await expect(
+      reopened.getByRole("log", { name: "Conversa com o Claude" }).getByText("Terceira mensagem", { exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    assert.equal(generations.length, generatedBeforeRestart, "reopening does not generate");
     assert.equal((await readChat(reopened)).data.task.status, "completed");
     const persisted = await reopened.evaluate(() =>
       window.iaDesktop.runtime.sendMessage({
@@ -694,6 +731,8 @@ async function main() {
             "selection capture and SQLite source",
             "chat send without modal; nothing saved or generated before consents",
             "1.2 acceptance required per message and persisted",
+            "panel width control in shell",
+            "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",
             "answer shown in the conversation; technical details collapsed",
             "1.2 capability badges in task details dialog (Término informado pelo provedor)",
             "synchronous execution denied; durable enqueue confirmed",
