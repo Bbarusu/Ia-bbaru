@@ -16,6 +16,8 @@ def log_failure(request, proc, code, cli_version=None):
     try:
         data, _ = decode_output(proc.stdout, allow_legacy=True)
         shape = "object" if isinstance(data, dict) else "other_json"
+    except LookupError:
+        data, shape = None, "unverified_stream"
     except (ValueError, RecursionError):
         data, shape = None, "invalid_json"
     data = data if isinstance(data, dict) else {}

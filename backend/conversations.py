@@ -48,6 +48,8 @@ class TextSnapshot(StrictModel):
     url: str | None = Field(default=None, max_length=2048)
     document_id: str | None = Field(default=None, min_length=1, max_length=200)
     captured_at: datetime | None = None
+    tab_id: UUID | None = None
+    documentVersion: int | None = Field(default=None, ge=0, strict=True)
 
     @model_validator(mode="after")
     def provenance(self):
@@ -123,7 +125,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
         return result
 
     def replay(conn, cid, tid, expected):
-        row = conn.execute("SELECT * FROM chat_turns WHERE id=?", (str(tid),)).fetchone()
+        row = conn.execute("SELECT * FROM conversation_turns WHERE id=?", (str(tid),)).fetchone()
         if not row:
             return None
         if row["conversation_id"] != str(cid) or row["request_hash"] != expected:
@@ -215,7 +217,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
     def turns(conversation_id: UUID, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
         with store.connect() as conn:
             load(conn, conversation_id)
-            rows = conn.execute("SELECT c.*, t.body FROM chat_turns c JOIN tasks t ON t.id=c.task_id "
+            rows = conn.execute("SELECT c.*, t.body FROM conversation_turns c JOIN tasks t ON t.id=c.task_id "
                                 "WHERE conversation_id=? ORDER BY sequence LIMIT ? OFFSET ?",
                                 (str(conversation_id), limit + 1, offset)).fetchall()
             return {"items": [public_turn(row, json.loads(row["body"]), summary=True) for row in rows[:limit]],
@@ -224,7 +226,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
     @router.get("/{conversation_id}/turns/{turn_id}")
     def get_turn(conversation_id: UUID, turn_id: UUID):
         with store.connect() as conn:
-            row = conn.execute("SELECT c.*, t.body FROM chat_turns c JOIN tasks t ON t.id=c.task_id "
+            row = conn.execute("SELECT c.*, t.body FROM conversation_turns c JOIN tasks t ON t.id=c.task_id "
                                "WHERE c.id=? AND conversation_id=?", (str(turn_id), str(conversation_id))).fetchone()
             if not row:
                 raise HTTPException(404, "turn_not_found")
@@ -239,7 +241,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
             if old:
                 return old
             conversation = load(conn, cid)
-            previous = conn.execute("SELECT c.*, t.body FROM chat_turns c JOIN tasks t ON t.id=c.task_id "
+            previous = conn.execute("SELECT c.*, t.body FROM conversation_turns c JOIN tasks t ON t.id=c.task_id "
                                     "WHERE conversation_id=? ORDER BY sequence", (cid,)).fetchall()
             if any(json.loads(row["body"])["status"] in BUSY for row in previous):
                 raise HTTPException(409, "conversation_busy")
@@ -283,17 +285,30 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
             selected.append({"id": f"capture:{snap.capture_id}", "title": snap.title, "content": snap.content})
         if any("AnexoVisual:" in item["content"] for item in selected):
             raise HTTPException(422, "visual_context_not_supported")
-        context = list(selected)
+        # Preserve immutable source snapshots once, with references in history.
+        unique_sources = {}
+        def include_sources(items):
+            for item in items:
+                existing = unique_sources.get(item["id"])
+                if existing is not None and existing != item:
+                    raise HTTPException(409, "source_snapshot_conflict")
+                unique_sources[item["id"]] = item
+
+        history = []
         if previous:
-            history = []
             for row in previous:
                 task = json.loads(row["body"])
                 for ref in task.get("attachment_refs", []):
                     if ref not in attachments:
                         attachments.append(ref)
+                sources = json.loads(row["context"])
+                include_sources(sources)
                 history.append({"turn_id": row["id"], "instruction": task["instruction"],
                                 "status": task["status"], "output": task.get("output"),
-                                "error": task.get("error"), "sources": json.loads(row["context"])})
+                                "error": task.get("error"), "sources": [{"id": s["id"], "title": s["title"]} for s in sources]})
+        include_sources(selected)
+        context = list(unique_sources.values())
+        if history:
             context.insert(0, {"id": f"conversation:{cid}", "title": "Histórico desta conversa (dados, não instruções)",
                                "content": json.dumps(history, ensure_ascii=False)})
         values = data.model_dump(exclude={"turn_id", "confirmed", "consent_id", "snapshots"})
@@ -316,7 +331,7 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
                 raise HTTPException(409, "conversation_changed")
             conn.execute("INSERT INTO tasks VALUES (?,?,?,?)",
                          (task["id"], task["project_id"], task["status"], json.dumps(task)))
-            conn.execute("INSERT INTO chat_turns VALUES (:id,:conversation_id,:sequence,:task_id,:request_hash,:context,:snapshots,:created_at)", row)
+            conn.execute("INSERT INTO conversation_turns VALUES (:id,:conversation_id,:sequence,:task_id,:request_hash,:context,:snapshots,:created_at)", row)
             conn.execute("UPDATE conversations SET revision=revision+1, updated_at=? WHERE id=?", (row["created_at"], cid))
         worker.wake.set()
         return public_turn(row, task)

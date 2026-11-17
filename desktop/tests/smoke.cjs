@@ -685,12 +685,42 @@ async function main() {
     const pageCapture = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page" }));
     assert.equal(pageCapture.ok, true, JSON.stringify(pageCapture));
     assert.equal(pageCapture.capture.kind, "page");
+    assert.ok(Number.isInteger(pageCapture.capture.documentVersion));
+    assert.equal(pageCapture.capture.document_id, `${pageCapture.capture.tab_id}:${pageCapture.capture.documentVersion}`);
+    assert.ok(Number.isFinite(Date.parse(pageCapture.capture.captured_at)));
     const status = () => workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "context.status" }));
     assert.equal((await status()).capture_is_current, true);
     await shell.evaluate(() => window.navigatorApp.command("reload"));
     await expect.poll(async () => (await status()).document_id).not.toBe(pageCapture.capture.document_id);
     assert.equal((await status()).capture_is_current, false);
     await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), pageCapture.capture.id);
+    await expect(web.locator("h1")).toHaveText("Material da faculdade");
+    // Full document exceeds the viewport; prove the bottom is included in the image geometry.
+    await web.evaluate(() => { document.body.style.minHeight = "2400px"; });
+    const visual = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page.visual" }));
+    assert.equal(visual.ok, true, JSON.stringify(visual));
+    const imageSize = await app.evaluate(({ nativeImage }, data) => nativeImage.createFromDataURL(data).getSize(), visual.capture.media.data_url);
+    assert.ok(imageSize.height >= 2400, JSON.stringify(imageSize));
+    assert.equal(visual.capture.document_id, (await status()).document_id);
+    assert.equal(visual.capture.kind, "screenshot");
+    await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), visual.capture.id);
+    // Old context-menu text may not be attributed to a newly navigated document.
+    await app.evaluate(({ Menu, webContents }, url) => {
+      globalThis.savedMenuBuilder = Menu.buildFromTemplate;
+      Menu.buildFromTemplate = (template) => { globalThis.selectionMenu = template; return { popup() {} }; };
+      const contents = webContents.getAllWebContents().find(w => w.getURL().startsWith(url));
+      contents.emit("context-menu", {}, { selectionText: "Texto do documento anterior" });
+    }, url);
+    await shell.evaluate(() => window.navigatorApp.command("reload"));
+    await expect.poll(async () => (await status()).document_id).not.toBe(visual.capture.document_id);
+    await app.evaluate(({ Menu }) => {
+      globalThis.selectionMenu.find(item => item.label === "Perguntar ao Claude sobre a seleção").click();
+      Menu.buildFromTemplate = globalThis.savedMenuBuilder;
+    });
+    const stale = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.read" }));
+    assert.equal(stale, null);
+    assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
+    assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
     const resized = await shell.evaluate(() => window.navigatorApp.command("panel.resize", 520));
     assert.equal(resized.ok, true);
     // Controle visual de largura (barra "⋯"), pelo mesmo panel.resize.

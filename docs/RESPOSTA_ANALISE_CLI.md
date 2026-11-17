@@ -57,3 +57,27 @@ empacotamento configurados. Isso não equivale a um instalador assinado/publicad
 O Claude analista pode revisar a implementação e atualizar somente sua análise;
 qualquer nova implementação continua com Codex. O Claude de interface recebe
 PROMPT_CLAUDE_FRONTEND_CHAT.md. Não há tarefa ativa atribuída ao antigo colaborador.
+
+## Fechamento da seção 8 — 17/11/2026
+
+Análise integrada até `856cfa5`. Implementação e testes sem conta real:
+
+- P-8: metadados `system`, `rate_limit_event` e `keep_alive` podem vir depois do
+  único `result`; conteúdo `assistant`/`user`/`prompt_suggestion` após ele é recusado.
+- P-9: mensagens `<synthetic>` não entram na montagem/modelo; somente sintéticas
+  não provam resposta e são recusadas.
+- P-10: todos os eventos `model_*fallback`, inclusive variantes de recusa,
+  consentimento e `no_fallback`, são recusados mesmo com alias da mesma família;
+  após `result` também viram `provider_model_mismatch` sanitizado.
+- P-11: fixture exige `--verbose`, inclui eventos de início/limite de uso e cota
+  com assistente sintético + API error tipado. HTTP/replay testados sem duplicar.
+- P-12: serialização e orçamento compartilhados em `backend/prompting.py`;
+  `integrations/prompt.py` mantém exports compatíveis. Planejamento e execução
+  (incluindo revisão) contam JSON real e reserva de saída como o gateway.
+- P-13: fontes imutáveis únicas fora do JSON de histórico. Reanexar 38.000
+  caracteres não duplica o texto; mesmo ID com conteúdo diferente é conflito.
+- Windows: teste fixa prompt ASCII, sem metacaracteres de cmd e abaixo de 4.000
+  caracteres. Isso não substitui a repetição da integração no Windows.
+
+Não foi reproduzida a tarefa pessoal antiga nem atribuída retroativamente sua
+causa sem a comparação dos bancos. Testes de parser são fixtures, não geração real.

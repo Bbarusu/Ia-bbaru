@@ -216,6 +216,8 @@ class ClaudeCodeAdapter(CliAdapterBase):
 
         try:
             data, events = decode_output(proc.stdout, allow_legacy=not stream)
+        except LookupError:
+            raise fail(errors.provider_error("provider_model_mismatch"), "model_check")
         except (ValueError, RecursionError):
             data = None
             raise fail(errors.provider_error("provider_invalid_output"), "parse_json")

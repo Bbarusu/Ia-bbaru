@@ -1,6 +1,6 @@
 """Explicit test double for the Claude Code CLI. NOT the real binary.
 
-Its output imitates the documented shape of `claude -p --output-format json`
+Its output imitates `claude -p --output-format stream-json --verbose`
 (result, session_id, usage) plus fields seen in practice but not documented
 (is_error, subtype). Behaviour is selected with FAKE_CLAUDE_MODE:
   success (default) | auth_error | usage_limit | sleep | garbage | over_cap
@@ -48,7 +48,19 @@ def stream_events(payload, model="claude-sonnet-5-5", mode="success"):
     for i, part in enumerate(parts):
         events.append({"type": "assistant", "uuid": f"fixture-{i}", "message": {
             "id": "message-1", "model": model, "content": [{"type": "text", "text": part}]}})
-    return events + [payload]
+    # Match the CLI lifecycle as well as the final result shape.
+    stream = [{"type": "system", "subtype": "ui_invalidate"}] + events + [
+        {"type": "rate_limit_event", "rate_limit_info": {"status": "allowed"}}, payload]
+    if mode == "trailing_metadata":
+        stream.append({"type": "system", "subtype": "turn_duration"})
+    if mode in {"synthetic_notice", "trailing_assistant"}:
+        synthetic = {"type": "assistant", "message": {"model": "<synthetic>",
+            "content": [{"type": "text", "text": FAKE_CANARY}]}}
+        stream.insert(len(stream) if mode == "trailing_assistant" else 1, synthetic)
+    if mode in {"model_refusal_fallback", "model_consent_fallback", "model_refusal_no_fallback", "trailing_fallback"}:
+        stream.insert(len(stream) if mode == "trailing_fallback" else 1, {"type": "system",
+            "subtype": "model_refusal_fallback" if mode == "trailing_fallback" else mode})
+    return stream
 
 
 def main():
@@ -64,6 +76,10 @@ def main():
         login = os.environ.get("FAKE_CLAUDE_LOGIN", "claude.ai")
         print(json.dumps({"loggedIn": login != "none", "authMethod": login, "apiProvider": "firstParty"}))
         return 0 if login != "none" else 1
+
+    if "stream-json" in args and "--verbose" not in args:
+        print("Error: When using --print, --output-format=stream-json requires --verbose", file=sys.stderr)
+        return 1
 
     # Read bytes and decode UTF-8 like the real (Node.js) CLI does. sys.stdin
     # would use the Windows ANSI code page (cp1252) and garble accents.
@@ -101,10 +117,17 @@ def main():
                           "result": "Not logged in · Please run /login", "session_id": "s-1"}))
         return 1
     if mode == "usage_limit":
-        # Envelope observed in the user's Windows test on 11 Nov 2026: exit 1,
-        # subtype=success, result text. CLI version was not captured. Text synthetic.
-        print(json.dumps({"type": "result", "subtype": "success", "is_error": True,
-                          "result": "Claude usage limit reached. Your limit resets 5pm", "session_id": "s-2"}))
+        result = {"type": "result", "subtype": "success", "is_error": True,
+                  "api_error": "usage_limit_reached", "api_error_status": 429,
+                  "result": "You've hit your 5-hour limit " + FAKE_CANARY}
+        if "stream-json" in args:
+            print(json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-5-5", "tools": []}))
+            print(json.dumps({"type": "assistant", "is_api_error_message": True,
+                "api_error": "usage_limit_reached", "message": {"model": "<synthetic>",
+                "content": [{"type": "text", "text": result["result"]}]}}))
+            print(json.dumps({"type": "rate_limit_event", "rate_limit_info": {
+                "status": "rejected", "rateLimitType": "five_hour"}}))
+        print(json.dumps(result))
         return 1
     cap_text = os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "4096")
     failures = {

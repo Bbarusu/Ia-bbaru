@@ -7,6 +7,12 @@ persisted or logged. See ANALISE_CLI_CLAUDE.md section 7 (package inspection).
 import json
 
 
+def model_fallback(event):
+    subtype = event.get("subtype", "")
+    return (event.get("type") == "system" and isinstance(subtype, str)
+            and subtype.startswith("model_") and subtype.endswith("fallback"))
+
+
 def decode_output(stdout, allow_legacy=False):
     if len(stdout) > 8_000_000:
         raise ValueError("Output too large")
@@ -16,9 +22,15 @@ def decode_output(stdout, allow_legacy=False):
     if allow_legacy and len(events) == 1:
         return events[0], []
     results = [item for item in events if item.get("type") == "result"]
-    if len(results) != 1 or events[-1] is not results[0]:
+    if len(results) != 1:
         raise ValueError("Missing final result")
-    return results[0], events[:-1]
+    result = results[0]
+    for event in events[events.index(result) + 1:]:
+        if model_fallback(event):
+            raise LookupError("Model fallback")
+        if event.get("type") not in {"system", "rate_limit_event", "keep_alive"}:
+            raise ValueError("Content after final result")
+    return result, [event for event in events if event is not result]
 
 
 def assemble(events, result, model_pattern):
@@ -29,7 +41,7 @@ def assemble(events, result, model_pattern):
         raise LookupError("Model changed")
     groups, current, seen = {}, None, {}
     for event in events:
-        if event.get("type") == "system" and event.get("subtype") == "model_fallback":
+        if model_fallback(event):
             raise LookupError("Model fallback")
         if event.get("type") != "assistant":
             continue
@@ -43,6 +55,8 @@ def assemble(events, result, model_pattern):
         message = event.get("message")
         if not isinstance(message, dict):
             raise ValueError("Invalid assistant")
+        if message.get("model") == "<synthetic>":
+            continue
         mid, content = message.get("id"), message.get("content")
         if not isinstance(mid, str) or not mid or not isinstance(content, list):
             raise ValueError("Invalid content")

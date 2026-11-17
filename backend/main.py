@@ -20,6 +20,7 @@ from .store import Store
 from .worker import DurableWorker
 from .media import MediaInput, validate_media
 from .planning import TaskInput, build_task
+from .prompting import planned_budget
 from .conversations import attach_conversations
 from .visual import source_attachment, dispatch_attachments
 
@@ -260,9 +261,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                 task.update(status="failed", error=error, output=previous)
                 store.save_task(task)
                 return task
-            input_chars = len(task["instruction"]) + sum(
-                len(s["content"]) + len(s["title"]) for s in task["context"]
-            ) + len(previous or "")
+            input_chars = planned_budget(task["instruction"], task["context"], step["max_output_tokens"], step["role"], previous)
             if input_chars > step["context_char_limit"]:
                 task.update(status="failed", error="review_context_too_large")
                 store.save_task(task)

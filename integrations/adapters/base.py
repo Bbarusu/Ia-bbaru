@@ -11,7 +11,7 @@ from backend.contracts import TokenUsage
 from backend.contracts_v1_1 import ModelProfileV11
 
 from .. import errors
-from ..prompt import input_chars
+from ..prompt import request_budget
 from ..runner import ProcessStartError, ProcessTimeout, child_env
 
 STATUS_TTL_S = 30
@@ -20,7 +20,6 @@ STATUS_TTL_NOT_READY_S = 5
 # `--version`/`--help` change only when the CLI is updated: reuse them between
 # status checks (a forced refresh asks again). Keeps the catalog fast on Windows.
 CLI_FACTS_TTL_S = 300
-CHARS_PER_TOKEN_RESERVE = 4
 
 
 @dataclass
@@ -195,8 +194,7 @@ class CliAdapterBase:
                                          "max_output_tokens acima do perfil do modelo")
         if request.role == "review" and not request.previous_output:
             raise errors.invalid_request("missing_previous_output", "Revisão exige previous_output")
-        reserve = request.max_output_tokens * CHARS_PER_TOKEN_RESERVE
-        if input_chars(request) + reserve > self.settings.context_char_limit:
+        if request_budget(request) > self.settings.context_char_limit:
             raise errors.context_too_large()
         if request.protocol_version in {"1.1", "1.2"}:
             # Acceptance belongs to the task, not to the operator's env flag.

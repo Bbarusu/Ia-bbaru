@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 
 from .capabilities import preflight_error
+from .prompting import planned_budget
 from .protocols import REQUESTS
 from .gateway import GatewayUnavailable
 from .gateway_errors import WAIT_CODES, PRESTART_CODES, UNCERTAIN_CODES
@@ -128,7 +129,7 @@ class DurableWorker:
                 step.update(state="failed", error_code=error, phase="preflight")
                 task.update(status="failed", error=error); self.store.save_task(task); return
             previous = task["results"][-1]["output"] if task["results"] else None
-            chars = len(task["instruction"]) + sum(len(s["title"]) + len(s["content"]) for s in task["context"]) + len(previous or "")
+            chars = planned_budget(task["instruction"], task["context"], plan["max_output_tokens"], plan["role"], previous)
             if chars > plan["context_char_limit"]:
                 step.update(state="failed", error_code="review_context_too_large")
                 task.update(status="failed", error="review_context_too_large"); self.store.save_task(task); return

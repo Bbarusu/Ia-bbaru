@@ -19,6 +19,13 @@ class Store:
         self.path = str(path)
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if "chat_turns" in tables:
+                if "conversation_turns" in tables:
+                    raise RuntimeError("Ambiguous conversation schema; preserve both tables for inspection")
+                conn.execute("ALTER TABLE chat_turns RENAME TO conversation_turns")
+            conn.commit()
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL
@@ -44,13 +51,13 @@ class Store:
                     title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                     revision INTEGER NOT NULL DEFAULT 0, consent TEXT, creation_hash TEXT NOT NULL
                 );
-                CREATE TABLE IF NOT EXISTS chat_turns (
+                CREATE TABLE IF NOT EXISTS conversation_turns (
                     id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id),
                     sequence INTEGER NOT NULL, task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id),
                     request_hash TEXT NOT NULL, context TEXT NOT NULL, snapshots TEXT NOT NULL,
                     created_at TEXT NOT NULL, UNIQUE(conversation_id, sequence)
                 );
-                CREATE INDEX IF NOT EXISTS chat_conversation ON chat_turns(conversation_id, sequence);
+                CREATE INDEX IF NOT EXISTS chat_conversation ON conversation_turns(conversation_id, sequence);
             """)
 
     @contextmanager
