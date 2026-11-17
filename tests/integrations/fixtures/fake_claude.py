@@ -89,6 +89,8 @@ def main():
                           "result": "Not logged in · Please run /login", "session_id": "s-1"}))
         return 1
     if mode == "usage_limit":
+        # Envelope observed in the user's Windows test on 11 Nov 2026: exit 1,
+        # subtype=success, result text. CLI version was not captured. Text synthetic.
         print(json.dumps({"type": "result", "subtype": "success", "is_error": True,
                           "result": "Claude usage limit reached. Your limit resets 5pm", "session_id": "s-2"}))
         return 1

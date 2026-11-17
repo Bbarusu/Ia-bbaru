@@ -5,14 +5,14 @@ ERROR_STATUS = {
     **{code: 422 for code in ("invalid_request", "unknown_model", "context_too_large",
         "max_output_tokens_above_profile", "missing_previous_output", "output_limit_not_accepted")},
     **{code: 409 for code in ("request_id_conflict", "request_in_progress", "request_outcome_uncertain")},
-    "gateway_busy": 429, "provider_quota_exceeded": 429, "provider_timeout": 504,
+    "gateway_busy": 429, "provider_quota_exceeded": 429, "provider_rate_limited": 429, "provider_timeout": 504,
     **{code: 502 for code in ("provider_error", "provider_invalid_output", "provider_empty_output",
         "provider_output_too_large", "provider_model_mismatch", "output_limit_not_honored",
-        "completion_unconfirmed", "gateway_internal_error")},
+        "completion_unconfirmed", "gateway_internal_error", "provider_output_limit_reached")},
     **{code: 503 for code in ("provider_unavailable", "provider_not_authenticated",
         "provider_cli_not_installed", "provider_cli_not_runnable", "provider_cli_version_unsupported",
         "provider_auth_status_unknown", "provider_not_logged_in", "provider_not_subscription_login",
-        "provider_output_limit_not_enforced")},
+        "provider_output_limit_not_enforced", "provider_model_requires_credits", "provider_model_unavailable")},
 }
 WAIT_CODES = {"gateway_busy", "request_in_progress"}
 PRESTART_CODES = {"provider_cli_not_installed", "provider_cli_not_runnable",
@@ -27,7 +27,11 @@ def error_message(code):
         return "Confira o login por assinatura no CLI oficial do provedor."
     return {
         "provider_error": "O Claude não conseguiu responder. Consulte o diagnóstico do gateway; não haverá repetição automática.",
-        "provider_quota_exceeded": "A cota do provedor foi atingida. Aguarde sua renovação.",
+        "provider_quota_exceeded": "A cota foi atingida. Confira a disponibilidade e a renovação no Claude Code.",
+        "provider_rate_limited": "O Claude limitou as requisições. Confira a disponibilidade antes de enviar um novo pedido.",
+        "provider_model_requires_credits": "Este modelo exige créditos adicionais. Confira /model no Claude Code e escolha outro modelo autorizado.",
+        "provider_model_unavailable": "O modelo solicitado não está disponível; nenhuma troca automática foi autorizada.",
+        "provider_output_limit_reached": "A resposta excedeu o limite de saída. A CLI não forneceu texto parcial. Você pode ajustar o limite em um novo pedido.",
         "gateway_busy": "O gateway está ocupado. A tarefa aguardará na fila.",
         "request_in_progress": "O gateway ainda está processando esta etapa.",
         "request_outcome_uncertain": "O resultado é incerto. A chamada não será repetida.",

@@ -11,6 +11,9 @@ import re
 # Phrases checked in Claude Code 2.1.322 (official package, read without an
 # account). Order matters: the first match wins.
 CATEGORIES = (
+    ("thinking_output_budget", re.compile(r"(?=.*max_tokens)(?=.*(?:budget_tokens|thinking))", re.I | re.S)),
+    ("nested_session", re.compile(r"cannot be launched inside another claude code session", re.I)),
+    ("argument_error", re.compile(r"unknown option|unknown argument|invalid argument", re.I)),
     # The CLI replaces a turn cut at max_tokens by this error; the partial
     # answer is not in the result.
     ("output_limit_reached", re.compile(r"output token maximum", re.I)),
@@ -20,7 +23,9 @@ CATEGORIES = (
         r"model substitution is disabled|forbids model substitution|issue with the selected model"
         r"|may not have access", re.I)),
     ("auth", re.compile(r"/login|not logged in|invalid api key|authentication|oauth|\b401\b", re.I)),
-    ("quota", re.compile(r"usage limit|limit reached|rate limit|quota|resets", re.I)),
+    # Distinguish the already recognized literal rate-limit phrase; no reset time inferred.
+    ("rate_limit", re.compile(r"rate limit", re.I)),
+    ("quota", re.compile(r"usage limit|limit reached|quota|resets", re.I)),
     ("overloaded", re.compile(r"overloaded|\b529\b", re.I)),
     ("api_timeout", re.compile(r"request timed out|timeout", re.I)),
     ("api_invalid_request", re.compile(r"invalid_request_error|\b400\b", re.I)),
@@ -41,6 +46,11 @@ def categorize(texts) -> str:
         if pattern.search(joined):
             return name
     return "none"
+
+
+def verified_version(value):
+    match = re.search(r"\b\d{1,4}\.\d{1,4}\.\d{1,6}\b", (value or "")[:160])
+    return match.group() if match else None
 
 
 def _ident(value):
@@ -65,7 +75,7 @@ def signature(stage: str, *, model: str, cli_version=None, proc=None, data=None,
               category: str | None = None) -> dict:
     """Build the sanitized record. `stage` is where the gateway stopped."""
     sig = {"stage": stage, "model_requested": model[:100],
-           "cli_version": (cli_version or "")[:40] or None}
+           "cli_version": verified_version(cli_version), "cli_version_source": "last_verified"}
     if proc is not None:
         sig.update(returncode=proc.returncode, stdout_bytes=len(proc.stdout or ""),
                    stderr_bytes=len(proc.stderr or ""))

@@ -9,12 +9,31 @@ from integrations.adapters.claude_code import ClaudeCodeAdapter
 from integrations.config import ClaudeCodeSettings
 from integrations.contracts_v1_1 import GenerateRequestV11
 from integrations.runner import ProcessResult
+from integrations.dedup import read_failures
+from integrations.adapters.claude_code import classify_failure
 from test_gateway import FAKE, GatewayTestCase, request_body
 
 LOGGER = "ia_bbaru.claude_failure"
 
 
 class FailureEnvelopeTests(GatewayTestCase):
+    def test_log_and_stored_signature_share_category_and_sanitized_version(self):
+        for mode, category in (("output_limit_error", "output_limit_reached"),
+                               ("errors_budget", "thinking_output_budget"),
+                               ("api_400", "api_invalid_request"), ("overloaded", "overloaded")):
+            self.set_mode(FAKE_CLAUDE_MODE=mode)
+            with self.assertLogs(LOGGER, level="WARNING") as captured:
+                response = self.client.post("/v1.1/generate", json=request_body(
+                    protocol_version="1.1", request_id=mode, allow_unenforced_output_limit=True))
+            self.assertGreaterEqual(response.status_code, 400)
+            report = json.loads(captured.records[0].getMessage())
+            row = read_failures(self.settings.db_path, 1)[0]
+            self.assertEqual(report["category"], category)
+            self.assertEqual(report["markers"], [category])
+            self.assertEqual(row["category"], category)
+            self.assertEqual(report["cli_version"], row["cli_version"])
+            self.assertEqual(report["cli_version_source"], "last_verified")
+
     def test_errors_array_classified_and_replayed_without_generation(self):
         for version in ("1", "1.1"):
             for mode, status, code in (
@@ -53,6 +72,21 @@ class FailureEnvelopeTests(GatewayTestCase):
 
 
 class ParserFailureTests(unittest.TestCase):
+    def test_literal_rate_limit_is_not_subscription_quota(self):
+        self.assertEqual(classify_failure("Rate limit reached").code, "provider_rate_limited")
+        self.assertEqual(classify_failure("Usage limit reached").code, "provider_quota_exceeded")
+
+    def test_deep_json_is_invalid_and_diagnostic_is_safe(self):
+        request = GenerateRequestV11(**request_body(
+            protocol_version="1.1", allow_unenforced_output_limit=True))
+        with patch.object(self.adapter, "runner", return_value=ProcessResult(1, "[" * 200000, "")), \
+                self.assertLogs(LOGGER, level="WARNING") as captured, \
+                self.assertRaises(errors.GatewayError) as caught:
+            self.adapter.generate(request)
+        self.assertEqual(caught.exception.code, "provider_invalid_output")
+        self.assertEqual(caught.exception.diagnostic["stage"], "parse_json")
+        self.assertEqual(json.loads(captured.records[0].getMessage())["stdout_shape"], "invalid_json")
+
     def setUp(self):
         self.adapter = ClaudeCodeAdapter(ClaudeCodeSettings(
             models=["sonnet"], command=[sys.executable, str(FAKE)]))

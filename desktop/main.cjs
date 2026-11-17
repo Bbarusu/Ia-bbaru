@@ -69,13 +69,28 @@ function snapshot() {
 function publish() {
   if (win && !win.isDestroyed())
     win.webContents.send("browser:state", snapshot());
+  if (workspace && !workspace.webContents.isDestroyed())
+    workspace.webContents.send("workspace:changed", { activePage: { newValue: contextStatus() } });
+}
+function contextStatus() {
+  const tab = active();
+  const url = tab?.view.webContents.getURL() || "";
+  const document_id = tab && isWeb(url) ? `${tab.id}:${tab.documentVersion || 0}` : null;
+  return { document_id, url: isWeb(url) ? url : null, title: tab?.title || "",
+    capture_is_current: Boolean(document_id && !tab.loading && capture?.document_id === document_id && capture?.url === url) };
+}
+function focusWorkspace() {
+  if (panel && workspace && !workspace.webContents.isDestroyed()) {
+    workspace.webContents.focus();
+    workspace.webContents.send("workspace:changed", { focusComposer: { newValue: Date.now() } });
+  }
 }
 function layout() {
   if (!win || win.isDestroyed()) return;
   const [w, h] = win.getContentSize();
   const panelWidth = expanded
     ? w
-    : Math.min(PANEL, Math.max(360, Math.floor(w * 0.45)));
+    : Math.min(localData.panelWidth || PANEL, Math.max(320, Math.floor(w * 0.65)));
   for (const t of tabs) {
     t.view.setVisible(t.id === activeId && !expanded);
     t.view.setBounds({
@@ -114,6 +129,9 @@ function keyboard(contents) {
     switch (input.key.toLowerCase()) {
       case "l":
         event.preventDefault();
+        if (input.shift) {
+          panel = !panel; expanded = false; layout(); focusWorkspace(); break;
+        }
         win.webContents.focus();
         win.webContents.send("browser:focus-address");
         break;
@@ -211,7 +229,7 @@ function newTab(url = null) {
   });
   wc.on("will-attach-webview", (event) => event.preventDefault());
   wc.on("did-start-navigation", (_event, _url, _inPlace, mainFrame) => {
-    if (mainFrame) { tab.documentVersion = (tab.documentVersion || 0) + 1; tab.find = null; }
+    if (mainFrame) { tab.documentVersion = (tab.documentVersion || 0) + 1; tab.find = null; publish(); }
   });
   wc.on("found-in-page", (_event, result) => {
     tab.find = { matches: result.matches, activeMatchOrdinal: result.activeMatchOrdinal };
@@ -230,6 +248,7 @@ function newTab(url = null) {
     publish();
   });
   const location = () => {
+    tab.documentVersion = (tab.documentVersion || 0) + 1;
     const url = wc.getURL();
     tab.url = isWeb(url) ? url : "";
     publish();
@@ -300,7 +319,7 @@ function store() {
     { mode: 0o600 },
   );
 }
-function saveCapture(tab, text, media = undefined, title = undefined, originUrl = undefined) {
+function saveCapture(tab, text, media = undefined, title = undefined, originUrl = undefined, kind = "selection") {
   if (
     !text?.trim() ||
     text.length > 38000 ||
@@ -321,6 +340,9 @@ function saveCapture(tab, text, media = undefined, title = undefined, originUrl 
     ),
     url: originUrl ?? (isWeb(tab.view.webContents.getURL()) ? tab.view.webContents.getURL() : ""),
     text,
+    kind: media?.kind || kind,
+    document_id: originUrl === "" ? null : `${tab.id}:${tab.documentVersion || 0}`,
+    captured_at: new Date().toISOString(),
     ...(media ? { media } : {}),
   };
   localData.pendingCapture = capture;
@@ -392,22 +414,25 @@ async function captureImageAt(tab, x, y) {
 async function capturePageText() {
   const tab = active();
   if (!tab || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página web.");
+  if (tab.loading) throw new Error("Aguarde a página terminar de carregar.");
   const version = tab.documentVersion;
   const result = await tab.view.webContents.executeJavaScript("({text: (document.body?.innerText || '').slice(0, 38001)})");
-  if (tab.documentVersion !== version || tab !== active()) throw new Error("A página mudou. Capture novamente.");
+  if (tab.documentVersion !== version || tab !== active() || tab.loading) throw new Error("A página mudou. Capture novamente.");
   if (result.text.length > 38000) throw new Error("A página excede 38.000 caracteres. Selecione o trecho desejado.");
-  return saveCapture(tab, result.text);
+  return saveCapture(tab, result.text, undefined, undefined, undefined, "page");
 }
 async function selectCapture() {
   const tab = active();
   if (!tab || !isWeb(tab.view.webContents.getURL()))
     throw new Error("Abra uma página e selecione um trecho.");
+  if (tab.loading) throw new Error("Aguarde a página terminar de carregar.");
   const before = tab.view.webContents.getURL();
+  const version = tab.documentVersion;
   // Fixed script, only after a user's capture action. No credentials or page-wide scrape.
   const text = await tab.view.webContents.executeJavaScript(
     "window.getSelection().toString()",
   );
-  if (before !== tab.view.webContents.getURL())
+  if (before !== tab.view.webContents.getURL() || tab !== active() || tab.documentVersion !== version)
     throw new Error("A página mudou. Selecione o trecho novamente.");
   return saveCapture(tab, text);
 }
@@ -514,6 +539,11 @@ app
             panel = !panel;
             expanded = false;
             layout();
+            focusWorkspace();
+            break;
+          case "panel.resize":
+            if (!Number.isFinite(value) || value < 320 || value > 800) throw new Error("Largura inválida.");
+            localData.panelWidth = Math.round(value); store(); layout();
             break;
           case "expand":
             panel = true;
@@ -567,6 +597,11 @@ app
           return service.request(msg.request);
         case "capture.read":
           return capture;
+        case "context.status":
+          return contextStatus();
+        case "capture.page":
+          try { return { ok: true, capture: await capturePageText() }; }
+          catch (error) { return { ok: false, error: { message: error.message } }; }
         case "capture.clear":
           if (capture?.id === msg.id) {
             capture = null;

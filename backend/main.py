@@ -3,21 +3,24 @@ import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import Field, field_validator
 
-from .contracts import ContextItem, GenerateRequest, ModelCatalog, StrictModel, TaskKind
-from .contracts_v1_1 import GenerateRequestV11, ModelCatalogV11
-from .capabilities import plan_step, policy_error, preflight_error
+from .contracts import ContextItem, ModelCatalog, StrictModel
+from .contracts_v1_1 import ModelCatalogV11
+from .contracts_v1_2 import ModelCatalogV12
+from .protocols import REQUESTS
+from .capabilities import preflight_error
 from .gateway import GatewayUnavailable, HttpGateway
 from .gateway_errors import ERROR_STATUS
 from .store import Store
 from .worker import DurableWorker
 from .media import MediaInput, validate_media
+from .planning import TaskInput, build_task
+from .conversations import attach_conversations
 
 
 def now():
@@ -38,32 +41,6 @@ class ProjectInput(StrictModel):
 class SourceInput(ProjectInput):
     content: str = Field(min_length=1, max_length=40000)
     media: MediaInput | None = None
-
-
-class TaskInput(StrictModel):
-    instruction: str = Field(min_length=1, max_length=8000)
-    kind: TaskKind = "general"
-    source_ids: list[str] = Field(default_factory=list, max_length=20)
-    allowed_model_ids: list[str] = Field(min_length=1, max_length=20)
-    mode: Literal["single", "review"] = "single"
-    # Omit to recommend using configured task tags and the user's preference order.
-    preferred_model_id: str | None = None
-    reviewer_model_id: str | None = None
-    allow_unenforced_output_limit: bool = Field(default=False, strict=True)
-
-    @field_validator("instruction")
-    @classmethod
-    def nonblank(cls, value):
-        if not value.strip():
-            raise ValueError("Instruction must not be blank")
-        return value.strip()
-
-    @field_validator("source_ids", "allowed_model_ids")
-    @classmethod
-    def unique(cls, value):
-        if len(value) != len(set(value)):
-            raise ValueError("IDs must be unique")
-        return value
 
 
 def create_app(db_path=None, api_token=None, gateway=None, durable_execution=None):
@@ -116,7 +93,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
     def health():
         return {"status": "ok", "version": "0.2.0", "task_execution": bool(worker)}
 
-    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11, dependencies=protected)
+    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11 | ModelCatalogV12, dependencies=protected)
     def models():
         try:
             return gateway.catalog()
@@ -208,54 +185,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                         or "AnexoVisual:" in row["content"]):
                     raise HTTPException(422, "visual_context_not_supported")
                 context.append(dict(row))
-        chars = len(data.instruction) + sum(len(s["content"]) + len(s["title"]) for s in context)
-        if chars > 80000:
-            raise HTTPException(422, "context_too_large")
-        try:
-            catalog = gateway.catalog()
-        except GatewayUnavailable as exc:
-            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
-        available = {m.id: m for m in catalog.models if m.available}
-        if any(mid not in available for mid in data.allowed_model_ids):
-            raise HTTPException(422, "model_unknown_or_unavailable")
-        policy_errors = {mid: policy_error(available[mid], data.allow_unenforced_output_limit)
-                         for mid in data.allowed_model_ids}
-        for explicit in (data.preferred_model_id, data.reviewer_model_id):
-            if policy_errors.get(explicit):
-                raise HTTPException(422, policy_errors[explicit])
-        candidates = [available[mid] for mid in data.allowed_model_ids
-                      if not policy_errors[mid] and available[mid].context_char_limit >= chars]
-        # Stable sorting preserves the order explicitly supplied by the user.
-        candidates.sort(key=lambda model: data.kind not in model.task_kinds)
-        if not candidates:
-            if all(policy_errors.values()):
-                raise HTTPException(422, next(iter(policy_errors.values())))
-            raise HTTPException(422, "no_model_fits_context")
-        candidate_ids = {m.id for m in candidates}
-        if data.preferred_model_id and data.preferred_model_id not in candidate_ids:
-            raise HTTPException(422, "preferred_model_not_eligible")
-        writer = available[data.preferred_model_id] if data.preferred_model_id else candidates[0]
-        plan = [plan_step("answer", writer)]
-        if data.mode == "review":
-            # Review receives the answer too. Recheck its actual size at execution.
-            reviewers = [m for m in candidates if m.id != writer.id]
-            if data.reviewer_model_id:
-                reviewers = [m for m in reviewers if m.id == data.reviewer_model_id]
-            if not reviewers:
-                raise HTTPException(422, "review_requires_second_eligible_model")
-            reviewer = reviewers[0]
-            plan.append(plan_step("review", reviewer))
-        task = {
-            "id": str(uuid4()), "project_id": project_id, "created_at": now(),
-            "status": "planned", "instruction": data.instruction, "kind": data.kind,
-            "gateway_protocol_version": catalog.protocol_version,
-            "allow_unenforced_output_limit": data.allow_unenforced_output_limit,
-            "allowed_model_ids": data.allowed_model_ids, "context": context, "plan": plan,
-            "routing": {"method": "configured_tags_and_user_preference",
-                        "reason": "Escolha explícita" if data.preferred_model_id else
-                        "Compatibilidade de contexto, categorias configuradas e sua ordem de preferência. Não é um ranking de qualidade."},
-            "results": [], "error": None, "output": None,
-        }
+        task = build_task(project_id, data, context, gateway)
         with store.connect() as conn:
             conn.execute("INSERT INTO tasks VALUES (?,?,?,?)",
                          (task["id"], project_id, task["status"], json.dumps(task)))
@@ -339,12 +269,10 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                 instruction=task["instruction"], context=[ContextItem(**s) for s in task["context"]],
                 previous_output=previous, max_output_tokens=step["max_output_tokens"],
             )
-            if task.get("gateway_protocol_version", "1") == "1.1":
-                request = GenerateRequestV11(
-                    **request_fields, protocol_version="1.1",
-                    allow_unenforced_output_limit=task.get("allow_unenforced_output_limit", False))
-            else:
-                request = GenerateRequest(**request_fields)
+            version = task.get("gateway_protocol_version", "1")
+            if version != "1":
+                request_fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
+            request = REQUESTS[version](**request_fields, protocol_version=version)
             try:
                 result = gateway.generate(request)
             except GatewayUnavailable as exc:
@@ -367,4 +295,5 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
         store.save_task(task)
         return task
 
+    attach_conversations(app, store, gateway, worker, protected, public_task)
     return app

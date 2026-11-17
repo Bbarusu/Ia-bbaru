@@ -164,7 +164,7 @@ class ClaudeCodeAdapter(CliAdapterBase):
         try:
             return self.parse(model, proc)
         except errors.GatewayError as exc:
-            log_failure(request, proc, exc.code)
+            log_failure(request, proc, exc.code, self._status.version if self._status else None)
             raise
 
     def _signature(self, stage, model, **kw):
@@ -182,7 +182,7 @@ class ClaudeCodeAdapter(CliAdapterBase):
             data = json.loads(proc.stdout)
             if not isinstance(data, dict):
                 raise ValueError
-        except ValueError:
+        except (ValueError, RecursionError):
             data = None
             raise fail(errors.provider_error("provider_invalid_output"), "parse_json")
         result = data.get("result")
@@ -216,7 +216,7 @@ def served_model(model: str, model_usage) -> str:
     - entries with zero output tokens from other models are ignored;
     - the configured model must itself appear.
     A configured alias accepts any version of its family; which one served is
-    returned so it can be exposed once the contract has a field for it.
+    returned in contract 1.2.
     """
     if not isinstance(model_usage, dict) or not model_usage:
         raise errors.provider_error("provider_invalid_output")
@@ -268,10 +268,7 @@ def classify_failure(text: str) -> errors.GatewayError:
 
 
 def error_for(category: str) -> errors.GatewayError:
-    """Map a sanitized category to a code the backend already accepts
-    (backend/gateway_errors.py). Categories without their own code stay
-    `provider_error`; the signature keeps the category for diagnosis and the
-    proposed codes are in docs/PASSAGEM_CLAUDE_ONLY.md (C-2, C-7)."""
+    """Map sanitized categories to the consumer's fixed error allowlist."""
     if category == "auth":
         return errors.provider_unavailable(
             "provider_not_authenticated",
@@ -279,21 +276,25 @@ def error_for(category: str) -> errors.GatewayError:
         )
     if category == "quota":
         return errors.quota_exceeded()
+    if category == "rate_limit":
+        return errors.GatewayError(429, "provider_rate_limited", "Limite de requisições do Claude atingido")
+    if category == "output_limit_reached":
+        return errors.provider_error("provider_output_limit_reached")
     if category == "usage_credits":
         # Model needing usage credits (e.g. Fable on some plans). Never retried.
         return errors.provider_unavailable(
-            "provider_unavailable",
+            "provider_model_requires_credits",
             "Este modelo exige créditos de uso na sua conta. Confira `/model` no Claude Code; "
             "não habilite créditos só para o Ia-bbaru sem decidir isso conscientemente.",
         )
     if category == "model_unavailable":
         return errors.provider_unavailable(
-            "provider_unavailable",
+            "provider_model_unavailable",
             "O modelo configurado não está disponível para esta conta agora e a troca automática "
             "está desligada. Confira `/model` no Claude Code e os modelos configurados.",
         )
     if category == "overloaded":
         return errors.provider_unavailable(
             "provider_unavailable", "O serviço do Claude está sobrecarregado. Tente mais tarde, manualmente.")
-    # output_limit_reached, context_window_exceeded, api_* and none.
+    # context_window_exceeded, api_*, thinking budget, invocation errors and none.
     return errors.provider_error()

@@ -37,6 +37,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ModelCatalogV11"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ModelCatalogV12"
                     }
                   ],
                   "title": "Response Models V1 Models Get"
@@ -656,10 +659,529 @@
           }
         }
       }
+    },
+    "/v1/conversations": {
+      "post": {
+        "summary": "Create",
+        "operationId": "create_v1_conversations_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Listing",
+        "operationId": "listing_v1_conversations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversation_id}": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_v1_conversations__conversation_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversation_id}/consent": {
+      "get": {
+        "summary": "Get Consent",
+        "operationId": "get_consent_v1_conversations__conversation_id__consent_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Grant",
+        "operationId": "grant_v1_conversations__conversation_id__consent_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke",
+        "operationId": "revoke_v1_conversations__conversation_id__consent_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversation_id}/turns": {
+      "get": {
+        "summary": "Turns",
+        "operationId": "turns_v1_conversations__conversation_id__turns_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Send",
+        "operationId": "send_v1_conversations__conversation_id__turns_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversation_id}/turns/{turn_id}": {
+      "get": {
+        "summary": "Get Turn",
+        "operationId": "get_turn_v1_conversations__conversation_id__turns__turn_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "turn_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Turn Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ConsentInput": {
+        "properties": {
+          "policy_version": {
+            "type": "string",
+            "const": "1",
+            "title": "Policy Version"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "default": false
+          },
+          "allowed_model_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Allowed Model Ids"
+          },
+          "allow_unenforced_output_limit": {
+            "type": "boolean",
+            "title": "Allow Unenforced Output Limit",
+            "default": false
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 4096.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens",
+            "default": 2048
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "policy_version",
+          "allowed_model_ids"
+        ],
+        "title": "ConsentInput"
+      },
+      "ConversationInput": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "default": "Nova conversa"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "conversation_id"
+        ],
+        "title": "ConversationInput"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -806,6 +1328,30 @@
           "models"
         ],
         "title": "ModelCatalogV11"
+      },
+      "ModelCatalogV12": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1.2",
+            "title": "Protocol Version",
+            "default": "1.2"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileV11"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalogV12"
       },
       "ModelProfile": {
         "properties": {
@@ -1090,6 +1636,35 @@
             "type": "boolean",
             "title": "Allow Unenforced Output Limit",
             "default": false
+          },
+          "max_output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4096.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Output Tokens"
+          },
+          "response_profile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quick",
+                  "normal",
+                  "deep"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Profile"
           }
         },
         "additionalProperties": false,
@@ -1099,6 +1674,218 @@
           "allowed_model_ids"
         ],
         "title": "TaskInput"
+      },
+      "TextSnapshot": {
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Capture Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "page",
+              "selection",
+              "text"
+            ],
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 40000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "capture_id",
+          "kind",
+          "title",
+          "content"
+        ],
+        "title": "TextSnapshot"
+      },
+      "TurnInput": {
+        "properties": {
+          "instruction": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Instruction"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "general",
+              "study",
+              "writing",
+              "coding",
+              "analysis"
+            ],
+            "title": "Kind",
+            "default": "general"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Source Ids"
+          },
+          "allowed_model_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Allowed Model Ids"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "single",
+              "review"
+            ],
+            "title": "Mode",
+            "default": "single"
+          },
+          "preferred_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Model Id"
+          },
+          "reviewer_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Model Id"
+          },
+          "allow_unenforced_output_limit": {
+            "type": "boolean",
+            "title": "Allow Unenforced Output Limit",
+            "default": false
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 4096.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens",
+            "default": 2048
+          },
+          "response_profile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quick",
+                  "normal",
+                  "deep"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Profile"
+          },
+          "turn_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Turn Id"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "default": false
+          },
+          "consent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consent Id"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/TextSnapshot"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Snapshots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instruction",
+          "allowed_model_ids",
+          "turn_id"
+        ],
+        "title": "TurnInput"
       },
       "ValidationError": {
         "properties": {

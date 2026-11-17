@@ -4,6 +4,7 @@ from .gateway_errors import ERROR_STATUS
 
 from .contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
+from .protocols import CATALOGS, RESPONSES
 
 
 class GatewayUnavailable(Exception):
@@ -15,8 +16,8 @@ class GatewayUnavailable(Exception):
 
 class HttpGateway:
     def __init__(self, url: str | None, token: str | None, protocol_version: str = "1"):
-        if protocol_version not in {"1", "1.1"}:
-            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1 or 1.1")
+        if protocol_version not in CATALOGS:
+            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1, 1.1 or 1.2")
         self.url = (url or "").rstrip("/")
         self.token = token
         self.protocol_version = protocol_version
@@ -51,8 +52,8 @@ class HttpGateway:
     def catalog(self):
         try:
             raw = self._request("GET", f"/v{self.protocol_version}/models")
-            schema = ModelCatalogV11 if self.protocol_version == "1.1" else ModelCatalog
-            if self.protocol_version == "1.1" and raw.get("protocol_version") != "1.1":
+            schema = CATALOGS[self.protocol_version]
+            if self.protocol_version != "1" and raw.get("protocol_version") != self.protocol_version:
                 raise ValueError("Gateway catalog version does not match configuration")
             catalog = schema.model_validate(raw)
             catalog.models = [m for m in catalog.models if m.provider == "claude-code"]
@@ -78,16 +79,17 @@ class HttpGateway:
                          "installed": item.get("installed") is True,
                          "ready": item.get("ready") is True,
                          "configured": isinstance(item.get("configured_models"), list) and bool(item["configured_models"]),
-                         "reason": reason if isinstance(reason, str) and reason in reasons else None})
+                         "reason": reason if isinstance(reason, str) and reason in reasons else None,
+                         "model_access": "not_verified_without_generation"})
         return {"connections": rows}
 
     def generate(self, request: GenerateRequest | GenerateRequestV11):
         try:
             if request.protocol_version != self.protocol_version:
                 raise ValueError("Task gateway version does not match configuration")
-            schema = GenerateResponseV11 if self.protocol_version == "1.1" else GenerateResponse
+            schema = RESPONSES[self.protocol_version]
             raw = self._request("POST", f"/v{self.protocol_version}/generate", request.model_dump())
-            if self.protocol_version == "1.1" and raw.get("protocol_version") != "1.1":
+            if self.protocol_version != "1" and raw.get("protocol_version") != self.protocol_version:
                 raise ValueError("Gateway response version does not match configuration")
             result = schema.model_validate(raw)
             if result.request_id != request.request_id or result.model_id != request.model_id:

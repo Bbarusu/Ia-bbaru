@@ -56,6 +56,9 @@ const operations = new Set([
   "tasks.get",
   "tasks.enqueue",
   "tasks.resume",
+  "conversations.create", "conversations.list", "conversations.get",
+  "conversations.turns.send", "conversations.turns.get", "conversations.turns.list",
+  "conversations.consent.get", "conversations.consent.set", "conversations.consent.revoke",
 ]);
 function validateEnvelope(raw) {
   if (

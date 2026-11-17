@@ -1,4 +1,22 @@
 """Planning policy and preflight checks; capabilities never grant tool access."""
+import re
+
+
+def model_family(model):
+    if model.provider != "claude-code":
+        return None
+    name = model.id.split(":", 1)[-1].lower()
+    match = re.match(r"^(?:claude-)?(haiku|sonnet|opus|fable)(?:$|[-\[])", name)
+    return match.group(1) if match else None
+
+
+def review_eligible(writer, reviewer):
+    # Product ordering, not measured quality. Explicit reviewer choice overrides it.
+    tiers = {"haiku": 0, "sonnet": 1, "opus": 2, "fable": 3}
+    if writer.provider != "claude-code":
+        return True  # Legacy non-Claude fixtures/in-process gateways retain their policy.
+    a, b = tiers.get(model_family(writer)), tiers.get(model_family(reviewer))
+    return a is not None and b is not None and b >= a
 
 # Only legacy v1 may omit capabilities: these are that contract's assumptions,
 # not a claim that an arbitrary provider enforces limits or reports termination.

@@ -13,7 +13,7 @@ O que faz:
   2. Guarda um token de gateway fora do repositório (%LOCALAPPDATA%\Ia-bbaru-gateway).
   3. Mostra o diagnóstico das CLIs configuradas (sem gerar resposta).
   4. Abre o gateway sem janela (porta 8010), com log em %LOCALAPPDATA%\Ia-bbaru-gateway.
-  5. Abre o navegador com GATEWAY_URL, GATEWAY_TOKEN e GATEWAY_PROTOCOL_VERSION=1.1,
+  5. Abre o navegador com GATEWAY_URL, GATEWAY_TOKEN e GATEWAY_PROTOCOL_VERSION=1.2,
      usando scripts\start-browser.ps1 (com -Install na primeira vez).
   6. Ao fechar o navegador, encerra o gateway.
 
@@ -22,7 +22,7 @@ geração. Não lê cookies nem arquivos de credencial. Não liga a flag legada 
 #>
 param(
     [Alias('Model')][string]$Models = 'sonnet',
-    [int]$MaxOutputTokens = 128,
+    [ValidateRange(1, 4096)][int]$MaxOutputTokens = 2048,
     [int]$Port = 8010
 )
 $ErrorActionPreference = 'Stop'
@@ -124,7 +124,7 @@ Write-Host "  Para acompanhar as requisições em outro PowerShell: Get-Content 
 
 # 5. Navegador; 6. encerra o gateway ao sair.
 $env:GATEWAY_URL = $url
-$env:GATEWAY_PROTOCOL_VERSION = '1.1'
+$env:GATEWAY_PROTOCOL_VERSION = '1.2'
 try {
     if ($firstRun) {
         Write-Host 'Primeiro início: instalando a interface e o navegador (pode demorar alguns minutos)...'

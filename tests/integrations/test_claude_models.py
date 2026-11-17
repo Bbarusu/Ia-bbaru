@@ -127,7 +127,8 @@ class NoSilentFallbackOverHttp(GatewayTestCase):
                 self.set_mode(FAKE_CLAUDE_MODE=mode)
                 response = self.post(f"cr:{index}", model_id="claude-code:fable")
                 self.assertEqual(response.status_code, 503)
-                self.assertEqual(response.json()["error"]["code"], "provider_unavailable")
+                self.assertEqual(response.json()["error"]["code"],
+                                 "provider_model_requires_credits" if mode == "credits" else "provider_model_unavailable")
 
 
 if __name__ == "__main__":

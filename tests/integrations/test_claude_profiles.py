@@ -84,7 +84,7 @@ class ClaudeProfilesTests(GatewayTestCase):
                 project = client.post('/v1/projects', json={'title': 'Claude'}).json()['id']
                 base = {'instruction': 'Compare os argumentos', 'kind': 'analysis', 'mode': 'review',
                         'allowed_model_ids': ['claude-code:haiku', 'claude-code:opus', 'claude-code:sonnet'],
-                        'allow_unenforced_output_limit': True}
+                        'allow_unenforced_output_limit': True, 'reviewer_model_id': 'claude-code:haiku'}
                 response = client.post(f'/v1/projects/{project}/tasks', json=base)
                 self.assertEqual(response.status_code, 201, response.text)
                 task = response.json()

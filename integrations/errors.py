@@ -61,7 +61,7 @@ def busy():
 def quota_exceeded():
     return GatewayError(
         429, "provider_quota_exceeded", "Limite de uso do provedor atingido",
-        "Aguarde a renovação da cota do plano; o gateway não troca para API paga.",
+        "Confira a disponibilidade e a renovação no Claude Code; o gateway não troca para API paga.",
     )
 
 

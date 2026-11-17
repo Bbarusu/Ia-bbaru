@@ -39,6 +39,7 @@ def _entry(adapter, key) -> dict:
         # `ready` = transport ready. 1.1 still needs the task's acceptance (and the
         # backend's tool policy); contract 1 only exists for Claude Code (legacy flag).
         "contract_1_1": {"available": status.ready, "requires_task_acceptance": True},
+        "contract_1_2": {"available": status.ready, "requires_task_acceptance": True},
         "contract_1": {"available": legacy.ready, "reason": legacy.reason},
     }
 

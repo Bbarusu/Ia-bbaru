@@ -47,12 +47,12 @@ class FailureClassificationTests(GatewayTestCase):
             self.assertNotIn("Texto da fonte", text)       # source content
             self.assertNotIn("Explique o conteúdo", text)  # instruction
 
-    def test_output_limit_turn_is_provider_error_with_known_category(self):
+    def test_output_limit_turn_has_typed_error_without_fabricated_partial(self):
         """Hypothesis for the panel's provider_error at limit 128: 2.1.322 turns a
         reply cut at max_tokens into an "API Error" turn without the partial text."""
         response, row = self.fail_with("output_limit_error", "lim:0", max_output_tokens=128)
         self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json()["error"]["code"], "provider_error")  # code the backend accepts today
+        self.assertEqual(response.json()["error"]["code"], "provider_output_limit_reached")
         self.assertEqual(row["category"], "output_limit_reached")
         self.assertEqual((row["stage"], row["stop_reason"], row["api_error"]),
                          ("result_error", "max_tokens", "max_output_tokens"))
@@ -60,7 +60,7 @@ class FailureClassificationTests(GatewayTestCase):
         self.assert_sanitized(response, row)
         # Not masked as success, not re-run: the repeat replays the stored error.
         again = self.client.post("/v1.1/generate", json=v11("lim:0", max_output_tokens=128))
-        self.assertEqual(again.json()["error"]["code"], "provider_error")
+        self.assertEqual(again.json()["error"]["code"], "provider_output_limit_reached")
         self.assertEqual(self.runner.generations, 1)
 
     def test_error_subtype_without_result_reads_errors_list(self):

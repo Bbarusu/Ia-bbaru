@@ -29,7 +29,7 @@ async function main() {
       res.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="blue"/></svg>');
       return;
     }
-    if (req.url === "/v1.1/generate" && req.method === "POST") {
+    if (req.url === "/v1.2/generate" && req.method === "POST") {
       let body = "";
       req.on("data", (chunk) => { body += chunk; });
       req.on("end", () => {
@@ -37,17 +37,17 @@ async function main() {
         generations.push(request);
         setTimeout(() => {
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ protocol_version: "1.1", request_id: request.request_id,
-            model_id: request.model_id, output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
+          res.end(JSON.stringify({ protocol_version: "1.2", request_id: request.request_id,
+            model_id: request.model_id, served_model: "claude-sonnet-5-5", output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
         }, 800);
       });
       return;
     }
-    if (req.url === "/v1.1/models") {
+    if (req.url === "/v1.2/models") {
       res.setHeader("Content-Type", "application/json");
       res.end(
         JSON.stringify({
-          protocol_version: "1.1",
+          protocol_version: "1.2",
           models: [
             {
               id: "fixture:study",
@@ -83,7 +83,7 @@ async function main() {
   const env = { ...process.env, IA_BBARU_PROFILE_DIR: profile };
   env.GATEWAY_URL = url;
   env.GATEWAY_TOKEN = "fixture-only-not-a-secret-0123456789";
-  env.GATEWAY_PROTOCOL_VERSION = "1.1";
+  env.GATEWAY_PROTOCOL_VERSION = "1.2";
   delete env.IA_BBARU_REAL_TEST;
   const launch = () =>
     electron.launch({
@@ -288,7 +288,7 @@ async function main() {
       tasks.data.items[0].id,
     );
     assert.equal(task.data.allow_unenforced_output_limit, true);
-    assert.equal(task.data.gateway_protocol_version, "1.1");
+    assert.equal(task.data.gateway_protocol_version, "1.2");
     assert.equal(task.data.status, "planned");
     assert.equal(generations.length, 0);
     await expect(
@@ -582,6 +582,40 @@ async function main() {
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
     await workspace.getByRole("button", { name: "Conexões", exact: true }).first().click();
     await expect(workspace.getByText("Claude Code · 2.1.307", { exact: true })).toBeVisible();
+    // Exercise the new chat contract through real IPC/backend, without depending
+    // on the separately owned frontend implementation of conversation widgets.
+    const chat = await workspace.evaluate(async (project_id) => {
+      const call = (operation, params) => window.iaDesktop.runtime.sendMessage({
+        type: "bridge.request", request: { protocol_version: "0", request_id: crypto.randomUUID(), operation, params },
+      });
+      const conversation_id = crypto.randomUUID();
+      const created = await call("conversations.create", { conversation_id, project_id });
+      if (!created.ok) throw new Error(JSON.stringify(created));
+      const turn = { turn_id: crypto.randomUUID(), instruction: "Converse comigo", confirmed: true,
+        allowed_model_ids: ["fixture:study"], allow_unenforced_output_limit: true };
+      const sent = await call("conversations.turns.send", { conversation_id, turn });
+      const replay = await call("conversations.turns.send", { conversation_id, turn });
+      if (!sent.ok || !replay.ok || sent.data.task_id !== replay.data.task_id) throw new Error("Chat idempotency failed");
+      return { conversation_id, turn_id: turn.turn_id };
+    }, saved.projects[0].id);
+    const readChat = (page) => page.evaluate((params) => window.iaDesktop.runtime.sendMessage({
+      type: "bridge.request", request: { protocol_version: "0", request_id: crypto.randomUUID(),
+        operation: "conversations.turns.get", params },
+    }), chat);
+    await expect.poll(async () => (await readChat(workspace)).data.task.status).toBe("completed");
+    assert.equal((await readChat(workspace)).data.task.results[0].served_model, "claude-sonnet-5-5");
+
+    const pageCapture = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page" }));
+    assert.equal(pageCapture.ok, true, JSON.stringify(pageCapture));
+    assert.equal(pageCapture.capture.kind, "page");
+    const status = () => workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "context.status" }));
+    assert.equal((await status()).capture_is_current, true);
+    await shell.evaluate(() => window.navigatorApp.command("reload"));
+    await expect.poll(async () => (await status()).document_id).not.toBe(pageCapture.capture.document_id);
+    assert.equal((await status()).capture_is_current, false);
+    await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), pageCapture.capture.id);
+    const resized = await shell.evaluate(() => window.navigatorApp.command("panel.resize", 520));
+    assert.equal(resized.ok, true);
     const versions = await app.evaluate(() => process.versions);
     await app.close();
     app = null;
@@ -590,6 +624,7 @@ async function main() {
     await expect(
       reopened.getByText("Backend local ativo", { exact: true }),
     ).toBeVisible({ timeout: 30000 });
+    assert.equal((await readChat(reopened)).data.task.status, "completed");
     const persisted = await reopened.evaluate(() =>
       window.iaDesktop.runtime.sendMessage({
         type: "bridge.request",
@@ -616,8 +651,8 @@ async function main() {
             "web navigation and back",
             "remote isolation",
             "selection capture and SQLite source",
-            "1.1 acceptance required and persisted",
-            "1.1 capability badges in plan modal (Término informado pelo provedor)",
+            "1.2 acceptance required and persisted",
+            "1.2 capability badges in plan modal (Término informado pelo provedor)",
             "synchronous execution denied; durable enqueue confirmed",
             "native zoom and findInPage",
             "native screenshot and separate local image storage",
@@ -637,7 +672,7 @@ async function main() {
       ),
     );
     console.log(
-      "Chromium UI passed: navigation, isolation, real backend, capture, draft preservation and restart persistence.",
+      "Chromium UI passed: navigation, isolation, real backend, capture, draft preservation, persistent chat IPC and restart persistence.",
     );
   } finally {
     if (app) await app.close();

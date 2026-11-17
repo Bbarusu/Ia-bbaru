@@ -2,6 +2,7 @@
 import hashlib
 import json
 import logging
+from .failures import categorize, error_texts, verified_version
 
 LOG = logging.getLogger("ia_bbaru.claude_failure")
 ERROR_SUBTYPES = frozenset({
@@ -10,39 +11,17 @@ ERROR_SUBTYPES = frozenset({
 })
 
 
-def failure_text(data: dict) -> str:
-    """CLI failures can use errors[] instead of result. For classification only."""
-    parts = [data["result"]] if isinstance(data.get("result"), str) else []
-    errors = data.get("errors")
-    if isinstance(errors, list):
-        parts.extend(item for item in errors if isinstance(item, str))
-    return "\n".join(parts)
-
-
-def log_failure(request, proc, code):
+def log_failure(request, proc, code, cli_version=None):
     try:
         data = json.loads(proc.stdout)
         shape = "object" if isinstance(data, dict) else "other_json"
-    except ValueError:
+    except (ValueError, RecursionError):
         data, shape = None, "invalid_json"
     data = data if isinstance(data, dict) else {}
     subtype = data.get("subtype")
     # Unknown values, arbitrary keys, stderr and result never leave this function.
     subtype = subtype if isinstance(subtype, str) and subtype in ERROR_SUBTYPES | {"success"} else "unknown"
-    text = (failure_text(data) + "\n" + proc.stderr).lower()
-    markers = []
-    for name, phrases in {
-        "authentication": ("not logged in", "authentication", "/login", "oauth"),
-        "quota": ("usage limit", "limit reached", "rate limit", "quota"),
-        "model_access": ("issue with the selected model", "may not have access", "model substitution is disabled"),
-        "usage_credits": ("usage credits",),
-        "nested_session": ("cannot be launched inside another claude code session",),
-        "argument_error": ("unknown option", "unknown argument", "invalid argument"),
-    }.items():
-        if any(phrase in text for phrase in phrases):
-            markers.append(name)
-    if "max_tokens" in text and ("budget_tokens" in text or "thinking" in text):
-        markers.append("thinking_output_budget")
+    category = categorize(error_texts(data))
     errors = data.get("errors")
     facts = {
         "event": "claude_cli_failure",
@@ -56,6 +35,12 @@ def log_failure(request, proc, code):
         "stderr_present": bool(proc.stderr.strip()),
         "max_output_tokens": request.max_output_tokens,
         # These are textual clues, not a proven diagnosis or permission to retry.
-        "markers": markers,
+        "category": category,
+        "markers": [] if category == "none" else [category],
+        # stderr is not used to contradict a structured result. Separate clue,
+        # same classifier, no raw text and no effect on retry/error policy.
+        "stderr_category": categorize([proc.stderr]),
+        "cli_version": verified_version(cli_version),
+        "cli_version_source": "last_verified",
     }
     LOG.warning("%s", json.dumps(facts, ensure_ascii=True, sort_keys=True))

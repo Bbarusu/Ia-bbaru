@@ -3,7 +3,8 @@
 - Contract 1 (docs/openapi-gateway.json): /v1/models and /v1/generate, unchanged.
 - Contract 1.1 (docs/DECISAO_CAPACIDADES.md): /v1.1/models and /v1.1/generate,
   with capabilities, per-task acceptance and finish_reason "unknown".
-- /v1/connections: experimental diagnostics, outside both contracts.
+- Contract 1.2: same text capabilities, plus provider-reported served_model.
+- /v1/connections: experimental diagnostics, outside generation contracts.
 """
 import hmac
 import hashlib
@@ -18,6 +19,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
+from backend.contracts_v1_2 import GenerateRequestV12, GenerateResponseV12, ModelCatalogV12
+from backend.protocols import RESPONSES
 
 from . import __version__, errors
 from .adapters.base import NotStarted, ProviderResult
@@ -31,7 +34,7 @@ from .dedup import DedupStore, payload_hash
 # success or error, is stored and replayed. Only NotStarted frees the ID.
 UNCERTAIN_CODES = {"provider_timeout"}
 log = logging.getLogger("integrations")
-RESPONSE_MODELS = {"1": GenerateResponse, "1.1": GenerateResponseV11}
+RESPONSE_MODELS = RESPONSES
 
 
 def to_v1(request: GenerateRequest, result: ProviderResult) -> GenerateResponse:
@@ -52,6 +55,11 @@ def to_v11(request: GenerateRequestV11, result: ProviderResult) -> GenerateRespo
         request_id=request.request_id, model_id=request.model_id, output=result.output,
         usage=result.usage, provider_request_id=None, finish_reason=result.finish_reason,
     )
+
+
+def to_v12(request: GenerateRequestV12, result: ProviderResult) -> GenerateResponseV12:
+    return GenerateResponseV12(**to_v11(request, result).model_dump(exclude={"protocol_version"}),
+                               served_model=result.served_model)
 
 
 def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | None = None,
@@ -106,7 +114,7 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "protocol_versions": ["1", "1.1"]}
+        return {"status": "ok", "protocol_versions": ["1", "1.1", "1.2"]}
 
     # Catalogs are built from operator configuration + local status. No model call.
     @app.get("/v1/models", response_model=ModelCatalog, dependencies=protected)
@@ -116,6 +124,10 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     @app.get("/v1.1/models", response_model=ModelCatalogV11, dependencies=protected)
     def models_v11():
         return ModelCatalogV11(models=[p for group in each_adapter(lambda a: a.profiles_v11()) for p in group])
+
+    @app.get("/v1.2/models", response_model=ModelCatalogV12, dependencies=protected)
+    def models_v12():
+        return ModelCatalogV12(models=[p for group in each_adapter(lambda a: a.profiles_v11()) for p in group])
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():
@@ -187,6 +199,10 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     @app.post("/v1.1/generate", response_model=GenerateResponseV11, dependencies=protected)
     def generate_v11(body: GenerateRequestV11):
         return run(body, to_v11)
+
+    @app.post("/v1.2/generate", response_model=GenerateResponseV12, dependencies=protected)
+    def generate_v12(body: GenerateRequestV12):
+        return run(body, to_v12)
 
     return app
 

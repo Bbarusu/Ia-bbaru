@@ -47,8 +47,7 @@ class ProviderResult:
     output: str
     usage: TokenUsage | None
     finish_reason: str  # stop | length | unknown
-    # Model the CLI reports as having served the run. Internal only: contracts
-    # 1 and 1.1 have no field for it (proposal in docs/PASSAGEM_CLAUDE_ONLY.md).
+    # Model reported by the CLI. Exposed in 1.2; omitted in strict 1/1.1 responses.
     served_model: str | None = None
 
 
@@ -198,7 +197,7 @@ class CliAdapterBase:
         reserve = request.max_output_tokens * CHARS_PER_TOKEN_RESERVE
         if input_chars(request) + reserve > self.settings.context_char_limit:
             raise errors.context_too_large()
-        if request.protocol_version == "1.1":
+        if request.protocol_version in {"1.1", "1.2"}:
             # Acceptance belongs to the task, not to the operator's env flag.
             if not request.allow_unenforced_output_limit and self.capabilities.output_limit != "enforced":
                 raise errors.output_limit_not_accepted()

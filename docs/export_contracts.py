@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from backend.contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
 from backend.main import create_app
+from integrations.export_openapi_v12 import build as gateway_v12_schema
 
 
 def gateway_v11_schema():
@@ -48,6 +49,8 @@ def main():
         json.dumps(gateway.openapi(), ensure_ascii=False, indent=2) + "\n")
     (target / "openapi-gateway-1.1.json").write_text(
         json.dumps(gateway_v11_schema(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (target / "openapi-gateway-1.2.json").write_text(
+        json.dumps(gateway_v12_schema(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
