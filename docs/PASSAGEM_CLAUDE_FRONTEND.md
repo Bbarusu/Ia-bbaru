@@ -9,6 +9,27 @@ Sem alteração em backend, gateway, contratos ou persistência. Fora de `fronte
 testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
 em `.agents/`. Tudo na PR #11, para integração pelo Codex.
 
+## Guia da Frente 3 — ajustes (17/11/2026)
+
+- Shell: `#panel` com `aria-keyshortcuts` e atalho Ctrl+Shift+L no título; Ctrl+L
+  no shell não captura mais Ctrl+Shift+L. Minimizar já chama `win.minimize()` e o
+  rótulo é “Minimizar janela” (ponto do STATUS resolvido). Na barra “⋯”, “Largura”
+  e “Início” encurtados para caber em 900 px (nomes acessíveis completos).
+- Os chips `data-context` do shell **não voltaram**: foram retirados a pedido do
+  usuário (redundância). Resumir/print/imagem continuam no “⋯” e no painel.
+- Painel: “Novo chat”; sugestões “Resumir página” e “Principais pontos”/“Questões
+  de estudo” anexam a página (`capture.page`), “Explicar seleção” anexa o trecho;
+  “+” → “Usar página atual” / “Usar seleção da aba”. Chip em alerta quando a aba
+  mudou desde a captura. Modelo junto à resposta (servido pela CLI, ou o pedido
+  quando o contrato não informa). Aviso de créditos ao escolher Fable. Imagens:
+  o texto do menu diz se o modelo escolhido as analisa (1.2 experimental) ou não.
+- Flocos decorativos retirados de trás de textos e controles (cabeçalho do shell,
+  painel, menu lateral, diálogos). Ficam só na nova aba (`home.css`) e na ilustração
+  do guia.
+- Conferido em Electron: janela 900×640 sem estouro no shell nem na barra “⋯”;
+  painel 440 e 360 px sem rolagem horizontal e com o compositor visível; Tab chega
+  ao compositor com anel de foco de 2 px; novas cores de texto com contraste ≥ 4,5:1.
+
 ## Ligação do contrato de conversas (17/11/2026)
 
 Base `codex/browser-capture-clis` em 31c3d43 (PR #11 integrada pelo Codex).

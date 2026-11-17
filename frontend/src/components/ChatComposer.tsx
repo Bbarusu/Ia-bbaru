@@ -36,6 +36,7 @@ interface ChatComposerProps {
   capture: Capture | null;
   captureStale: boolean;
   attachPage: () => void;
+  imagesSupported: boolean;
   removeCapture: () => void;
   selectedSourcesCount: number;
   clearSelectedSources: () => void;
@@ -63,6 +64,7 @@ export function ChatComposer({
   capture,
   captureStale,
   attachPage,
+  imagesSupported,
   removeCapture,
   selectedSourcesCount,
   clearSelectedSources,
@@ -78,6 +80,9 @@ export function ChatComposer({
 
   const captureText = typeof capture?.text === "string" ? capture.text : "";
   const captureTitle = capture?.title?.trim() || "Trecho da página";
+  const imageNote = imagesSupported
+    ? "Fica na biblioteca; pode ir ao Claude (experimental)"
+    : "Fica na biblioteca; o modelo escolhido não analisa imagens";
   const status = checking ? "Verificando…" : online ? "Conectado" : "Desconectado";
 
   return (
@@ -86,7 +91,7 @@ export function ChatComposer({
         {(capture || selectedSourcesCount > 0) && (
           <div className="composer-context" aria-label="Contexto que será enviado">
             {capture && (
-              <span className="context-chip">
+              <span className={`context-chip ${captureStale ? "stale" : ""}`}>
                 <button
                   type="button"
                   className="context-chip-title"
@@ -98,7 +103,7 @@ export function ChatComposer({
                   {captureTitle}
                   <small>
                     {capture.kind === "page" ? " · página" : " · trecho"}
-                    {captureStale && " · página anterior"}
+                    {captureStale && " · a aba mudou desde a captura"}
                   </small>
                 </button>
                 <button
@@ -183,29 +188,29 @@ export function ChatComposer({
                   <button type="button" onClick={choose(attachPage)}>
                     <Globe size={14} aria-hidden="true" />
                     <span>
-                      Texto da página inteira
+                      Usar página atual
                       <small>Texto visível da aba, até 38.000 caracteres</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(attachSelection)}>
                     <ArrowDownToLine size={14} aria-hidden="true" />
                     <span>
-                      Trecho selecionado da aba
-                      <small>Vai junto com a mensagem</small>
+                      Usar seleção da aba
+                      <small>Só o trecho selecionado vai junto</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(() => openSource("screenshot"))}>
                     <Camera size={14} aria-hidden="true" />
                     <span>
                       Capturar print da tela
-                      <small>Fica salvo; o Claude ainda não analisa imagens</small>
+                      <small>{imageNote}</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(() => openSource("image"))}>
                     <ImageIcon size={14} aria-hidden="true" />
                     <span>
                       Importar imagem local
-                      <small>Fica salva; o Claude ainda não analisa imagens</small>
+                      <small>{imageNote}</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(() => openSource("text"))}>
@@ -242,7 +247,7 @@ export function ChatComposer({
               {eligibleModels.length > 0 && (
                 <optgroup label="Perfil de resposta">
                   {RESPONSE_PROFILES.map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <option key={p.id} value={p.id} title={`${p.hint}, entre os modelos disponíveis`}>
                       {p.label}
                     </option>
                   ))}
@@ -251,8 +256,13 @@ export function ChatComposer({
               {eligibleModels.length > 0 && (
                 <optgroup label="Escolher modelo">
                   {eligibleModels.map((m) => (
-                    <option key={m.id} value={m.id}>
+                    <option
+                      key={m.id}
+                      value={m.id}
+                      title={/fable/i.test(m.id) ? "Pode exigir créditos de uso adicionais" : m.label}
+                    >
                       {shortModelName(m)}
+                      {/fable/i.test(m.id) ? " (créditos?)" : ""}
                     </option>
                   ))}
                 </optgroup>

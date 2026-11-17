@@ -68,8 +68,8 @@ export function ChatHeader({
         <button
           type="button"
           className="header-icon"
-          aria-label="Nova conversa"
-          title="Nova conversa (a anterior continua em Atividade)"
+          aria-label="Novo chat"
+          title="Novo chat (esta conversa continua na lista)"
           disabled={!canNewChat}
           onClick={() => {
             setTab("workspace");

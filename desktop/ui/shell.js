@@ -524,7 +524,8 @@ $("tabs").addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
+  // Ctrl+Shift+L é do painel (runtime); só Ctrl+L vai para o endereço.
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "l") {
     event.preventDefault();
     $("address").focus();
     $("address").select();

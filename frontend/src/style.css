@@ -11,10 +11,7 @@
 body {
   margin: 0;
   background-color: var(--background);
-  background-image:
-    var(--snow-bg),
-    radial-gradient(circle at 50% -10%, rgba(215, 232, 250, 0.55), transparent 60%);
-  background-size: 220px 220px, 100% 100%;
+  background-image: radial-gradient(circle at 50% -10%, rgba(215, 232, 250, 0.55), transparent 60%);
   color: var(--text);
   font:
     14px/1.5 Inter,
@@ -161,10 +158,7 @@ svg {
   display: flex;
   min-height: 100vh;
   background-color: var(--background);
-  background-image:
-    var(--snow-bg),
-    radial-gradient(circle at 50% -10%, rgba(215, 232, 250, 0.55), transparent 60%);
-  background-size: 220px 220px, 100% 100%;
+  background-image: radial-gradient(circle at 50% -10%, rgba(215, 232, 250, 0.55), transparent 60%);
 }
 
 /* Sidebar navigation rail (Desktop) */
@@ -174,8 +168,6 @@ svg {
   border-right: 1px solid var(--border);
   padding: 24px 16px 14px;
   background-color: #f0f6fc;
-  background-image: var(--snow-bg);
-  background-size: 220px 220px;
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -1396,10 +1388,7 @@ main {
 /* Accessible Dialog Modal */
 dialog {
   color: var(--text);
-  background:
-    var(--snow-bg),
-    #ffffff;
-  background-size: 220px 220px, 100% 100%;
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   padding: 24px;
@@ -2907,4 +2896,21 @@ dialog.kinfo-guide-dialog {
   .composer-chip select {
     max-width: 90px;
   }
+}
+
+/* Modelo junto à resposta (servido pela CLI quando informado). */
+.turn-model {
+  align-self: center;
+  margin: 0 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* Captura de um documento que já não é o aberto: o texto enviado é o capturado. */
+.context-chip.stale {
+  border-color: #c98a1b;
+  background: #fff8ea;
+}
+.context-chip.stale .context-chip-title small {
+  color: #7a4d00;
 }

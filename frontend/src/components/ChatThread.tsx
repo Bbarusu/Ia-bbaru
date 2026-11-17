@@ -10,6 +10,7 @@ import {
   formatFinishReason,
   formatOutputLimit,
   readableAnswer,
+  shortModelName,
   taskState,
 } from "../logic.mjs";
 import type { Model, Task } from "../types";
@@ -149,6 +150,21 @@ function TurnConsent({
         </p>
       )}
     </div>
+  );
+}
+
+/** Modelo junto à resposta: o servido pela CLI quando o contrato informa; senão, o pedido. */
+function TurnModel({ task, models }: { task: Task; models: Model[] }) {
+  const result = task.results?.[task.results.length - 1];
+  const requested = models.find((m) => m.id === (result?.model_id || task.plan?.[0]?.model_id));
+  const name = shortModelName(requested);
+  return (
+    <span
+      className="turn-model"
+      title={result?.served_model ? "Modelo informado pela CLI" : "Modelo pedido; a CLI não informou o modelo servido"}
+    >
+      {result?.served_model ? `${name} · ${result.served_model}` : name}
+    </span>
   );
 }
 
@@ -369,6 +385,7 @@ export function ChatThread({
                   ))}
 
                 <div className="turn-actions">
+                  {answer && <TurnModel task={task} models={models} />}
                   {answer && (
                     <button
                       type="button"

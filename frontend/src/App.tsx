@@ -927,34 +927,29 @@ export default function App() {
     !sendOpen &&
     !pendingSend;
   const canAttachSelection = Boolean(localBridge);
-  // Sugestões: com o navegador, anexam o trecho selecionado na aba (o app ainda
-  // não lê a página inteira); sem ele, só preenchem o campo.
-  const startWith = (prompt: string) => () => {
-    if (canAttachSelection && !chatCapture) attachSelection();
+  // Sugestões: no navegador, anexam a página ou a seleção da aba (ação explícita,
+  // nada é enviado); fora dele, só preenchem o campo.
+  const startWith = (prompt: string, attach?: () => void) => () => {
+    if (canAttachSelection && !chatCapture) attach?.();
     changeText(prompt);
     inputRef.current?.focus();
   };
-  const P_SUMMARY = canAttachSelection
-    ? "Resuma este trecho em tópicos claros."
-    : "Resuma em tópicos claros o texto a seguir:\n";
-  const P_POINTS = canAttachSelection
-    ? "Identifique os principais argumentos e conclusões deste trecho."
-    : "Identifique os principais argumentos e conclusões do texto a seguir:\n";
-  const P_TERMS = canAttachSelection
-    ? "Explique os termos mais difíceis deste trecho em linguagem simples."
-    : "Explique em linguagem simples: ";
-  const P_QUESTIONS = canAttachSelection
-    ? "Crie perguntas de estudo sobre este trecho."
-    : "Crie perguntas de estudo sobre: ";
-  const starters = [
-    { label: "Resumir a seleção", hint: canAttachSelection ? "Anexa o trecho selecionado na aba" : "Cole o texto depois dos dois-pontos", run: startWith(P_SUMMARY) },
-    { label: "Principais pontos", hint: "Argumentos e conclusões centrais", run: startWith(P_POINTS) },
-    { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith(P_TERMS) },
-    { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith(P_QUESTIONS) },
-  ];
+  const starters = canAttachSelection
+    ? [
+        { label: "Resumir página", hint: "Anexa o texto visível da aba atual", run: startWith("Resuma esta página em tópicos claros.", attachPage) },
+        { label: "Explicar seleção", hint: "Anexa o trecho selecionado na aba", run: startWith("Explique este trecho em linguagem simples.", attachSelection) },
+        { label: "Principais pontos", hint: "Anexa a página: argumentos e conclusões", run: startWith("Identifique os principais argumentos e conclusões desta página.", attachPage) },
+        { label: "Questões de estudo", hint: "Anexa a página: perguntas para fixar", run: startWith("Crie perguntas de estudo sobre esta página.", attachPage) },
+      ]
+    : [
+        { label: "Resumir texto", hint: "Cole o texto depois dos dois-pontos", run: startWith("Resuma em tópicos claros o texto a seguir:\n") },
+        { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith("Explique em linguagem simples: ") },
+        { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith("Crie perguntas de estudo sobre: ") },
+      ];
   const welcomeText = canAttachSelection
-    ? "Pergunte sobre um trecho da página, explore conceitos ou converse com Claude."
+    ? "Pergunte sobre a página aberta ou um trecho dela, explore conceitos ou converse com Claude."
     : "Explore conceitos ou converse com Claude.";
+  const fableChosen = chatModelIds.some((id) => /fable/i.test(id));
   const pendingTitles = [
     ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
     ...sources.filter((source) => selectedSources.includes(source.id)).map((source) => source.title),
@@ -987,6 +982,12 @@ export default function App() {
         <p className="consent-note">
           O Claude pode ultrapassar a saída solicitada. Encerrar o processo local
           não garante interrupção no provedor nem devolução de cota.
+        </p>
+      )}
+      {fableChosen && (
+        <p className="consent-note">
+          Fable pode exigir créditos de uso adicionais na sua conta. Não há troca automática de
+          modelo se ele for recusado.
         </p>
       )}
       <label className="consent-check">
@@ -1255,7 +1256,7 @@ export default function App() {
                   disabled={!conversationCreated || Boolean(pendingSend)}
                   title="Começa outra conversa; esta continua guardada na lista"
                 >
-                  <SquarePen size={14} aria-hidden="true" /> Nova conversa
+                  <SquarePen size={14} aria-hidden="true" /> Novo chat
                 </button>
               )}
             </div>
@@ -1418,6 +1419,7 @@ export default function App() {
                   capture={chatCapture}
                   captureStale={captureIsStale(chatCapture, pageStatus)}
                   attachPage={attachPage}
+                  imagesSupported={canSeeImages}
                   removeCapture={removeChatCapture}
                   selectedSourcesCount={selectedSources.length}
                   clearSelectedSources={() => setSelectedSources([])}
