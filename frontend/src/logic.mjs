@@ -420,6 +420,9 @@ export function captureSnapshot(capture) {
     url: capture.url || null,
     document_id: capture.document_id || null,
     captured_at: capture.captured_at || null,
+    // Metadados aditivos da Frente 2 (opcionais no TextSnapshot).
+    ...(capture.tab_id ? { tab_id: capture.tab_id } : {}),
+    ...(Number.isInteger(capture.documentVersion) ? { documentVersion: capture.documentVersion } : {}),
   };
 }
 

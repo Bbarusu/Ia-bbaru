@@ -486,7 +486,6 @@ $("home").onclick = () => command("navigate", "");
 
 $("reopen-tab").onclick = () => command("reopen");
 $("minimize").onclick = () => command("minimize");
-// shortcut: "maximize" ainda não existe no runtime (W1); a resposta do runtime aparece como aviso.
 $("maximize").onclick = () => command("maximize");
 $("downloads-open").onclick = () => openPanelArea("downloads");
 $("settings-open").onclick = () => openPanelArea("settings");

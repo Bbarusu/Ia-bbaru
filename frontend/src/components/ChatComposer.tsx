@@ -36,6 +36,7 @@ interface ChatComposerProps {
   capture: Capture | null;
   captureStale: boolean;
   attachPage: () => void;
+  attachPageVisual: () => void;
   imagesSupported: boolean;
   removeCapture: () => void;
   selectedSourcesCount: number;
@@ -64,6 +65,7 @@ export function ChatComposer({
   capture,
   captureStale,
   attachPage,
+  attachPageVisual,
   imagesSupported,
   removeCapture,
   selectedSourcesCount,
@@ -190,6 +192,13 @@ export function ChatComposer({
                     <span>
                       Usar página atual
                       <small>Texto visível da aba, até 38.000 caracteres</small>
+                    </span>
+                  </button>
+                  <button type="button" onClick={choose(attachPageVisual)}>
+                    <ImageIcon size={14} aria-hidden="true" />
+                    <span>
+                      Print da página inteira
+                      <small>{imageNote}</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(attachSelection)}>

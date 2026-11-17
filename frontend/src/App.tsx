@@ -155,6 +155,8 @@ export default function App() {
   textRef.current = text;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wantsChatCapture = useRef(false);
+  // Print da página inteira pedido pelo compositor: depois de salvo, volta ao chat selecionado.
+  const wantsChatVisual = useRef(false);
   // Painel lateral (até 700 px): um topo só, no formato da proposta aprovada.
   const [narrow, setNarrow] = useState(
     () => window.matchMedia?.("(max-width: 700px)").matches ?? false,
@@ -608,8 +610,14 @@ export default function App() {
           { ...source, preview: body.slice(0, 160), char_count: body.length },
         ]);
         setSelectedSources((old) =>
-          old.length < 20 && !source.media ? [...old, source.id] : old,
+          old.length < 20 && (!source.media || (wantsChatVisual.current && canSeeImages))
+            ? [...old, source.id]
+            : old,
         );
+        if (wantsChatVisual.current) {
+          wantsChatVisual.current = false;
+          setTab("workspace");
+        }
       }
       if (reviewedCapture) {
         await clearCapture(reviewedCapture.id);
@@ -691,6 +699,23 @@ export default function App() {
   }
   const attachSelection = () => captureForChat(selectCapture);
   const attachPage = () => captureForChat(capturePage);
+  // capture.page.visual chega como captura de mídia: revisa e salva no projeto (V6).
+  function attachPageVisual() {
+    setError("");
+    wantsChatVisual.current = true;
+    localBridge?.runtime
+      .sendMessage({ type: "capture.page.visual" })
+      .then((result: { ok: boolean; error?: { message?: string } }) => {
+        if (!result?.ok) {
+          wantsChatVisual.current = false;
+          setError(result?.error?.message || "Não foi possível capturar a página inteira.");
+        }
+      })
+      .catch((e: Error) => {
+        wantsChatVisual.current = false;
+        setError(e.message);
+      });
+  }
 
   function acceptIncomingCapture() {
     const next = incomingCapture;
@@ -1493,6 +1518,7 @@ export default function App() {
                   capture={chatCapture}
                   captureStale={captureIsStale(chatCapture, pageStatus)}
                   attachPage={attachPage}
+                  attachPageVisual={attachPageVisual}
                   imagesSupported={canSeeImages}
                   removeCapture={removeChatCapture}
                   selectedSourcesCount={selectedSources.length}
@@ -1618,6 +1644,7 @@ export default function App() {
           online={online}
           error={error}
           initialMode={sourceMode}
+          imagesSupported={canSeeImages}
         />
       )}
 

@@ -387,6 +387,10 @@ test("conversa: captura vira snapshot de texto; imagem não; contexto antigo é 
   assert.deepEqual(captureSnapshot(cap), { capture_id: "k", kind: "page", title: "Aula", content: "corpo",
     url: "https://e.org/a", document_id: "1:2", captured_at: "2026-11-16T10:00:00Z" });
   assert.equal(captureSnapshot({ ...cap, kind: undefined }).kind, "selection");
+  const typed = captureSnapshot({ ...cap, tab_id: "t-1", documentVersion: 0, extra: "x" });
+  assert.equal(typed.tab_id, "t-1");
+  assert.equal(typed.documentVersion, 0);
+  assert.equal("extra" in typed, false, "só campos tipados");
   assert.equal(captureSnapshot({ ...cap, media: { kind: "image" } }), null);
   assert.equal(captureSnapshot({ ...cap, text: "  " }), null);
   assert.equal(captureIsStale(cap, { document_id: "1:2" }), false);

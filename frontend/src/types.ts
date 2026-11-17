@@ -79,6 +79,7 @@ export type Task = {
 export type Capture = {
   id: string; title: string; url: string; text: string; media?: Media;
   kind?: string; document_id?: string | null; captured_at?: string;
+  tab_id?: string | null; documentVersion?: number | null;
 };
 export type PageStatus = { document_id: string | null; url: string | null; title: string; capture_is_current: boolean };
 

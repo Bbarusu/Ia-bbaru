@@ -30,6 +30,7 @@ interface SourceModalProps {
   online: boolean;
   error?: string;
   initialMode?: CaptureMediaKind;
+  imagesSupported?: boolean;
 }
 
 async function compressImageToDataUrl(file: File): Promise<{ dataUrl: string; width: number; height: number }> {
@@ -85,6 +86,7 @@ export function SourceModal({
   online,
   error,
   initialMode = "text",
+  imagesSupported = false,
 }: SourceModalProps) {
   const [mode, setMode] = useState<CaptureMediaKind>(capture?.media?.kind || initialMode);
   const [mediaPreview, setMediaPreview] = useState<string>(capture?.media?.data_url || "");
@@ -254,7 +256,19 @@ export function SourceModal({
           </div>
         )}
 
-        {mediaPreview && <p className="small-note">A prévia será armazenada localmente, separada do texto. Os agentes atuais não recebem imagens. Para consultar seu conteúdo, adicione uma descrição em um material de texto.</p>}
+        {mediaPreview && capture?.text?.startsWith("Print da página inteira") && (
+          <p className="small-note">
+            Página inteira inclui o que está fora da área visível. PDFs, iframes e conteúdo que só
+            carrega ao rolar podem não aparecer.
+          </p>
+        )}
+        {mediaPreview && (
+          <p className="small-note">
+            {imagesSupported
+              ? "A imagem fica guardada no projeto. Para ir ao Claude, ela fica selecionada e o envio pede sua confirmação (leitura de imagens experimental)."
+              : "A imagem fica guardada no projeto, separada do texto. O modelo escolhido não analisa imagens."}
+          </p>
+        )}
         <label>
           Projeto
           <select

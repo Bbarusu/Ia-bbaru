@@ -98,7 +98,7 @@ que o runtime ainda recusa. Identificador = atributo `data-codex`.
 
 | `data-codex` | Onde | O que falta no runtime |
 | --- | --- | --- |
-| `window.maximize` | Bolinha verde da barra (`#maximize`, `desktop/ui/index.html`) | Comando `maximize` em `browser:command` (alternar maximizar/restaurar). Hoje volta “Ação não disponível.” |
+| ~~`window.maximize`~~ | Bolinha verde (`#maximize`) | **Entregue** pelo Codex (`maximize`) e ligada na barra em 17/11 |
 | — | Bolinhas da barra | Janela sem a barra do sistema (`titleBarStyle`/`frame` + área arrastável), para as bolinhas substituírem os botões do Windows (W1) |
 | `settings.startup` | Ajustes → Geral → “Ao abrir o Yuki” | Restaurar abas da última sessão (N5) |
 | `settings.newTab` | Ajustes → Geral → “Novas abas abrem com” | Página da nova aba configurável (N5) |
@@ -111,3 +111,17 @@ que o runtime ainda recusa. Identificador = atributo `data-codex`.
 
 Quando um item do runtime existir, o Claude de interface liga o controle e tira o
 “Em integração”; o desenho já está no lugar.
+
+### Ligado depois da resposta do Codex (RESPOSTA_VISAO_E_NAVEGADOR.md)
+
+- Bolinha verde → `navigatorApp.command("maximize")` (alterna maximizar/restaurar).
+- “+” do compositor → “Print da página inteira” (`capture.page.visual`): abre a
+  revisão da biblioteca com o aviso de que a página inteira inclui o que está fora
+  da área visível e pode não ter PDFs, iframes ou conteúdo carregado ao rolar.
+  Depois de salvo, volta ao chat; se o modelo escolhido declarar imagem (1.2), a
+  imagem já fica selecionada e o envio pede o aceite visual. Sem envio direto no
+  turno nem várias imagens (V2/V3 pendentes).
+- Snapshots enviam também `tab_id` e `documentVersion`, só os campos tipados.
+- Erros novos (`source_snapshot_conflict`, `context_too_large`,
+  `no_model_fits_context`) são recusas definitivas: o texto volta ao campo, sem
+  outro `turn_id` automático.

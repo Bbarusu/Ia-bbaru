@@ -719,6 +719,10 @@ async function main() {
     });
     const stale = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.read" }));
     assert.equal(stale, null);
+    // As capturas acima foram limpas pelo IPC; a revisão aberta no painel é fechada pela pessoa.
+    await expect(workspace.getByRole("dialog")).toBeVisible();
+    await workspace.getByRole("dialog").getByRole("button", { name: "Fechar", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
     assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
     assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
     const resized = await shell.evaluate(() => window.navigatorApp.command("panel.resize", 520));
@@ -736,7 +740,6 @@ async function main() {
     await workspace.getByLabel("Mostrar abaixo do endereço").uncheck();
     await expect(shell.locator("#bookmarks")).toBeHidden();
     await workspace.getByLabel("Mostrar abaixo do endereço").check();
-    await expect(shell.locator("#maximize")).toHaveAttribute("data-codex", "window.maximize");
     await openArea(workspace, "Chat");
     const versions = await app.evaluate(() => process.versions);
     const generatedBeforeRestart = generations.length;
