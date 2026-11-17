@@ -221,13 +221,14 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
   }
 
   if (activeSubbarMode === "width") {
-    // panel.resize aceita 320–800 px; o runtime ainda limita a 65% da janela.
+    // panel.resize aceita 320–800 px; acima de 700 o painel troca para o layout amplo
+    // (com menu lateral), então o controle para em 700. O runtime ainda limita a 65% da janela.
     const label = document.createElement("label");
     label.className = "tool-label";
     const input = document.createElement("input");
     input.type = "range";
     input.min = "320";
-    input.max = "800";
+    input.max = "700";
     input.step = "20";
     input.value = String(panelWidth);
     input.disabled = !state?.panel || state?.expanded;
