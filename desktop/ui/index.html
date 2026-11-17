@@ -39,40 +39,12 @@
         <button id="new" type="button" title="Nova aba (Ctrl+T)" aria-label="Nova aba">
           ＋
         </button>
+        <!-- Bolinhas no estilo do Safari, à direita. Ações marcadas com data-codex
+             dependem do runtime (docs/PEDIDO_VISAO_E_NAVEGADOR.md, W1). -->
         <div class="window-actions" role="group" aria-label="Controle da janela">
-          <button
-            id="minimize"
-            type="button"
-            class="win-circle"
-            title="Minimizar janela"
-            aria-label="Minimizar janela"
-          >
-            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-              <path
-                d="M6 12h12"
-                stroke="currentColor"
-                stroke-width="1.65"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-          <button
-            id="power"
-            type="button"
-            class="win-circle power"
-            title="Encerrar o Yuki"
-            aria-label="Encerrar o Yuki"
-          >
-            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-              <path
-                d="M12 3.5v7.5M6.8 6.8a7.5 7.5 0 1 0 10.4 0"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.65"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
+          <button id="power" type="button" class="win-dot close" title="Fechar o Yuki" aria-label="Fechar o Yuki"></button>
+          <button id="minimize" type="button" class="win-dot min" title="Minimizar janela" aria-label="Minimizar janela"></button>
+          <button id="maximize" type="button" class="win-dot max" data-codex="window.maximize" title="Ampliar janela" aria-label="Ampliar janela"></button>
         </div>
       </div>
 
@@ -174,6 +146,8 @@
             <button id="find-toggle" type="button" class="shell-action" title="Buscar nesta página (Ctrl+F)">Buscar na página</button>
             <button id="zoom-toggle" type="button" class="shell-action" aria-label="Zoom da página" title="Ajustar zoom da página">100%</button>
             <button id="width-toggle" type="button" class="shell-action" aria-label="Largura do painel" title="Ajustar a largura do painel do Claude">Largura</button>
+            <button id="downloads-open" type="button" class="shell-action" title="Downloads no painel">Downloads</button>
+            <button id="settings-open" type="button" class="shell-action" title="Ajustes do navegador no painel">Ajustes</button>
             <button id="history-toggle" type="button" class="shell-action" title="Histórico de navegação">Histórico</button>
             <button id="home" type="button" class="shell-action" aria-label="Página inicial" title="Ir para a página inicial do Yuki">Início</button>
             <button id="reopen-tab" type="button" class="shell-action" title="Reabrir última aba fechada (Ctrl+Shift+T)">Reabrir aba</button>

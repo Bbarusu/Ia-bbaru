@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowUpRight,
   BookOpen,
+  Clock,
+  Download,
+  SlidersHorizontal,
   CheckCircle2,
   Circle,
   FileText,
@@ -80,6 +83,7 @@ import { SourceModal, type CaptureMediaKind } from "./components/SourceModal";
 import { SourceViewModal } from "./components/SourceViewModal";
 import { TaskViewModal } from "./components/TaskViewModal";
 import { GuideModal } from "./components/GuideModal";
+import { DownloadsPage, SettingsPage, WebHistoryPage } from "./components/BrowserPages";
 import { YukiMark } from "./components/YukiMark";
 
 const tabs: { id: Tab; label: string; icon: typeof MessageSquare }[] = [
@@ -87,7 +91,20 @@ const tabs: { id: Tab; label: string; icon: typeof MessageSquare }[] = [
   { id: "library", label: "Biblioteca", icon: BookOpen },
   { id: "history", label: "Atividade", icon: Workflow },
   { id: "connections", label: "Conexões", icon: Settings2 },
+  { id: "web-history", label: "Histórico", icon: Clock },
+  { id: "downloads", label: "Downloads", icon: Download },
+  { id: "settings", label: "Ajustes", icon: SlidersHorizontal },
 ];
+
+// Títulos das áreas fora do chat (mesmo cabeçalho da página ampla).
+const HEADINGS: Partial<Record<Tab, [string, string]>> = {
+  library: ["Sua biblioteca.", "Os materiais que acompanham seu pensamento."],
+  history: ["Cada passo, registrado.", "Conversas, respostas e revisões organizadas por projeto."],
+  connections: ["Tudo começa com uma conexão.", "Veja o que está disponível no seu computador."],
+  "web-history": ["Histórico.", "As páginas que você visitou neste computador."],
+  downloads: ["Downloads.", "Arquivos baixados pelo navegador."],
+  settings: ["Ajustes.", "Como o Yuki abre, mostra e guarda o que você navega."],
+};
 
 const chromiumGuideUrl =
   "https://github.com/Bbarusu/Ia-bbaru/blob/codex/chromium-browser/docs/TESTAR_NAVEGADOR_CHROMIUM.md";
@@ -372,6 +389,20 @@ export default function App() {
 
   useEffect(() => {
     connect();
+  }, []);
+
+  // A barra do navegador pede uma área (Histórico, Downloads, Ajustes) pelo
+  // armazenamento compartilhado; o painel só troca de área, sem enviar nada.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== "yuki:open-area" || !event.newValue) return;
+      try {
+        const area = JSON.parse(event.newValue).area;
+        if (tabs.some((t) => t.id === area)) setTab(area);
+      } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // Abrir ou voltar ao painel leva direto ao campo de mensagem; nada é enviado.
@@ -1244,20 +1275,8 @@ export default function App() {
                 <div className="eyebrow">
                   <span aria-hidden="true" /> SEU ESPAÇO DE TRABALHO
                 </div>
-                <h1>
-                  {tab === "library"
-                    ? "Sua biblioteca."
-                    : tab === "history"
-                      ? "Cada passo, registrado."
-                      : "Tudo começa com uma conexão."}
-                </h1>
-                <p>
-                  {tab === "library"
-                    ? "Os materiais que acompanham seu pensamento."
-                    : tab === "history"
-                      ? "Conversas, respostas e revisões organizadas por projeto."
-                      : "Veja o que está disponível no seu computador."}
-                </p>
+                <h1>{HEADINGS[tab]?.[0]}</h1>
+                <p>{HEADINGS[tab]?.[1]}</p>
               </div>
             </div>
           )}
@@ -1532,6 +1551,10 @@ export default function App() {
               busy={busy}
             />
           )}
+
+          {tab === "web-history" && <WebHistoryPage />}
+          {tab === "downloads" && <DownloadsPage />}
+          {tab === "settings" && <SettingsPage />}
 
           {tab === "connections" && (
             <ConnectionsSection

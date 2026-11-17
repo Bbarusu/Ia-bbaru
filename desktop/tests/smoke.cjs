@@ -699,6 +699,15 @@ async function main() {
     await shell.locator('#subbar-tool input[type="range"]').fill("320");
     await expect.poll(() => workspace.evaluate(() => innerWidth)).toBeLessThan(before);
     await shell.locator("#subbar-tool .tool-close-btn").click();
+    // Ajustes pela barra "⋯": a preferência vale na barra na hora, sem passar pelo runtime.
+    await shellAction("settings-open");
+    await expect(workspace.getByRole("heading", { name: "Ajustes." })).toBeVisible();
+    await workspace.getByRole("button", { name: "Personalização", exact: true }).click();
+    await workspace.getByLabel("Mostrar abaixo do endereço").uncheck();
+    await expect(shell.locator("#bookmarks")).toBeHidden();
+    await workspace.getByLabel("Mostrar abaixo do endereço").check();
+    await expect(shell.locator("#maximize")).toHaveAttribute("data-codex", "window.maximize");
+    await openArea(workspace, "Chat");
     const versions = await app.evaluate(() => process.versions);
     const generatedBeforeRestart = generations.length;
     await app.close();
@@ -743,6 +752,7 @@ async function main() {
             "chat send without modal; nothing saved or generated before consents",
             "1.2 acceptance required per message and persisted",
             "panel width control in shell",
+            "settings page opened from the shell; bookmarks bar preference synced",
             "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",
             "answer shown in the conversation; technical details collapsed",
             "1.2 capability badges in task details dialog (Término informado pelo provedor)",

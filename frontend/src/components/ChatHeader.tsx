@@ -1,6 +1,9 @@
 import {
   BookOpen,
   CircleHelp,
+  Clock,
+  Download,
+  SlidersHorizontal,
   Maximize2,
   MessageSquare,
   MoreHorizontal,
@@ -68,6 +71,11 @@ const AREAS: { id: Tab; label: string; icon: typeof BookOpen }[] = [
   { id: "library", label: "Biblioteca", icon: BookOpen },
   { id: "history", label: "Atividade", icon: Workflow },
   { id: "connections", label: "Conexões", icon: Settings2 },
+];
+const BROWSER: { id: Tab; label: string; icon: typeof BookOpen }[] = [
+  { id: "web-history", label: "Histórico", icon: Clock },
+  { id: "downloads", label: "Downloads", icon: Download },
+  { id: "settings", label: "Ajustes", icon: SlidersHorizontal },
 ];
 
 /** Topo do painel lateral (até 700 px): só ícones, como na referência. */
@@ -148,6 +156,19 @@ export function ChatHeader({
                         {sourceCount} {sourceCount === 1 ? "material" : "materiais"}
                       </small>
                     )}
+                  </button>
+                ))}
+                <hr className="header-menu-divider" />
+                <span className="header-menu-label">Navegador</span>
+                {BROWSER.map(({ id, label, icon: Icon }) => (
+                  <button
+                    type="button"
+                    key={id}
+                    aria-current={tab === id ? "page" : undefined}
+                    onClick={choose(() => setTab(id))}
+                  >
+                    <Icon size={14} aria-hidden="true" />
+                    <span>{label}</span>
                   </button>
                 ))}
                 <hr className="header-menu-divider" />

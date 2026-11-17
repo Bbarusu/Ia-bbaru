@@ -48,22 +48,55 @@ function saveHistory(items) {
 
 let bookmarks = loadBookmarks();
 let visitHistory = loadHistory();
+applyPreferences();
 
 function recordVisit(tab) {
   if (!tab?.url || !/^https?:\/\//i.test(tab.url)) return;
   const entry = {
     title: (tab.title || tab.url).slice(0, 48),
     url: tab.url,
+    at: new Date().toISOString(),
     time: new Date().toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
     }),
   };
-  visitHistory = [
+  visitHistory = pruneHistory([
     entry,
     ...visitHistory.filter((item) => item.url !== tab.url),
-  ].slice(0, 25);
+  ]).slice(0, 25);
   saveHistory(visitHistory);
+}
+
+// Ajustes → Geral: "Remover itens do histórico" (dias; vazio = manualmente).
+function pruneHistory(items) {
+  const days = Number(localStorage.getItem("yuki:history-retention")) || 0;
+  if (!days) return items;
+  const limit = Date.now() - days * 86400000;
+  return items.filter((item) => !item.at || Date.parse(item.at) >= limit);
+}
+
+// O painel (mesma origem file://) edita histórico, favoritos e preferências;
+// o evento storage mantém a barra em dia sem passar pelo runtime.
+function applyPreferences() {
+  document.querySelector(".subbar")?.classList.toggle(
+    "no-bookmarks",
+    localStorage.getItem("yuki:show-bookmarks") === "0",
+  );
+}
+window.addEventListener("storage", (event) => {
+  if (event.key === "yuki:history" || event.key === null) visitHistory = loadHistory();
+  if (event.key === "yuki:bookmarks" || event.key === null) bookmarks = loadBookmarks();
+  applyPreferences();
+  if (state) renderSubbar(state.tabs.find((t) => t.id === state.activeId));
+});
+
+/** Abre uma área do painel (Histórico, Downloads, Ajustes) pelo armazenamento compartilhado. */
+function openPanelArea(area) {
+  try {
+    localStorage.setItem("yuki:open-area", JSON.stringify({ area, at: Date.now() }));
+  } catch {}
+  if (!state?.panel) command("panel");
 }
 
 async function command(action, value) {
@@ -281,6 +314,15 @@ function renderSubbarToolContent(activeTab, mediaKind = "") {
         };
         toolEl.appendChild(link);
       }
+      const allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.className = "context-chip";
+      allBtn.textContent = "Ver tudo";
+      allBtn.onclick = () => {
+        closeSubbarTool();
+        openPanelArea("web-history");
+      };
+      toolEl.appendChild(allBtn);
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
       clearBtn.className = "context-chip";
@@ -444,6 +486,10 @@ $("home").onclick = () => command("navigate", "");
 
 $("reopen-tab").onclick = () => command("reopen");
 $("minimize").onclick = () => command("minimize");
+// shortcut: "maximize" ainda não existe no runtime (W1); a resposta do runtime aparece como aviso.
+$("maximize").onclick = () => command("maximize");
+$("downloads-open").onclick = () => openPanelArea("downloads");
+$("settings-open").onclick = () => openPanelArea("settings");
 
 $("power").onclick = () => {
   window.close();

@@ -76,3 +76,38 @@ funcionais dependem do runtime.
 
 Ordem sugerida: N7 (rótulo) → N1/N2/N5 (base das páginas e histórico) → N3/N4
 (decisões do usuário) → N6. Visão: V4 em paralelo, depois V1–V3 e V5.
+
+## 4. Páginas do navegador no painel — entregue na interface (17/11/2026)
+
+Aprovado pelo usuário: Ajustes, Histórico e Downloads no desenho do Canvas, mais a
+seção Personalização; visão geral das abas e personalização por cima da nova aba
+foram reprovadas. Abertas pelo menu “⋯” do painel (grupo Navegador), pelo menu
+lateral da página ampla e pela barra (“⋯ → Downloads / Ajustes”, “Histórico → Ver
+tudo”). A barra e o painel compartilham o `localStorage` de `file://`; o evento
+`storage` sincroniza os dois sem tocar no runtime.
+
+Já funcionam: lista, busca, apagar item e limpar o histórico (entradas novas
+guardam `at`); prazo “Remover itens do histórico” (aplicado pelo painel e pela
+barra); mostrar/ocultar a barra de favoritos; remover favoritos; abrir item do
+histórico em nova aba (`window.open` → `newTab`).
+
+### Botões e controles para o Codex preencher
+
+Todos estão na interface, desativados com “Em integração” ou ligados a um comando
+que o runtime ainda recusa. Identificador = atributo `data-codex`.
+
+| `data-codex` | Onde | O que falta no runtime |
+| --- | --- | --- |
+| `window.maximize` | Bolinha verde da barra (`#maximize`, `desktop/ui/index.html`) | Comando `maximize` em `browser:command` (alternar maximizar/restaurar). Hoje volta “Ação não disponível.” |
+| — | Bolinhas da barra | Janela sem a barra do sistema (`titleBarStyle`/`frame` + área arrastável), para as bolinhas substituírem os botões do Windows (W1) |
+| `settings.startup` | Ajustes → Geral → “Ao abrir o Yuki” | Restaurar abas da última sessão (N5) |
+| `settings.newTab` | Ajustes → Geral → “Novas abas abrem com” | Página da nova aba configurável (N5) |
+| `settings.downloadFolder` | Ajustes → Geral → “Pasta dos downloads” | Política e pasta de downloads (N3) |
+| `settings.newTabBackground` | Ajustes → Personalização → “Fundo da nova aba” | A nova aba (`home.html`, partição `persist:web`) precisa ler a preferência (N5) |
+| `settings.newTabSections` | Ajustes → Personalização → “Na nova aba, mostrar” | Idem (N5) |
+| `privacy.clearSiteData` | Ajustes → Privacidade → “Limpar dados de sites…” | `session.fromPartition("persist:web").clearStorageData` com confirmação (N5) |
+| `extensions.loadUnpacked` | Ajustes → Extensões | Decisão do usuário e API de extensões (N4) |
+| `downloads.clear` | Downloads → “Limpar” | Lista de downloads, progresso, “Mostrar na pasta” e “Cancelar” (N3) |
+
+Quando um item do runtime existir, o Claude de interface liga o controle e tira o
+“Em integração”; o desenho já está no lugar.

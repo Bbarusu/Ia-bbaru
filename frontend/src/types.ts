@@ -98,7 +98,14 @@ export type PendingSend = {
   titles: string[];
 };
 export type Page<T> = { items: T[]; next_offset: number | null };
-export type Tab = "workspace" | "library" | "history" | "connections";
+export type Tab =
+  | "workspace"
+  | "library"
+  | "history"
+  | "connections"
+  | "web-history"
+  | "downloads"
+  | "settings";
 
 declare global {
   interface Window {
