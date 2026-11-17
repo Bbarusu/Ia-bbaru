@@ -9,7 +9,7 @@ import {
   SquarePen,
   Workflow,
 } from "lucide-react";
-import type { Tab } from "../types";
+import type { Conversation, Tab } from "../types";
 import { Menu } from "./Menu";
 
 interface ChatHeaderProps {
@@ -24,6 +24,43 @@ interface ChatHeaderProps {
   canExpand: boolean;
   expand: () => void;
   sourceCount: number;
+  conversations: Conversation[];
+  conversationId: string;
+  switchConversation: (id: string) => void;
+  canSwitch: boolean;
+}
+
+/** Conversas recentes como itens de menu (sem seletor fixo no topo, como na referência). */
+export function ConversationItems({
+  conversations,
+  conversationId,
+  pick,
+  disabled,
+}: {
+  conversations: Conversation[];
+  conversationId: string;
+  pick: (id: string) => void;
+  disabled: boolean;
+}) {
+  if (!conversations.length) return null;
+  return (
+    <>
+      <span className="header-menu-label">Conversas recentes</span>
+      {conversations.slice(0, 6).map((c) => (
+        <button
+          type="button"
+          key={c.id}
+          disabled={disabled}
+          aria-current={c.id === conversationId ? "true" : undefined}
+          title={c.title}
+          onClick={() => pick(c.id)}
+        >
+          <MessageSquare size={14} aria-hidden="true" />
+          <span className="conversation-item-title">{c.title}</span>
+        </button>
+      ))}
+    </>
+  );
 }
 
 const AREAS: { id: Tab; label: string; icon: typeof BookOpen }[] = [
@@ -46,6 +83,10 @@ export function ChatHeader({
   canExpand,
   expand,
   sourceCount,
+  conversations,
+  conversationId,
+  switchConversation,
+  canSwitch,
 }: ChatHeaderProps) {
   return (
     <header className="chat-header">
@@ -81,7 +122,7 @@ export function ChatHeader({
 
         <Menu
           label="Mais opções"
-          title="Biblioteca, atividade e conexões"
+          title="Conversas, biblioteca, atividade e conexões"
           triggerClass="header-icon"
           menuClass="header-menu"
           trigger={<MoreHorizontal size={16} aria-hidden="true" />}
@@ -110,6 +151,17 @@ export function ChatHeader({
                   </button>
                 ))}
                 <hr className="header-menu-divider" />
+                <ConversationItems
+                  conversations={conversations}
+                  conversationId={conversationId}
+                  disabled={!canSwitch}
+                  pick={(id) => {
+                    close();
+                    setTab("workspace");
+                    switchConversation(id);
+                  }}
+                />
+                {conversations.length > 0 && <hr className="header-menu-divider" />}
                 <button type="button" onClick={choose(openProject)}>
                   <Plus size={14} aria-hidden="true" />
                   <span>Novo projeto</span>

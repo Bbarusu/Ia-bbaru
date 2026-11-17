@@ -70,7 +70,8 @@ import { MobileNav } from "./components/MobileNav";
 import { ProjectSwitch } from "./components/ProjectSwitch";
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatThread } from "./components/ChatThread";
-import { ChatHeader } from "./components/ChatHeader";
+import { ChatHeader, ConversationItems } from "./components/ChatHeader";
+import { Menu } from "./components/Menu";
 import { LibrarySection } from "./components/LibrarySection";
 import { HistorySection } from "./components/HistorySection";
 import { ConnectionsSection } from "./components/ConnectionsSection";
@@ -965,7 +966,7 @@ export default function App() {
       <strong>Enviar ao Claude?</strong>
       <p>
         Sua pergunta, o histórico desta conversa e o contexto anexado vão para o Claude e usam a
-        cota da sua assinatura. Teto indicativo de {CHAT_MAX_OUTPUT_TOKENS.toLocaleString("pt-BR")} tokens.
+        cota da sua assinatura.
       </p>
       {needsLimitAcceptance && (
         <label className="consent-check">
@@ -999,7 +1000,14 @@ export default function App() {
         />
         <span>Autorizo executar esta tarefa com minha conta</span>
       </label>
-      <label className="consent-check">
+      <label
+        className="consent-check"
+        title={
+          review
+            ? "Com revisão, cada mensagem pede confirmação."
+            : `Vale só para esta conversa, estes modelos e o teto de ${CHAT_MAX_OUTPUT_TOKENS.toLocaleString("pt-BR")} tokens. Dá para revogar a qualquer momento; revogar não interrompe uma resposta já enviada.`
+        }
+      >
         <input
           type="checkbox"
           checked={rememberConsent && !review}
@@ -1008,11 +1016,6 @@ export default function App() {
         />
         <span>Não perguntar de novo nesta conversa</span>
       </label>
-      <p className="consent-note">
-        {review
-          ? "Com revisão, cada mensagem pede confirmação."
-          : "Vale só para esta conversa, estes modelos e este teto. Você pode revogar a qualquer momento; revogar não interrompe uma resposta já enviada."}
-      </p>
 
       {imageSources.length > 0 &&
         (canSeeImages && imageSources.length === 1 ? (
@@ -1122,25 +1125,6 @@ export default function App() {
       )}
     </div>
   );
-  const conversationPicker = (
-    <label className="conversation-picker" title="Conversas guardadas no backend local">
-      <select
-        aria-label="Conversa"
-        value={conversationId}
-        disabled={!online || busy || Boolean(pendingSend)}
-        onChange={(event) => switchConversation(event.target.value)}
-      >
-        {!conversations.some((c) => c.id === conversationId) && (
-          <option value={conversationId}>Nova conversa</option>
-        )}
-        {conversations.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.title}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
   const consentChip = consent && (
     <span
       className="consent-chip"
@@ -1184,6 +1168,10 @@ export default function App() {
               canExpand={inDesktop}
               expand={expand}
               sourceCount={sources.length}
+              conversations={conversations}
+              conversationId={conversationId}
+              switchConversation={switchConversation}
+              canSwitch={online && !busy && !pendingSend}
             />
             {demo && (
               <div className="demo-banner" role="note">
@@ -1244,11 +1232,29 @@ export default function App() {
             </div>
           )}
 
-          {isChat && (
+          {isChat && !narrow && (
             <div className="chat-bar">
-              {conversationPicker}
-              {consentChip}
-              {!narrow && (
+              {conversations.length > 0 && (
+                <Menu
+                  label="Conversas"
+                  triggerClass="subtle"
+                  menuClass="header-menu"
+                  trigger={<>Conversas</>}
+                >
+                  {(close) => (
+                    <ConversationItems
+                      conversations={conversations}
+                      conversationId={conversationId}
+                      disabled={!online || busy || Boolean(pendingSend)}
+                      pick={(id) => {
+                        close();
+                        switchConversation(id);
+                      }}
+                    />
+                  )}
+                </Menu>
+              )}
+              {(
                 <button
                   type="button"
                   className="subtle"
@@ -1396,6 +1402,7 @@ export default function App() {
               />
 
               <div className="chat-dock">
+                {consentChip}
                 <ChatComposer
                   inputRef={inputRef}
                   text={sendOpen || pendingSend ? "" : text}

@@ -156,7 +156,7 @@ export function ChatComposer({
           rows={1}
           placeholder={
             hasEarlierTurns
-              ? "Nova pergunta (o Claude não vê as mensagens anteriores)"
+              ? "Continue a conversa"
               : "Pergunte ao Claude"
           }
           value={text}
