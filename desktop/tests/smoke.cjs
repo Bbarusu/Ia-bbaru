@@ -388,11 +388,43 @@ async function main() {
     assert.ok(JSON.stringify(generations[1]).includes("Explique este material em uma frase."), "history reaches the gateway");
     await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toBeVisible();
     await expect(answers).toHaveCount(2, { timeout: 15000 });
+    // Simulate a server error AFTER the durable turn was accepted. Test-only
+    // wrapping of Electron's registered handler; no production injection hook.
+    await app.evaluate(({ ipcMain }) => {
+      const handler = ipcMain._invokeHandlers.get("workspace:message");
+      let dropped = false, queried = false, lostTurn;
+      ipcMain.removeHandler("workspace:message");
+      ipcMain.handle("workspace:message", async (event, msg) => {
+        if (dropped && !queried && msg?.request?.operation === "conversations.turns.get" && msg.request.params.turn_id === lostTurn) {
+          queried = true;
+          return { protocol_version: "0", request_id: msg.request.request_id,
+            ok: false, error: { code: "http_404", message: "Synthetic not-yet-visible turn" } };
+        }
+        const result = await handler(event, msg);
+        if (!dropped && msg?.request?.operation === "conversations.turns.send" && result.ok) {
+          dropped = true;
+          lostTurn = msg.request.params.turn.turn_id;
+          return { protocol_version: "0", request_id: msg.request.request_id,
+            ok: false, error: { code: "http_500", message: "Synthetic lost response" } };
+        }
+        return result;
+      });
+    });
     await workspace.locator("#instruction").fill("Terceira mensagem");
     await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
     await expect(confirmSend).toHaveCount(0);
     await expect.poll(() => generations.length).toBe(3);
+    await expect(workspace.getByText("Não recebemos a confirmação do envio.")).toBeVisible();
+    const lostSend = await workspace.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send")));
+    assert.equal(lostSend.turn.instruction, "Terceira mensagem");
+    await workspace.getByRole("button", { name: "Consultar estado", exact: true }).click();
+    await expect(workspace.getByText("O envio ainda não foi encontrado.")).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Editar o texto", exact: true })).toHaveCount(0);
+    assert.deepEqual(await workspace.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send"))), lostSend);
+    await workspace.getByRole("button", { name: "Reenviar o mesmo pedido", exact: true }).click();
     await expect(answers).toHaveCount(3, { timeout: 15000 });
+    assert.equal(generations.length, 3, "replay of accepted turn never generates twice");
+    assert.equal(await workspace.evaluate(() => localStorage.getItem("yuki:pending-send")), null);
     await workspace.getByRole("button", { name: "Revogar", exact: true }).click();
     await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toHaveCount(0);
     await workspace.locator("#instruction").fill("Quarta mensagem");
@@ -743,6 +775,8 @@ async function main() {
     await openArea(workspace, "Chat");
     const versions = await app.evaluate(() => process.versions);
     const generatedBeforeRestart = generations.length;
+    // Restore an unresolved send, as if the process exited before its response arrived.
+    await workspace.evaluate((pending) => localStorage.setItem("yuki:pending-send", JSON.stringify(pending)), lostSend);
     await app.close();
     app = null;
     app = await launch();
@@ -752,9 +786,14 @@ async function main() {
     ).toBeVisible({ timeout: 30000 });
     // A conversa ativa volta do backend depois de reiniciar, sem gerar nada.
     await expect(
-      reopened.getByRole("log", { name: "Conversa com o Claude" }).getByText("Terceira mensagem", { exact: true }),
+      reopened.getByRole("log", { name: "Conversa com o Claude" }).locator(".chat-turn:not(.pending-turn)").getByText("Terceira mensagem", { exact: true }),
     ).toBeVisible({ timeout: 15000 });
     assert.equal(generations.length, generatedBeforeRestart, "reopening does not generate");
+    await expect(reopened.getByRole("button", { name: "Consultar estado", exact: true })).toBeVisible();
+    assert.deepEqual(await reopened.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send"))), lostSend);
+    await reopened.getByRole("button", { name: "Consultar estado", exact: true }).click();
+    await expect.poll(() => reopened.evaluate(() => localStorage.getItem("yuki:pending-send"))).toBe(null);
+    assert.equal(generations.length, generatedBeforeRestart, "consulting an unresolved turn never generates");
     assert.equal((await readChat(reopened)).data.task.status, "completed");
     const persisted = await reopened.evaluate(() =>
       window.iaDesktop.runtime.sendMessage({

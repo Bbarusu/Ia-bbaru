@@ -504,7 +504,7 @@ export function buildConsent({ modelIds, acceptedLimit = false, visual = false }
  */
 export function sendOutcomeUnknown(error) {
   const code = error?.code;
-  return !code || ["outcome_unknown", "backend_unavailable", "conversation_changed"].includes(code);
+  return !code || /^http_5\d\d$/.test(code) || ["outcome_unknown", "backend_unavailable", "conversation_changed"].includes(code);
 }
 
 /** Recusa do aceite da conversa: pede novo aceite, sem reenviar sozinho. */

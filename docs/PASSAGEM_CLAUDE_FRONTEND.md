@@ -1,5 +1,10 @@
 # Passagem do frontend — chat lateral (Claude, interface)
 
+**Integração Codex em 17/11:** fast-forward até 629254c, sem conflito. Ajustes
+de recuperação impedem novo UUID após HTTP 5xx ou consulta 404; smoke testa
+perda/replay/restauração pendente. Contagens atuais e Windows em STATUS.md.
+Registros históricos abaixo preservados.
+
 Registro de 12/11/2026. Responsável: Claude (interface), conforme atribuição
 explícita do usuário para `frontend/` e `desktop/ui/`. Base: `codex/browser-capture-clis`
 em 4e6679e. Branch de entrega: `claude/friendly-curie-pxw81w`.

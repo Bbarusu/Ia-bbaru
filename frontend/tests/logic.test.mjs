@@ -401,6 +401,9 @@ test("conversa: captura vira snapshot de texto; imagem não; contexto antigo é 
 test("conversa: envio perdido só consulta/reenvia o mesmo turno; recusa de aceite pede novo aceite", () => {
   assert.equal(sendOutcomeUnknown(new Error("ipc")), true);
   assert.equal(sendOutcomeUnknown({ code: "outcome_unknown" }), true);
+  for (const code of ["http_500", "http_502", "http_503", "http_504"])
+    assert.equal(sendOutcomeUnknown({ code }), true);
+  assert.equal(sendOutcomeUnknown({ code: "http_422" }), false);
   assert.equal(sendOutcomeUnknown({ code: "conversation_changed" }), true);
   assert.equal(sendOutcomeUnknown({ code: "conversation_busy" }), false);
   assert.equal(sendOutcomeUnknown({ code: "context_too_large" }), false);
