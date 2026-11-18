@@ -12,6 +12,7 @@ from pydantic import Field, field_validator
 from .contracts import ContextItem, ModelCatalog, StrictModel
 from .contracts_v1_1 import ModelCatalogV11
 from .contracts_v1_2 import ModelCatalogV12
+from .contracts_v1_3 import ModelCatalogV13
 from .protocols import REQUESTS
 from .capabilities import preflight_error
 from .gateway import GatewayUnavailable, HttpGateway
@@ -95,7 +96,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
     def health():
         return {"status": "ok", "version": "0.2.0", "task_execution": bool(worker)}
 
-    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11 | ModelCatalogV12, dependencies=protected)
+    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11 | ModelCatalogV12 | ModelCatalogV13, dependencies=protected)
     def models():
         try:
             return gateway.catalog()
@@ -274,7 +275,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             version = task.get("gateway_protocol_version", "1")
             if version != "1":
                 request_fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
-            if version == "1.2":
+            if version in {"1.2", "1.3"}:
                 try:
                     request_fields.update(attachments=dispatch_attachments(store, task), allow_visual_input=task.get("allow_visual_input", False))
                 except ValueError:

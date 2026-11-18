@@ -443,7 +443,7 @@ export function consentCovers(consent, { modelIds, maxOutputTokens = CHAT_MAX_OU
 
 /** Visão só aparece quando o catálogo 1.2 declara imagem para todos os modelos autorizados. */
 export function visionAvailable(models, modelIds, catalogVersion) {
-  if (catalogVersion !== "1.2" || !Array.isArray(modelIds) || !modelIds.length) return false;
+  if (!["1.2", "1.3"].includes(catalogVersion) || !Array.isArray(modelIds) || !modelIds.length) return false;
   return modelIds.every((id) => {
     const model = (models || []).find((m) => m.id === id);
     return model?.input?.image?.supported === true;
@@ -465,6 +465,7 @@ export function buildTurn({
   sourceIds = /** @type {string[]} */ ([]),
   snapshots = /** @type {any[]} */ ([]),
   visual = false,
+  attachments = /** @type {any[]} */ ([]),
 }) {
   const explicit = choice && choice !== "auto" && !isResponseProfile(choice);
   const turn = {
@@ -477,6 +478,7 @@ export function buildTurn({
     allow_unenforced_output_limit: consent ? consent.allow_unenforced_output_limit === true : acceptedLimit === true,
     max_output_tokens: CHAT_MAX_OUTPUT_TOKENS,
     source_ids: [...sourceIds],
+    attachments,
     snapshots: snapshots.filter(Boolean),
     allow_visual_input: visual === true,
   };

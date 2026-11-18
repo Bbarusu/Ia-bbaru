@@ -40,6 +40,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ModelCatalogV12"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ModelCatalogV13"
                     }
                   ],
                   "title": "Response Models V1 Models Get"
@@ -1247,6 +1250,65 @@
         "type": "object",
         "title": "ImageCapability"
       },
+      "ImageCapabilityV13": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported",
+            "default": false
+          },
+          "mime_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "image/png",
+                "image/jpeg"
+              ]
+            },
+            "type": "array",
+            "title": "Mime Types"
+          },
+          "max_images": {
+            "type": "integer",
+            "const": 4,
+            "title": "Max Images",
+            "default": 4
+          },
+          "max_bytes_per_image": {
+            "type": "integer",
+            "const": 480000,
+            "title": "Max Bytes Per Image",
+            "default": 480000
+          },
+          "max_pixels": {
+            "type": "integer",
+            "const": 16000000,
+            "title": "Max Pixels",
+            "default": 16000000
+          },
+          "transport": {
+            "type": "string",
+            "const": "cli_stream_input",
+            "title": "Transport",
+            "default": "cli_stream_input"
+          },
+          "max_total_bytes": {
+            "type": "integer",
+            "const": 1920000,
+            "title": "Max Total Bytes",
+            "default": 1920000
+          },
+          "max_total_pixels": {
+            "type": "integer",
+            "const": 32000000,
+            "title": "Max Total Pixels",
+            "default": 32000000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageCapabilityV13"
+      },
       "InputCapabilities": {
         "properties": {
           "image": {
@@ -1256,6 +1318,16 @@
         "additionalProperties": false,
         "type": "object",
         "title": "InputCapabilities"
+      },
+      "InputCapabilitiesV13": {
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/ImageCapabilityV13"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "InputCapabilitiesV13"
       },
       "MediaInput": {
         "properties": {
@@ -1413,6 +1485,29 @@
           "models"
         ],
         "title": "ModelCatalogV12"
+      },
+      "ModelCatalogV13": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "const": "1.3",
+            "title": "Protocol Version",
+            "default": "1.3"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileV13"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelCatalogV13"
       },
       "ModelProfile": {
         "properties": {
@@ -1646,6 +1741,91 @@
           "capabilities"
         ],
         "title": "ModelProfileV12"
+      },
+      "ModelProfileV13": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "task_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "general",
+                "study",
+                "writing",
+                "coding",
+                "analysis"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Task Kinds"
+          },
+          "context_char_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Context Char Limit"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputCapabilitiesV13"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "available",
+          "task_kinds",
+          "context_char_limit",
+          "max_output_tokens",
+          "capabilities"
+        ],
+        "title": "ModelProfileV13"
       },
       "ProjectInput": {
         "properties": {
@@ -1926,6 +2106,32 @@
         ],
         "title": "TextSnapshot"
       },
+      "TurnImage": {
+        "properties": {
+          "attachment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Attachment Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaInput"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attachment_id",
+          "title",
+          "media"
+        ],
+        "title": "TurnImage"
+      },
       "TurnInput": {
         "properties": {
           "instruction": {
@@ -2048,6 +2254,14 @@
               }
             ],
             "title": "Consent Id"
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/TurnImage"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Attachments"
           },
           "snapshots": {
             "items": {

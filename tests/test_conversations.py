@@ -38,7 +38,7 @@ class ChatGateway:
             attachments_used=[{"id": a.id, "sha256": a.sha256} for a in request.attachments])
 
 
-class ConversationTests(unittest.TestCase):
+class ConversationCase(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
@@ -77,6 +77,8 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()["consent"]["id"]
 
+
+class ConversationTests(ConversationCase):
     def test_old_turn_table_upgrade_preserves_data_consent_and_idempotency(self):
         from backend.store import Store
         consent = self.consent()

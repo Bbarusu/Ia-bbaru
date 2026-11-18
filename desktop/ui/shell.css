@@ -607,3 +607,7 @@ label.tool-label input[type="range"] {
   accent-color: var(--text);
 }
 .win-dot:hover:not(:disabled) { background: transparent; }
+
+/* Windows uses the approved controls; empty tab-strip space moves the window. */
+.tabbar { -webkit-app-region: drag; }
+.tabbar button, .tabbar input, .tabbar a, .tab { -webkit-app-region: no-drag; }

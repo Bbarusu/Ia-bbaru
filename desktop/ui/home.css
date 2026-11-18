@@ -188,3 +188,8 @@ em {
     transition: none !important;
   }
 }
+
+body[data-background="gelo"] { background: #e5eff9; }
+body[data-background="liso"] { background: #ffffff; }
+#ask-claude { margin-top: 20px; padding: 12px 18px; border-radius: 14px; border: 1px solid #b4c4d8; background: #fff; color: #0b0f17; font: inherit; cursor: pointer; }
+[hidden] { display: none !important; }

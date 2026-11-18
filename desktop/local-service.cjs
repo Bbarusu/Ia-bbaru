@@ -103,7 +103,7 @@ class LocalService {
       this.buffer = Buffer.concat([this.buffer, data]);
       while (this.buffer.length >= 4) {
         const size = this.buffer.readUInt32LE(0);
-        if (size < 1 || size > 900000) {
+        if (size < 1 || size > 4000000) {
           this.host.kill();
           this.rejectAll();
           return;

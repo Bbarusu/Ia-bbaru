@@ -24,6 +24,7 @@ from dataclasses import replace
 
 from backend.contracts import ModelProfile, TokenUsage
 from backend.contracts_v1_2 import ModelProfileV12
+from backend.contracts_v1_3 import ModelProfileV13
 
 from .. import errors
 from ..config import ClaudeCodeSettings
@@ -130,6 +131,10 @@ class ClaudeCodeAdapter(CliAdapterBase):
 
     def profiles_v12(self):
         return [ModelProfileV12(**p.model_dump(), input={"image": {
+            "supported": self.model_for(p.id) in self.settings.vision_models}}) for p in self.profiles_v11()]
+
+    def profiles_v13(self):
+        return [ModelProfileV13(**p.model_dump(), input={"image": {
             "supported": self.model_for(p.id) in self.settings.vision_models}}) for p in self.profiles_v11()]
 
     def check_request(self, request):
