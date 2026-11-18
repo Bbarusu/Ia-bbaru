@@ -129,6 +129,12 @@ export default function App() {
   // Perfil de resposta (quick/normal/deep) ou um modelo escolhido pelo nome.
   const [chatChoice, setChatChoice] = useState("normal");
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  // Texto colado pela pessoa: contexto do turno (snapshot "text"), nunca parte do pedido.
+  const [pasted, setPasted] = useState<{ id: string; text: string } | null>(null);
+  const openPaste = () => setPasted((old) => old ?? { id: crypto.randomUUID(), text: "" });
+  const pastedCapture = pasted?.text.trim()
+    ? { id: pasted.id, kind: "text", title: "Texto colado", url: "", text: pasted.text }
+    : null;
   // Trecho vindo do navegador (botão, menu de contexto): só confirma se vai para o chat.
   const [incomingCapture, setIncomingCapture] = useState<Capture | null>(null);
   const chatCaptureRef = useRef<string | undefined>(undefined);
@@ -865,7 +871,7 @@ export default function App() {
           acceptedLimit: needsLimitAcceptance && acceptedLimit,
           review,
           sourceIds: selectedSources,
-          snapshots: [captureSnapshot(chatCapture)],
+          snapshots: [captureSnapshot(chatCapture), captureSnapshot(pastedCapture)],
           visual: sendImage && imageSources.length === 1,
         }),
         captureId: chatCapture?.id,
@@ -944,6 +950,7 @@ export default function App() {
       writeDraft("draft:new", "").catch(() => {});
     }
     setSelectedSources([]);
+    setPasted(null);
     setAcceptedLimit(false);
     setAuthorized(false);
     setRememberConsent(false);
@@ -1010,7 +1017,8 @@ export default function App() {
   // Sugestões: no navegador, anexam a página ou a seleção da aba (ação explícita,
   // nada é enviado); fora dele, só preenchem o campo.
   const startWith = (prompt: string, attach?: () => void) => () => {
-    if (canAttachSelection && !chatCapture) attach?.();
+    if (!canAttachSelection) attach?.();
+    else if (!chatCapture) attach?.();
     changeText(prompt);
     inputRef.current?.focus();
   };
@@ -1022,9 +1030,10 @@ export default function App() {
         { label: "Questões de estudo", hint: "Anexa a página: perguntas para fixar", run: startWith("Crie perguntas de estudo sobre esta página.", attachPage) },
       ]
     : [
-        { label: "Resumir texto", hint: "Cole o texto depois dos dois-pontos", run: startWith("Resuma em tópicos claros o texto a seguir:\n") },
-        { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith("Explique em linguagem simples: ") },
-        { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith("Crie perguntas de estudo sobre: ") },
+        // F-4: sem a ponte, o texto vai num campo próprio e segue como snapshot, não no pedido.
+        { label: "Resumir texto", hint: "Abre um campo para colar o texto", run: startWith("Resuma em tópicos claros o texto colado.", openPaste) },
+        { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith("Explique em linguagem simples os termos do texto colado.", openPaste) },
+        { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith("Crie perguntas de estudo sobre o texto colado.", openPaste) },
       ];
   const welcomeText = canAttachSelection
     ? "Pergunte sobre a página aberta ou um trecho dela, explore conceitos ou converse com Claude."
@@ -1032,6 +1041,7 @@ export default function App() {
   const fableChosen = chatModelIds.some((id) => /fable/i.test(id));
   const pendingTitles = [
     ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
+    ...(pastedCapture ? ["Texto colado"] : []),
     ...sources.filter((source) => selectedSources.includes(source.id)).map((source) => source.title),
   ];
   const pending = pendingSend
@@ -1512,6 +1522,10 @@ export default function App() {
                   selectedSourcesCount={selectedSources.length}
                   clearSelectedSources={() => setSelectedSources([])}
                   attachSelection={attachSelection}
+                  pasted={pasted}
+                  setPastedText={(value) => setPasted((old) => (old ? { ...old, text: value } : old))}
+                  removePasted={() => setPasted(null)}
+                  openPaste={openPaste}
                   openSource={openSource}
                   hasEarlierTurns={turns.length > 0}
                 />

@@ -36,6 +36,10 @@ interface ChatComposerProps {
   capture: Capture | null;
   captureStale: boolean;
   attachPage: () => void;
+  pasted: { id: string; text: string } | null;
+  setPastedText: (value: string) => void;
+  removePasted: () => void;
+  openPaste: () => void;
   attachPageVisual: () => void;
   imagesSupported: boolean;
   removeCapture: () => void;
@@ -65,6 +69,10 @@ export function ChatComposer({
   capture,
   captureStale,
   attachPage,
+  pasted,
+  setPastedText,
+  removePasted,
+  openPaste,
   attachPageVisual,
   imagesSupported,
   removeCapture,
@@ -149,6 +157,32 @@ export function ChatComposer({
           </div>
         )}
 
+        {pasted && (
+          <div className="pasted-box">
+            <div className="pasted-head">
+              <label htmlFor="pasted-text">Texto colado</label>
+              <small>vai como contexto, não como pedido</small>
+              <button
+                type="button"
+                className="context-chip-remove"
+                aria-label="Remover texto colado"
+                title="Remover texto colado"
+                onClick={removePasted}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </div>
+            <textarea
+              id="pasted-text"
+              rows={3}
+              maxLength={38000}
+              placeholder="Cole aqui o texto que o Claude deve ler"
+              value={pasted.text}
+              onChange={(event) => setPastedText(event.target.value)}
+            />
+          </div>
+        )}
+
         <label htmlFor="instruction" className="sr-only">
           Mensagem para o Claude
         </label>
@@ -199,6 +233,13 @@ export function ChatComposer({
                     <span>
                       Print da página inteira
                       <small>{imageNote}</small>
+                    </span>
+                  </button>
+                  <button type="button" onClick={choose(openPaste)}>
+                    <FileText size={14} aria-hidden="true" />
+                    <span>
+                      Colar texto
+                      <small>Vai como contexto desta mensagem, sem salvar</small>
                     </span>
                   </button>
                   <button type="button" onClick={choose(attachSelection)}>
