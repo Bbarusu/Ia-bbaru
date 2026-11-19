@@ -1,5 +1,7 @@
 # Direção atual: navegador integrado exclusivamente ao Claude
 
+R6 — Após 16/11, Fable pode consumir créditos sem novo aviso da CLI. Confira os créditos da conta antes de selecionar esse modelo.
+
 Decisão do usuário em 10/11/2026 (America/Sao_Paulo).
 Repositório: https://github.com/Bbarusu/Ia-bbaru
 Branch de integração: `codex/browser-capture-clis`, PR #7.

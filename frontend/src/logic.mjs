@@ -414,7 +414,8 @@ export function captureSnapshot(capture) {
     return null;
   return {
     capture_id: capture.id,
-    kind: capture.kind === "page" ? "page" : "selection",
+    // "text": texto colado pela pessoa, sem página de origem (F-4).
+    kind: capture.kind === "page" || capture.kind === "text" ? capture.kind : "selection",
     title: (capture.title?.trim() || "Trecho da página").slice(0, 120),
     content: capture.text,
     url: capture.url || null,

@@ -84,7 +84,7 @@ export type Capture = {
   kind?: string; document_id?: string | null; captured_at?: string;
   tab_id?: string | null; documentVersion?: number | null;
 };
-export type PageStatus = { document_id: string | null; url: string | null; title: string; capture_is_current: boolean };
+export type PageStatus = { has_video?: boolean; has_captions?: boolean; document_id: string | null; url: string | null; title: string; capture_is_current: boolean };
 
 export type Conversation = { id: string; project_id: string; title: string; created_at: string; updated_at: string; revision: number };
 export type Consent = {

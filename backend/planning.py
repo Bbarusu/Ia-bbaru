@@ -66,7 +66,7 @@ def build_task(project_id, data, context, gateway, catalog=None, attachments=Non
         if not data.allow_visual_input:
             raise HTTPException(422, "visual_input_not_accepted")
         limit = 4 if catalog.protocol_version == "1.3" else 1
-        if len(attachments) > limit or sum(a["width"] * a["height"] for a in attachments) > 32000000:
+        if len(attachments) > limit or sum(a["width"] * a["height"] for a in attachments) > 16000000:
             raise HTTPException(422, "context_too_large")
         for mid in policy_errors:
             policy_errors[mid] = policy_errors[mid] or visual_policy(available[mid])

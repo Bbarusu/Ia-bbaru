@@ -3201,3 +3201,36 @@ dialog.kinfo-guide-dialog {
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* F-4: texto colado como contexto do turno. */
+.pasted-box {
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.pasted-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pasted-head small {
+  flex: 1;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.pasted-box textarea {
+  width: 100%;
+  margin-top: 4px;
+  border: 0;
+  resize: vertical;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  field-sizing: content;
+  max-height: 140px;
+}

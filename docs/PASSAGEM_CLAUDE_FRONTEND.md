@@ -14,6 +14,35 @@ Sem alteração em backend, gateway, contratos ou persistência. Fora de `fronte
 testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
 em `.agents/`. Tudo na PR #11, para integração pelo Codex.
 
+## Cobertura de testes I1–I12 e F-4 (18/11/2026)
+
+Base `ad39437` (integração do Codex até `629254c`) incorporada sem conflito.
+
+| # | Situação | Onde |
+| --- | --- | --- |
+| I1 | Coberto pelo Codex: resposta perdida → “Consultar estado” → “Reenviar o mesmo pedido”, 1 turno e 1 geração | `desktop/tests/smoke.cjs` (`ad39437`) |
+| I2 | Coberto pelo Codex: `yuki:pending-send` restaurado ao reabrir, sem geração automática | `smoke.cjs` (`ad39437`); bloqueio de troca/novo chat em `verify_chat_ui.py` (I10) |
+| I3 | Chip “a aba mudou desde a captura” após `activePage` de outro documento; snapshot enviado mantém `document_id`, `tab_id`, `documentVersion` e o texto original | `scripts/verify_chat_ui.py` |
+| I4 | `focusComposer` foca `#instruction` (também vindo de outra área); Ctrl+Shift+L real fecha/reabre o painel e foca o campo, sem envio | `verify_chat_ui.py`; `smoke.cjs` (`sendInputEvent`) |
+| I5 | Rápido/Profundo → `response_profile`, sem `preferred_model_id`, sem Fable; modelo pelo nome → `preferred_model_id` e só ele; Fable só pelo nome, com aviso de créditos | `verify_chat_ui.py` |
+| I6 | “Avançado” → revisão: `mode=review`, “Não perguntar de novo” desativado, nenhum `consent.set`; a próxima mensagem volta sem revisão | `verify_chat_ui.py` |
+| I7 | Aceite da conversa com Sonnet → envio seguinte com `consent_id`, sem cartão; trocar para Opus reabre o cartão sem despachar; Cancelar preserva o texto | `verify_chat_ui.py` |
+| I8 | Catálogo 1.2 com imagem: prévia, aceite visual obrigatório, `allow_visual_input=true`, `source_ids` e nada de base64 no corpo; duas imagens bloqueiam; sem visão, a Biblioteca não deixa escolher imagem | `verify_chat_ui.py` |
+| I9 | Mensagens de créditos, modelo indisponível, taxa e teto sem código cru nem horário | `frontend/tests/logic.test.mjs` |
+| I10 | Alternar duas conversas pelo “⋯”; com envio pendente, “Novo chat” e a troca ficam desativados e nada é reenviado | `verify_chat_ui.py` |
+| I11 | 360 px com o aviso de aceite, texto colado e pergunta longa, sem rolagem horizontal e com o campo visível | `verify_chat_ui.py` (`artifacts/chat-360-consent.png`) |
+| I12 | Pendente: repetir no Windows com X1 | Codex/usuário |
+| F-4 | “+ → Colar texto” e, sem ponte, os atalhos abrem o campo “Texto colado”; vai como snapshot `kind: "text"` e a `instruction` fica só com o pedido | `ChatComposer.tsx`, `App.tsx`; `verify_chat_ui.py` e `logic.test.mjs` |
+
+`verify_chat_ui.py` roda o painel compilado no Chromium com uma ponte de **teste**
+que grava cada corpo enviado (confere o que a interface manda ao contrato). Regras
+do backend seguem nos testes de `tests/` e no smoke com backend real. Comando:
+`npm --prefix frontend run build` e `python scripts/verify_chat_ui.py`
+(`IA_BBARU_CHROMIUM_PATH` opcional). Sugestão ao Codex: incluir no roteiro Windows.
+
+Controles “Em integração”: nenhuma API nova de D1/D2/N2/N5 foi publicada até
+`ad39437`; continuam desativados e serão ligados quando existirem.
+
 ## Captura simplificada e pedidos aos outros agentes (17/11/2026)
 
 Fora da Biblioteca, “Capturar trecho” e o menu de contexto não abrem mais o diálogo

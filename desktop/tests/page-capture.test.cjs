@@ -23,7 +23,7 @@ test("full page uses bounded CSS document dimensions, not viewport, and detaches
   const result = await captureFullPage(contents, () => true);
   assert.equal(result.height, 2400);
   assert.equal(calls[1].params.captureBeyondViewport, true);
-  assert.deepEqual(calls[1].params.clip, { x: 0, y: 0, width: 800, height: 2400, scale: 1 });
+  assert.deepEqual(calls[1].params.clip, { x: 0, y: 0, width: 800, height: 2400, scale: 2000 / 2400 });
   assert.equal(contents.debugger.isAttached(), false);
 });
 

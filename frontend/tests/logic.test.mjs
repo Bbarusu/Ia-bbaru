@@ -430,3 +430,33 @@ test("conversa: título e duração", () => {
   assert.equal(formatDuration(3200), "3,2 s");
   assert.equal(formatDuration(undefined), "");
 });
+
+// ---- I9: erros tipados do gateway 1.2 dentro da conversa ----
+test("I9: créditos, modelo indisponível, taxa e teto têm mensagem própria, sem código cru nem promessa", () => {
+  const credits = describeChatError("provider_model_requires_credits");
+  assert.equal(credits.tone, "warn");
+  assert.match(credits.message, /créditos/);
+  assert.match(credits.hint, /Não houve troca automática de modelo/);
+  const unavailable = describeChatError("provider_model_unavailable");
+  assert.match(unavailable.message, /não está disponível/);
+  assert.match(unavailable.hint, /Não houve troca automática/);
+  const rate = describeChatError("provider_rate_limited");
+  assert.match(rate.message, /taxa/);
+  assert.match(rate.hint, /Não haverá repetição automática/);
+  const limit = describeChatError("provider_output_limit_reached");
+  assert.match(limit.message, /limite de saída/);
+  assert.match(limit.hint, /não entregou o texto parcial/);
+  for (const info of [credits, unavailable, rate, limit]) {
+    assert.doesNotMatch(`${info.message} ${info.hint}`, /provider_/, "não expõe o código");
+    assert.doesNotMatch(`${info.message} ${info.hint}`, /\d{1,2}h|\d{1,2}:\d{2}/, "não promete horário");
+  }
+});
+
+test("F-4: texto colado vira snapshot kind text, sem origem, e não entra no pedido", () => {
+  const snap = captureSnapshot({ id: "p1", kind: "text", title: "Texto colado", text: "conteúdo colado" });
+  assert.deepEqual(snap, { capture_id: "p1", kind: "text", title: "Texto colado", content: "conteúdo colado",
+    url: null, document_id: null, captured_at: null });
+  const turn = buildTurn({ turnId: "t", instruction: "Resuma o texto colado.", choice: "normal", modelIds: ["m"], snapshots: [snap] });
+  assert.equal(turn.instruction, "Resuma o texto colado.");
+  assert.equal(turn.snapshots[0].content, "conteúdo colado");
+});

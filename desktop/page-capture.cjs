@@ -17,7 +17,7 @@ async function captureFullPage(contents, isCurrent) {
       throw new Error("A página inteira excede os limites da captura (8.000 px por lado e 16 MP). Capture uma área menor.");
     const result = await debuggerSession.sendCommand("Page.captureScreenshot", {
       format: "jpeg", quality: 80, captureBeyondViewport: true, fromSurface: true,
-      clip: { x: 0, y: 0, width, height, scale: 1 },
+      clip: { x: 0, y: 0, width, height, scale: Math.min(1, 2000 / Math.max(width, height)) },
     });
     check();
     if (typeof result.data !== "string" || result.data.length > 640000)

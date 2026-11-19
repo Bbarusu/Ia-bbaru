@@ -1,5 +1,7 @@
 # Contrato do chat e passagem para o Claude de interface
 
+**Interface — Página atual ativa.** A leitura é sob demanda. Ativar o contexto ou escolher uma ação de página chama `capture.page` uma vez. Navegar invalida o chip e exige uma nova captura explícita. Abrir o painel e mudar de aba não autorizam leitura contínua. O campo `capture.text` traz metadados, seções, texto principal e dados de vídeo expostos pelo DOM. “[parcial]” indica uma parte abreviada. Prints para visão têm até 2.000 px em cada dimensão antes da prévia.
+
 **Atualização de 18/11.** O campo opcional `turn.attachments` aceita objetos `{"attachment_id":"<uuid>","title":"Diagrama","media":{"kind":"image","data_url":"data:image/png;base64,..."}}`. O backend grava os anexos em `conversation_media` na transação do turno. O renderer persiste o corpo em `pending-send` antes do despacho. O protocolo 1.2 aceita uma imagem. Para até quatro, configure `GATEWAY_PROTOCOL_VERSION=1.3` e um alias explicitamente autorizado em `IA_BBARU_CLAUDE_CODE_VISION_MODELS`. Os limites incluem imagens do histórico.
 
 Entrega Codex, 16/11/2026. Base: `codex/browser-capture-clis`, incorporando a PR #11
@@ -220,3 +222,10 @@ Esquemas de entrada exatos, inclusive os metadados opcionais:
 Captura visual inteira e `maximize`, limites e pendências do navegador:
 [RESPOSTA_VISAO_E_NAVEGADOR.md](RESPOSTA_VISAO_E_NAVEGADOR.md).
 Este documento é a passagem para a Frente 3; não implica envio automático a outro chat.
+
+Com o toggle ligado, consultar `context.status` para atualizar o chip. Os campos
+`has_video` e `has_captions` descrevem o DOM da aba. No gesto de anexar,
+chamar `capture.page` ou `capture.video.frame` e mostrar a prévia antes de enviar.
+Para V4-2, a conversa mantém as imagens anteriores no contexto. Cada novo envio
+que as reutiliza exige aceite visual e mostra a quantidade. Para continuar só com
+texto, abrir nova conversa. Imagens repetidas contam para a cota em cada envio.

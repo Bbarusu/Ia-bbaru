@@ -53,6 +53,18 @@ class ConversationImageTests(ConversationCase):
         changed = self.send(attachments=[self.image()], allow_visual_input=True)
         self.assertEqual(changed.json()["detail"], "context_too_large")
 
+    def test_tall_image_refused_before_queue(self):
+        from PIL import Image
+        import base64
+        import io
+        self.enable()
+        stream = io.BytesIO()
+        Image.new("RGB", (10, 2001)).save(stream, "PNG")
+        image = self.image(media={"kind": "image", "data_url": "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode()})
+        response = self.send(attachments=[image], allow_visual_input=True)
+        self.assertEqual(response.json()["detail"], "image_dimensions_exceeded")
+        self.assertFalse(self.gateway.calls)
+
     def test_legacy_multiple_and_missing_consent_never_store_or_generate(self):
         self.enable()
         image = self.image()

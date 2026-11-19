@@ -132,6 +132,12 @@ export default function App() {
   const [directImages, setDirectImages] = useState<DirectImage[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  // Texto colado pela pessoa: contexto do turno (snapshot "text"), nunca parte do pedido.
+  const [pasted, setPasted] = useState<{ id: string; text: string } | null>(null);
+  const openPaste = () => setPasted((old) => old ?? { id: crypto.randomUUID(), text: "" });
+  const pastedCapture = pasted?.text.trim()
+    ? { id: pasted.id, kind: "text", title: "Texto colado", url: "", text: pasted.text }
+    : null;
   // Trecho vindo do navegador (botão, menu de contexto): só confirma se vai para o chat.
   const [incomingCapture, setIncomingCapture] = useState<Capture | null>(null);
   const chatCaptureRef = useRef<string | undefined>(undefined);
@@ -702,6 +708,10 @@ export default function App() {
           const reader = new FileReader(); reader.onload = () => resolve(String(reader.result));
           reader.onerror = () => reject(new Error("Não foi possível ler a imagem.")); reader.readAsDataURL(file);
         });
+        const bitmap = await createImageBitmap(file);
+        const fits = Math.max(bitmap.width, bitmap.height) <= 2000;
+        bitmap.close();
+        if (!fits) throw new Error("Use uma imagem de até 2.000 px por lado.");
         added.push({ attachment_id: crypto.randomUUID(), title: file.name.slice(0, 120), media: { kind: "image", data_url } });
       }
       setDirectImages(old => [...old, ...added]); setSendImage(false);
@@ -803,6 +813,10 @@ export default function App() {
     }
     setError("");
     setSendError("");
+    if (imageSources.some(source => Math.max(source.media?.width || 0, source.media?.height || 0) > 2000)) {
+      setError("Reduza a imagem para até 2.000 px por lado antes de enviá-la.");
+      return;
+    }
     // Aceite válido da conversa dispensa a confirmação; imagem e revisão sempre perguntam.
     if (!review && !imageCount && consentCovers(consent, { modelIds: chatModelIds })) {
       void send(consent);
@@ -895,7 +909,7 @@ export default function App() {
           acceptedLimit: needsLimitAcceptance && acceptedLimit,
           review,
           sourceIds: selectedSources,
-          snapshots: [captureSnapshot(chatCapture)],
+          snapshots: [captureSnapshot(chatCapture), captureSnapshot(pastedCapture)],
           visual: sendImage && imageCount > 0,
           attachments: directImages,
         }),
@@ -976,6 +990,7 @@ export default function App() {
     }
     setSelectedSources([]);
     setDirectImages([]);
+    setPasted(null);
     setAcceptedLimit(false);
     setAuthorized(false);
     setRememberConsent(false);
@@ -1042,7 +1057,8 @@ export default function App() {
   // Sugestões: no navegador, anexam a página ou a seleção da aba (ação explícita,
   // nada é enviado); fora dele, só preenchem o campo.
   const startWith = (prompt: string, attach?: () => void) => () => {
-    if (canAttachSelection && !chatCapture) attach?.();
+    if (!canAttachSelection) attach?.();
+    else if (!chatCapture) attach?.();
     changeText(prompt);
     inputRef.current?.focus();
   };
@@ -1054,9 +1070,10 @@ export default function App() {
         { label: "Questões de estudo", hint: "Anexa a página: perguntas para fixar", run: startWith("Crie perguntas de estudo sobre esta página.", attachPage) },
       ]
     : [
-        { label: "Resumir texto", hint: "Cole o texto depois dos dois-pontos", run: startWith("Resuma em tópicos claros o texto a seguir:\n") },
-        { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith("Explique em linguagem simples: ") },
-        { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith("Crie perguntas de estudo sobre: ") },
+        // F-4: sem a ponte, o texto vai num campo próprio e segue como snapshot, não no pedido.
+        { label: "Resumir texto", hint: "Abre um campo para colar o texto", run: startWith("Resuma em tópicos claros o texto colado.", openPaste) },
+        { label: "Explicar termos", hint: "Conceitos difíceis em linguagem simples", run: startWith("Explique em linguagem simples os termos do texto colado.", openPaste) },
+        { label: "Questões de estudo", hint: "Perguntas para fixar o conteúdo", run: startWith("Crie perguntas de estudo sobre o texto colado.", openPaste) },
       ];
   const welcomeText = canAttachSelection
     ? "Pergunte sobre a página aberta ou um trecho dela, explore conceitos ou converse com Claude."
@@ -1064,6 +1081,7 @@ export default function App() {
   const fableChosen = chatModelIds.some((id) => /fable/i.test(id));
   const pendingTitles = [
     ...(chatCapture ? [chatCapture.title?.trim() || "Trecho da página"] : []),
+    ...(pastedCapture ? ["Texto colado"] : []),
     ...sources.filter((source) => selectedSources.includes(source.id)).map((source) => source.title),
   ];
   const pending = pendingSend
@@ -1142,7 +1160,7 @@ export default function App() {
               <span>Enviar as imagens ao Claude (experimental)</span>
             </label>
             <p className="consent-note">
-              {imageCount} imagem(ns), incluindo {previousImageIds.size} do histórico. Até {imageLimit} por contexto,
+              {imageCount} imagem(ns), incluindo {previousImageIds.size} do histórico. Reenviar essas imagens consome cota novamente. Até {imageLimit} por contexto,
               PNG/JPEG de 480 KB cada. Imagens também usam cota e serão reenviadas com o histórico.
               A leitura visual ainda não foi validada com uma conta real.
             </p>
@@ -1554,6 +1572,10 @@ export default function App() {
                   selectedSourcesCount={selectedSources.length}
                   clearSelectedSources={() => setSelectedSources([])}
                   attachSelection={attachSelection}
+                  pasted={pasted}
+                  setPastedText={(value) => setPasted((old) => (old ? { ...old, text: value } : old))}
+                  removePasted={() => setPasted(null)}
+                  openPaste={openPaste}
                   openSource={openSource}
                   hasEarlierTurns={turns.length > 0}
                 />

@@ -439,6 +439,20 @@ async function main() {
     await expect(confirmSend).toBeVisible();
     await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
     assert.equal(generations.length, 3, "revoked consent does not dispatch");
+    // I4 no runtime real: Ctrl+Shift+L fecha e reabre o painel com o foco no campo; nada é enviado.
+    // sendInputEvent passa pelo before-input-event do runtime, como um teclado real.
+    const panelShortcut = () => app.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      contents.focus();
+      for (const type of ["keyDown", "keyUp"])
+        contents.sendInputEvent({ type, keyCode: "L", modifiers: ["control", "shift"] });
+    });
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "false");
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "true");
+    await expect(workspace.locator("#instruction")).toBeFocused();
+    assert.equal(generations.length, 3, "opening the panel does not dispatch");
     await workspace.screenshot({ path: path.join(artifacts, "conversation.png") });
     await workspace.locator("#instruction").fill("");
     const rejected = await workspace.evaluate(async () => {
@@ -721,14 +735,46 @@ async function main() {
     await expect.poll(async () => (await readChat(workspace)).data.task.status).toBe("completed");
     assert.equal((await readChat(workspace)).data.task.results[0].served_model, "claude-sonnet-5-5");
 
+    await web.evaluate(() => {
+      const main = document.createElement("main");
+      main.innerHTML = '<h2>Leitura principal</h2><video title="Aula"></video><section data-transcript>Texto da aula</section>';
+      main.append("a".repeat(40000));
+      document.body.append(main);
+    });
+    await web.evaluate(async () => {
+      const frame = document.createElement("iframe");
+      frame.src = "/segunda";
+      await new Promise(resolve => { frame.onload = resolve; document.body.append(frame); });
+      frame.contentDocument.body.innerHTML = "<main>Texto do subquadro</main>";
+    });
     const pageCapture = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page" }));
     assert.equal(pageCapture.ok, true, JSON.stringify(pageCapture));
+    assert.match(pageCapture.capture.text, /Texto do subquadro/);
+    assert.match(pageCapture.capture.text, /H2: Leitura principal/);
+    assert.match(pageCapture.capture.text, /"estado":"paused"/);
+    assert.match(pageCapture.capture.text, /Legendas acessíveis: indisponíveis/);
+    assert.match(pageCapture.capture.text, /Painel de transcrição: Texto da aula/);
+    assert.ok(pageCapture.capture.text.length <= 38000 && pageCapture.capture.text.endsWith("[parcial]"));
     assert.equal(pageCapture.capture.kind, "page");
     assert.ok(Number.isInteger(pageCapture.capture.documentVersion));
     assert.equal(pageCapture.capture.document_id, `${pageCapture.capture.tab_id}:${pageCapture.capture.documentVersion}`);
     assert.ok(Number.isFinite(Date.parse(pageCapture.capture.captured_at)));
     const status = () => workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "context.status" }));
     assert.equal((await status()).capture_is_current, true);
+    assert.equal((await status()).has_video, true);
+    await web.evaluate(() => {
+      const video = document.querySelector("video");
+      const track = video.addTextTrack("captions", "Português");
+      track.mode = "hidden";
+      track.addCue(new VTTCue(0, 3, "Legenda local"));
+      video.scrollIntoView();
+    });
+    assert.equal((await status()).has_captions, true);
+    await workspace.evaluate(id => window.iaDesktop.runtime.sendMessage({type:"capture.clear", id}), pageCapture.capture.id);
+    const frame = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({type:"capture.video.frame"}));
+    assert.equal(frame.ok, true, JSON.stringify(frame.error));
+    assert.equal(frame.capture.document_id, pageCapture.capture.document_id);
+    await workspace.evaluate(id => window.iaDesktop.runtime.sendMessage({type:"capture.clear", id}), frame.capture.id);
     await shell.evaluate(() => window.navigatorApp.command("reload"));
     await expect.poll(async () => (await status()).document_id).not.toBe(pageCapture.capture.document_id);
     assert.equal((await status()).capture_is_current, false);
@@ -739,7 +785,7 @@ async function main() {
     const visual = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page.visual" }));
     assert.equal(visual.ok, true, JSON.stringify(visual));
     const imageSize = await app.evaluate(({ nativeImage }, data) => nativeImage.createFromDataURL(data).getSize(), visual.capture.media.data_url);
-    assert.ok(imageSize.height >= 2400, JSON.stringify(imageSize));
+    assert.ok(imageSize.height <= 2000 && imageSize.height > 1500 && imageSize.width <= 2000, JSON.stringify(imageSize));
     assert.equal(visual.capture.document_id, (await status()).document_id);
     assert.equal(visual.capture.kind, "screenshot");
     await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), visual.capture.id);
@@ -889,6 +935,7 @@ async function main() {
             "chat send without modal; nothing saved or generated before consents",
             "1.2 acceptance required per message and persisted",
             "panel width control in shell",
+            "Ctrl+Shift+L toggles the panel and focuses the composer",
             "settings page opened from the shell; bookmarks bar preference synced",
             "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",
             "answer shown in the conversation; technical details collapsed",
