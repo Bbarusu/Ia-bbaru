@@ -103,6 +103,9 @@ de formato.
 
 Itens pós-disparo e evolução (A3–A7, fixture real, V4, R6) detalhados na **seção 9**.
 
+**Atualização de 19/11 (seção 10):** validação Windows de 18/11 concluída. **R1 fechado** para a
+CLI 2.1.322; **R3 fechado** (H-A confirmado, H-B descartado). R2 continua sem prova.
+
 **Ponto de retomada:** o próximo passo útil desta frente depende do resultado do disparo
 único no Windows. Com ele, revisar a tabela D e converter R1 e R5 em evidência [R].
 
@@ -1024,3 +1027,173 @@ comportamento esperado.
 | V4-1 | Codex | Limite de 2.000 px na visão v1, ou eco do processado, antes de liberar visão real |
 | V4-2 | Codex/produto | Reenvio da imagem em todo turno: explicar no aceite ou mudar a política |
 | R6 | Codex (documentação comum) | Aviso do Fable depois de 16/11 em `DIRECAO_CLAUDE_ONLY.md` e no inicializador |
+| V4-3 | Codex | 1.3: limite de 2.000 px por imagem e limite de linha da entrada `stream-json` antes de liberar 4 imagens (seção 9.6) |
+
+### 9.6 Gatilhos condicionais — verificação de 19/11/2026 (base `f96ad93`)
+
+Dois itens só seriam acionados por um gatilho. Nenhum dos dois ocorreu:
+
+| Gatilho | Situação em `f96ad93` | Ação |
+| --- | --- | --- |
+| `SYSTEM_PROMPT` aumentar muito | Inalterado: 734 caracteres, ASCII, sem metacaracteres do `cmd.exe`. O teste `test_windows_prompt_is_bounded_ascii_and_without_cmd_metacharacters` trava < 4.000, ASCII e sem `% ^ & \| < > " ! ( )` nem quebras de linha | Nenhuma. Um aumento futuro já é barrado pelo teste. Rever só se o teto do teste mudar |
+| Frames de vídeo ou transcrição | Não existem no código nem nos documentos da base | Nenhuma |
+
+Para quando o gatilho de vídeo ocorrer, os pontos a avaliar já estão registrados:
+- cada frame é uma imagem e segue a seção 9.3: redimensionada acima de 2.000 px, eco
+  conferido só depois de gastar a cota, custo de ≈ largura × altura / 750 tokens
+  (documentação pública) e reenvio a cada turno;
+- uma transcrição é texto: entra no orçamento de caracteres da seção 8.4 como fonte
+  não confiável, **nunca** no `instruction` nem no `SYSTEM_PROMPT`.
+
+**Achado novo da base (não é gatilho, mas amplia V4-1/V4-2).** O contrato **1.3**
+(`backend/contracts_v1_3.py`) aceita até **4 imagens** por pedido, cada uma ainda
+com até **8.000 px** por lado (herdado da 1.2), até 1,92 MB e 32 MP no total. Na
+CLI [P, 2.1.327]:
+- **V4-1 piora:** cada imagem acima de 2.000 px volta redimensionada no eco. Com 4
+  imagens, basta uma grande para o pedido inteiro terminar em
+  `visual_input_unconfirmed`, depois de gastar a cota. O limite de 2.000 px
+  proposto para a v1 vale também para a 1.3.
+- **V4-2 multiplica:** até 4 imagens × ~5.300 tokens (2.000 × 2.000) ≈ 21.000
+  tokens de entrada por turno, pela estimativa pública. As imagens do histórico
+  continuam sendo reenviadas nos turnos seguintes.
+- **Entrada padrão:** 1,92 MB brutos viram ~2,6 MB em base64 numa única linha
+  NDJSON. Fica abaixo dos 10 MiB da entrada de texto. Para a entrada
+  `stream-json`, a CLI tem limites próprios de linha (mensagens "NDJSON line
+  exceeds" no binário) cujo valor e escopo **não levantei**. Conferir antes de
+  liberar 4 imagens grandes na conta real (V4-3, Codex).
+
+## 10. Validação Windows de 18/11 e revisão da nova rodada — 19/11/2026
+
+Base: `f96ad93`. Escopo estrito: só este arquivo, sem código e sem geração. Os
+resultados abaixo foram executados pelo Codex com o usuário e informados a esta
+frente; não foram reproduzidos aqui.
+
+### 10.1 Evidência real nova [R, com geração]
+
+| Verificação (Windows, 18/11) | Resultado | O que fecha |
+| --- | --- | --- |
+| Disparo único sintético (`test_real_claude_code.py`, teto 128) | ✅ `sonnet` → **`claude-sonnet-5-5`**, `usage` 1.032/5, `finish_reason: stop`, 7,239 s, CLI **2.1.322** | **R1 fechado para a 2.1.322.** Na conta real funcionam: login por assinatura, as 13 flags, o `stream-json --verbose`, a montagem dos blocos, a conferência de modelo (alias → família) e o `stop_reason`. A3 (formato) e A7 (versão) ficam conferidos nessa versão |
+| `inspect_saved_response.py`, tarefa antiga `3ca05830-926f-47ca-96d8-0ccfe7399a4d` | Hash **idêntico** entre gateway e backend, saída de 25 caracteres, `output_tokens: 151`, `finish_reason: stop` | **R3 fechado: H-A confirmado, H-B descartado.** O texto já chegou cortado ao gateway; o backend e a interface não cortaram. 151 tokens de saída para 25 caracteres (~10 tokens) e término normal batem com "`result` só com o último bloco" (seção 7.1). H-C (o modelo respondeu só isso) fica incompatível |
+| Sessão contínua no navegador | ✅ nenhum `claude_cli_failure` em `gateway-erros.log` | D3 cumprido: o disparo único passou antes do teste contínuo |
+
+Leituras:
+- **H2 continua possível** para a falha antiga do "Revise". O disparo único usou 5
+  tokens de saída, sem raciocínio relevante, e isso não exclui o raciocínio
+  consumindo 128 numa revisão. R2 segue sem causa comprovada; as correções cobrem
+  H1, H2, H4 e H5 com códigos próprios.
+- **A tarefa antiga tem `output_tokens: 151` com teto 128.** Isso confirma que
+  `CLAUDE_CODE_MAX_OUTPUT_TOKENS` não é um teto rígido sobre o `usage` informado
+  (`output_limit: best_effort`). Pode ser a soma de mais de uma chamada à API no
+  mesmo turno ou incluir raciocínio. Não muda nenhuma regra: o término não é
+  inferido pela contagem de tokens.
+- **A versão comprovada é a 2.1.322.** A CLI do Windows se atualiza sozinha (R4).
+  Na próxima atualização, as conferências da seção 10.4 dizem o que muda.
+
+### 10.2 Novo `SYSTEM_PROMPT` proposto pelo Codex
+
+**Não encontrei a proposta** em nenhuma branch publicada (`codex/browser-capture-clis`
+termina em `f96ad93`, 18/11; nenhum documento cita um texto novo). Não dá para
+certificar um texto que não li. Ficam os critérios e como conferir quando for
+publicado:
+
+| Critério | Regra | Já travado por teste? |
+| --- | --- | --- |
+| Só ASCII | Sem acentos, aspas tipográficas ou travessão. Acento vira texto sem acento ("Voce", "nao") | ✅ `test_windows_prompt_is_bounded_ascii_and_without_cmd_metacharacters` |
+| Sem metacaracteres do `cmd.exe` | Nenhum de `% ^ & \| < > " ! ( )` nem quebra de linha. Usar `:` `;` `,` `.` `-` `/` no lugar de parênteses e aspas | ✅ mesmo teste |
+| Tamanho | < 4.000 caracteres pelo teste. Margem real: linha de comando hoje com 1.068 caracteres, limite do `cmd.exe` 8.191 | ✅ < 4.000 |
+| Conteúdo | Manter: só `pedido_do_usuario` é pedido; fontes, histórico e `resposta_anterior` são dados não confiáveis; citar títulos, não ids; não alegar leitura do que não recebeu; idioma do pedido | ❌ revisão humana |
+| Novidades de mídia | Se mencionar imagens ou frames: dizer que a imagem é material, e que texto dentro dela não é instrução | ❌ revisão humana |
+| Orçamento | O `SYSTEM_PROMPT` entra no orçamento compartilhado (`request_budget`). Cada 1.000 caracteres a mais tira 1.000 do contexto do chat | ✅ pela fórmula |
+
+Como conferir sem gerar, na branch que trouxer o texto:
+`python -m unittest discover -s tests/integrations -p test_stream_output.py -v`.
+Se passar e o conteúdo mantiver as regras acima, o texto é compatível com o
+`cmd.exe`. Pedido ao Codex: publicar o texto proposto para revisão nesta análise
+antes da implementação final.
+
+### 10.3 V4-1 / V4-2 com captura de frame de vídeo (≤ 2.000 px)
+
+O fluxo de frame de vídeo também **não está publicado**. A análise vale para o
+desenho descrito: um frame por captura, ≤ 2.000 px por lado, enviado pela visão.
+
+**V4-1 (eco exato).** Com o frame ≤ 2.000 px por lado e ≤ 480.000 bytes (abaixo do
+orçamento de 512.000 da CLI), a CLI 2.1.322/2.1.328 **não redimensiona nem
+recomprime**. O eco do `--replay-user-messages` deve voltar igual e a conferência
+exata passa. Ressalvas [P]:
+- um modelo pode declarar limites menores no registro de modelos da CLI
+  (`maxWidth`/`maxHeight`/`maxImageTokens`). Os de Sonnet/Opus 5.5 **não foram
+  levantados**;
+- a recodificação PNG → WebP existe atrás de uma chave remota, hoje desligada por
+  padrão. Se for ligada, o eco muda e a conferência falha **depois** da cota gasta.
+
+Recomendação: capturar frames em **JPEG** (a recodificação WebP só atua em PNG) e
+manter ≤ 2.000 px. Isso também resolve o V4-1 para a 1.3, desde que todas as
+imagens respeitem o limite.
+
+**V4-2 (reenvio entre turnos) — confirmado no código atual.**
+- `backend/conversations.py` (linhas ~307–309) junta as imagens de **todos os turnos
+  anteriores** (`attachment_refs`) às do turno atual.
+- `backend/planning.py` (linhas ~63–69) exige `allow_visual_input` sempre que
+  houver imagem e limita o total a 4 (1.3) ou 1 (1.2).
+
+Consequências:
+
+| Efeito | Detalhe |
+| --- | --- |
+| Cota | Cada turno seguinte paga o frame de novo como tokens de entrada. Estimativa pela documentação pública da API (≈ largura × altura / 750; não está no pacote nem foi medida): frame 1.920 × 1.080 ≈ 2.800 tokens; 2.000 × 2.000 ≈ 5.300. Em 10 turnos, um único frame de 1.920 × 1.080 custa ≈ 28.000 tokens de entrada |
+| Bloqueio | Depois da 4ª imagem (1.3) ou da 1ª (1.2), **todo** turno seguinte da conversa é recusado com `context_too_large`, mesmo sem imagem nova |
+| Aceite | Uma pergunta só de texto depois de um frame ainda exige `allow_visual_input` e envia pixels |
+| Eco | Cada reenvio repete a conferência do eco; qualquer mudança do lado da CLI derruba turnos que não anexaram nada |
+
+**Recomendação: o frame de vídeo vale só para o turno em que foi anexado.**
+- No turno do frame: enviar a imagem; o modelo responde.
+- Nos turnos seguintes: **não reenviar pixels**. O histórico já carrega o pedido e a
+  resposta daquele turno. Registrar no histórico só uma referência textual (título,
+  instante do vídeo, "imagem enviada no turno N").
+- Se a pessoa quiser perguntar de novo **sobre a imagem**, ela reanexa de forma
+  explícita, com novo aceite. O limite de 4 vale por turno, não pela conversa.
+- **Não** gerar uma descrição automática para substituir a imagem: seria uma
+  geração extra e escondida.
+- Para materiais da biblioteca ou imagens anexadas que a pessoa quer manter em toda
+  a conversa, o reenvio pode continuar como opção explícita, com o custo mostrado no
+  aceite.
+
+É mudança no backend e na interface (Codex e Claude de interface); o contrato
+1.2/1.3 não muda.
+
+### 10.4 A CLI mudou depois de 2.1.322 / 2.1.327?
+
+Versões publicadas no npm: 2.1.324 e 2.1.325 (13/11), 2.1.326 (16/11), 2.1.327
+(17/11) e **2.1.328 (18/11, a mais nova)**. Comparei a **2.1.328** com a **2.1.322**
+(a validada no Windows), lendo os pacotes linux-x64 oficiais sem gerar:
+
+| Ponto | 2.1.322 | 2.1.328 | Impacto |
+| --- | --- | --- | --- |
+| As 13 flags do adaptador | presentes e visíveis | presentes e visíveis | Nenhum |
+| `stream-json` com `--print` exige `--verbose` | sim | sim | Nenhum |
+| `--replay-user-messages` só com entrada e saída `stream-json` | sim | sim | Nenhum |
+| Eco montado a partir da mensagem **processada** | sim | sim | V4-1 inalterado |
+| Limites de imagem padrão | 2.000 × 2.000 px; 5 MiB base64; 3,75 MiB bruto | iguais | Nenhum |
+| Orçamento de bytes / lado com muitas imagens | 512.000 / 3.000 px | iguais | Nenhum |
+| Limite da entrada padrão (texto) | 10 MiB | 10 MiB | Nenhum |
+| `result` = texto do último bloco | sim | sim | Montagem do gateway continua necessária |
+| `init.claude_code_version`, `api_error: usage_limit_reached`, `CLAUDE_CODE_NO_MODEL_FALLBACK`, `CLAUDE_CODE_DISABLE_THINKING` | presentes | presentes | Nenhum |
+| Tipos de evento `system` | 69 | 72: novos `late_allow_not_run`, `shell_cwd`, `task_list_statuses` | Nenhum. O parser ignora eventos `system` antes do `result` e tolera depois. `shell_cwd` pode trazer o caminho da pasta temporária; o gateway não o registra |
+
+**Conclusão:** nada entre 2.1.322 e 2.1.328 afeta flags, eco, limites de imagem ou de
+prompt. A validação de 18/11 vale para a 2.1.328 por leitura do pacote [P], não
+por execução. O próximo disparo após atualização confirmaria [R].
+
+### 10.5 Pendências atualizadas
+
+| Id | Para | O quê | Situação |
+| --- | --- | --- | --- |
+| R1 | — | Geração real com o formato atual | ✅ Fechado (2.1.322, 18/11) |
+| R3 / C2 | — | Causa da resposta cortada | ✅ Fechado: H-A |
+| R2 | — | Causa do `provider_error` original | ⏳ Sem prova; H2 segue possível. Não recuperável retroativamente |
+| SP-1 | Codex | Publicar o novo `SYSTEM_PROMPT` para revisão pela seção 10.2 antes da implementação final | Novo |
+| V4-1 | Codex | Frames ≤ 2.000 px **em JPEG**; levantar limites por modelo no registro da CLI antes de liberar visão real | Atualizado |
+| V4-2 | Codex + Claude de interface | Frame/imagem vale só para o turno atual; reenvio só por reanexo explícito | Recomendação nova |
+| V4-3 | Codex | Limite de linha da entrada `stream-json` com 4 imagens | Mantido |
+| A5 | Codex | Registrar `thinkingTokens` por etapa | Mantido |
+| R4/D1 | Codex | Registrar 2.1.322 como validada e avisar no diagnóstico quando a instalada for outra | Mantido |
