@@ -70,7 +70,7 @@ function validateEnvelope(raw) {
     !raw.params ||
     typeof raw.params !== "object" ||
     Array.isArray(raw.params) ||
-    Buffer.byteLength(JSON.stringify(raw)) > 850000
+    Buffer.byteLength(JSON.stringify(raw)) > (raw.operation === "conversations.turns.send" ? 4000000 : 850000)
   )
     throw new Error("Operação local inválida.");
   return raw;

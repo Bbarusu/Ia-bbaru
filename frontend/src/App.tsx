@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type {
   Capture,
+  DirectImage,
   Connection,
   Consent,
   Conversation,
@@ -128,6 +129,8 @@ export default function App() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   // Perfil de resposta (quick/normal/deep) ou um modelo escolhido pelo nome.
   const [chatChoice, setChatChoice] = useState("normal");
+  const [directImages, setDirectImages] = useState<DirectImage[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
   // Trecho vindo do navegador (botão, menu de contexto): só confirma se vai para o chat.
   const [incomingCapture, setIncomingCapture] = useState<Capture | null>(null);
@@ -253,7 +256,7 @@ export default function App() {
         // Lista indisponível não derruba a conexão; o envio continua idempotente.
         setError((e as Error).message);
       }
-      const unsent = readPendingSend();
+      const unsent = await readPendingSend();
       const lastConversation = unsent?.conversation.conversation_id || (await readDraft("draft:conversation"));
       setConversationId((old) => old || lastConversation || crypto.randomUUID());
       if (unsent) {
@@ -391,6 +394,12 @@ export default function App() {
 
   useEffect(() => {
     connect();
+  }, []);
+
+  useEffect(() => {
+    const onError = (event: Event) => setError((event as CustomEvent<string>).detail);
+    window.addEventListener("yuki:browser-error", onError);
+    return () => window.removeEventListener("yuki:browser-error", onError);
   }, []);
 
   // A barra do navegador pede uma área (Histórico, Downloads, Ajustes) pelo
@@ -678,6 +687,27 @@ export default function App() {
   const needsLimitAcceptance = requiresLimitAcceptance(chatModelIds, models);
   const canSeeImages = visionAvailable(models, chatModelIds, catalogVersion);
   const imageSources = sources.filter((s) => selectedSources.includes(s.id) && s.media);
+  const previousImageIds = new Set(turns.flatMap(turn => (turn.task.attachment_refs || []).map(ref => ref.id)));
+  const imageCount = new Set([...previousImageIds, ...imageSources.map(s => s.id), ...directImages.map(s => s.attachment_id)]).size;
+  const imageLimit = catalogVersion === "1.3" ? 4 : 1;
+  async function attachImageFiles(files: FileList | null) {
+    if (!files) return;
+    try {
+      if (directImages.length + files.length > imageLimit) throw new Error(`Este contrato permite até ${imageLimit} imagem(ns), incluindo o histórico.`);
+      const added: DirectImage[] = [];
+      for (const file of Array.from(files)) {
+        if (!["image/png", "image/jpeg"].includes(file.type) || !file.size || file.size > 480000)
+          throw new Error("Selecione PNG ou JPEG de até 480 KB por imagem.");
+        const data_url = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader(); reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("Não foi possível ler a imagem.")); reader.readAsDataURL(file);
+        });
+        added.push({ attachment_id: crypto.randomUUID(), title: file.name.slice(0, 120), media: { kind: "image", data_url } });
+      }
+      setDirectImages(old => [...old, ...added]); setSendImage(false);
+    } catch (error) { setError((error as Error).message); }
+    finally { if (imageInputRef.current) imageInputRef.current.value = ""; }
+  }
   const conversationCreated =
     turns.length > 0 || conversations.some((c) => c.id === conversationId);
 
@@ -774,7 +804,7 @@ export default function App() {
     setError("");
     setSendError("");
     // Aceite válido da conversa dispensa a confirmação; imagem e revisão sempre perguntam.
-    if (!review && !imageSources.length && consentCovers(consent, { modelIds: chatModelIds })) {
+    if (!review && !imageCount && consentCovers(consent, { modelIds: chatModelIds })) {
       void send(consent);
       return;
     }
@@ -866,12 +896,13 @@ export default function App() {
           review,
           sourceIds: selectedSources,
           snapshots: [captureSnapshot(chatCapture)],
-          visual: sendImage && imageSources.length === 1,
+          visual: sendImage && imageCount > 0,
+          attachments: directImages,
         }),
         captureId: chatCapture?.id,
         titles: pendingTitles,
       };
-      writePendingSend(pending);
+      await writePendingSend(pending);
       setPendingSend(pending);
       setSendOpen(false);
       await dispatch(pending);
@@ -891,7 +922,7 @@ export default function App() {
         conversation_id: pending.conversation.conversation_id,
         turn: pending.turn,
       });
-      finishSend(pending, turn);
+      await finishSend(pending, turn);
     } catch (e) {
       if (sendOutcomeUnknown(e)) {
         setSendLost(true);
@@ -899,7 +930,7 @@ export default function App() {
       }
       // Recusa definitiva: preserve também o texto recuperado após reiniciar.
       if (!textRef.current) setText(pending.turn.instruction);
-      writePendingSend(null);
+      await writePendingSend(null);
       setPendingSend(null);
       if (consentRejected(e)) {
         setConsent(null);
@@ -917,7 +948,7 @@ export default function App() {
         conversation_id: pendingSend.conversation.conversation_id,
         turn_id: pendingSend.turn.turn_id,
       });
-      finishSend(pendingSend, turn);
+      await finishSend(pendingSend, turn);
     } catch (e) {
       if ((e as { code?: string }).code === "http_404") setLostMissing(true);
       else setError("Não foi possível consultar o envio. Reconecte o componente local e consulte de novo.");
@@ -926,8 +957,8 @@ export default function App() {
     }
   }
 
-  function finishSend(pending: PendingSend, turn: Turn) {
-    writePendingSend(null);
+  async function finishSend(pending: PendingSend, turn: Turn) {
+    await writePendingSend(null);
     setPendingSend(null);
     setSendLost(false);
     setLostMissing(false);
@@ -944,6 +975,7 @@ export default function App() {
       writeDraft("draft:new", "").catch(() => {});
     }
     setSelectedSources([]);
+    setDirectImages([]);
     setAcceptedLimit(false);
     setAuthorized(false);
     setRememberConsent(false);
@@ -1039,7 +1071,7 @@ export default function App() {
     : sendOpen
       ? { text, contextTitles: pendingTitles }
       : null;
-  const imageBlocked = imageSources.length > 0 && !(canSeeImages && imageSources.length === 1 && sendImage);
+  const imageBlocked = imageCount > 0 && !(canSeeImages && imageCount <= imageLimit && sendImage);
   const sendConfirm = (
     <div className="chat-card" role="group" aria-label="Confirmar envio">
       <strong>Enviar ao Claude?</strong>
@@ -1096,12 +1128,10 @@ export default function App() {
         <span>Não perguntar de novo nesta conversa</span>
       </label>
 
-      {imageSources.length > 0 &&
-        (canSeeImages && imageSources.length === 1 ? (
+      {imageCount > 0 &&
+        (canSeeImages && imageCount <= imageLimit ? (
           <div className="image-consent">
-            {imageSources[0].media?.data_url && (
-              <img src={imageSources[0].media.data_url} alt={`Prévia: ${imageSources[0].title}`} />
-            )}
+            {[...imageSources, ...directImages].map((image) => image.media?.data_url && <img key={image.title} src={image.media.data_url} alt={`Prévia: ${image.title}`} />)}
             <label className="consent-check">
               <input
                 type="checkbox"
@@ -1109,17 +1139,18 @@ export default function App() {
                 disabled={busy}
                 onChange={(e) => setSendImage(e.target.checked)}
               />
-              <span>Enviar esta imagem ao Claude (experimental)</span>
+              <span>Enviar as imagens ao Claude (experimental)</span>
             </label>
             <p className="consent-note">
-              Uma imagem por conversa, PNG ou JPEG até 480 KB. A leitura de imagens ainda não foi
-              validada com uma conta real.
+              {imageCount} imagem(ns), incluindo {previousImageIds.size} do histórico. Até {imageLimit} por contexto,
+              PNG/JPEG de 480 KB cada. Imagens também usam cota e serão reenviadas com o histórico.
+              A leitura visual ainda não foi validada com uma conta real.
             </p>
           </div>
         ) : (
           <p className="turn-error-line" role="alert">
-            {imageSources.length > 1
-              ? "Só uma imagem pode ir por conversa. Deixe uma imagem selecionada na Biblioteca."
+            {imageCount > imageLimit
+              ? `Este contexto excede ${imageLimit} imagem(ns). Remova anexos novos ou comece outra conversa.`
               : "O modelo escolhido não declara leitura de imagens. Escolha um modelo com visão ou tire a imagem da seleção."}
           </p>
         ))}
@@ -1483,6 +1514,16 @@ export default function App() {
                   </div>
                 )}
                 {consentChip}
+                <input ref={imageInputRef} type="file" accept="image/png,image/jpeg" multiple className="sr-only" aria-label="Imagens para a conversa"
+                  disabled={busy || Boolean(pendingSend)} onChange={event => void attachImageFiles(event.target.files)} />
+                {directImages.length > 0 && <div className="composer-context" aria-label="Imagens anexadas à conversa">
+                  {directImages.map(image => <span className="context-chip" key={image.attachment_id}>
+                    <img src={image.media.data_url} alt={image.title} width="48" height="48" />
+                    <span>{image.title}</span>
+                    <button type="button" className="icon-button" disabled={busy || Boolean(pendingSend)} aria-label={`Remover imagem: ${image.title}`}
+                      onClick={() => setDirectImages(old => old.filter(item => item.attachment_id !== image.attachment_id))}>×</button>
+                  </span>)}
+                </div>}
                 <ChatComposer
                   inputRef={inputRef}
                   text={sendOpen || pendingSend ? "" : text}
@@ -1507,6 +1548,7 @@ export default function App() {
                   captureStale={captureIsStale(chatCapture, pageStatus)}
                   attachPage={attachPage}
                   attachPageVisual={attachPageVisual}
+                  attachImages={() => imageInputRef.current?.click()}
                   imagesSupported={canSeeImages}
                   removeCapture={removeChatCapture}
                   selectedSourcesCount={selectedSources.length}

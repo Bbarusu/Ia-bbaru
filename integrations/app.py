@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from backend.contracts_v1_2 import GenerateRequestV12, GenerateResponseV12, ModelCatalogV12
 from backend.protocols import RESPONSES
+from backend.contracts_v1_3 import GenerateRequestV13, GenerateResponseV13, ModelCatalogV13
 
 from . import __version__, errors
 from .adapters.base import NotStarted, ProviderResult
@@ -114,7 +115,7 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "protocol_versions": ["1", "1.1", "1.2"]}
+        return {"status": "ok", "protocol_versions": ["1", "1.1", "1.2", "1.3"]}
 
     # Catalogs are built from operator configuration + local status. No model call.
     @app.get("/v1/models", response_model=ModelCatalog, dependencies=protected)
@@ -128,6 +129,10 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     @app.get("/v1.2/models", response_model=ModelCatalogV12, dependencies=protected)
     def models_v12():
         return ModelCatalogV12(models=[p for group in each_adapter(lambda a: a.profiles_v12()) for p in group])
+
+    @app.get("/v1.3/models", response_model=ModelCatalogV13, dependencies=protected)
+    def models_v13():
+        return ModelCatalogV13(models=[p for group in each_adapter(lambda a: a.profiles_v13()) for p in group])
 
     @app.get("/v1/connections", dependencies=protected)
     def connections():
@@ -203,6 +208,12 @@ def create_app(settings: Settings | None = None, adapter: ClaudeCodeAdapter | No
     @app.post("/v1.2/generate", response_model=GenerateResponseV12, dependencies=protected)
     def generate_v12(body: GenerateRequestV12):
         return run(body, to_v12)
+
+    @app.post("/v1.3/generate", response_model=GenerateResponseV13, dependencies=protected)
+    def generate_v13(body: GenerateRequestV13):
+        return run(body, lambda request, result: GenerateResponseV13(
+            **to_v11(request, result).model_dump(exclude={"protocol_version"}),
+            served_model=result.served_model, attachments_used=result.attachments_used))
 
     return app
 

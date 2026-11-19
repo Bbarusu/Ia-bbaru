@@ -1,5 +1,7 @@
 # Contrato do chat e passagem para o Claude de interface
 
+**Atualização de 18/11.** O campo opcional `turn.attachments` aceita objetos `{"attachment_id":"<uuid>","title":"Diagrama","media":{"kind":"image","data_url":"data:image/png;base64,..."}}`. O backend grava os anexos em `conversation_media` na transação do turno. O renderer persiste o corpo em `pending-send` antes do despacho. O protocolo 1.2 aceita uma imagem. Para até quatro, configure `GATEWAY_PROTOCOL_VERSION=1.3` e um alias explicitamente autorizado em `IA_BBARU_CLAUDE_CODE_VISION_MODELS`. Os limites incluem imagens do histórico.
+
 Entrega Codex, 16/11/2026. Base: `codex/browser-capture-clis`, incorporando a PR #11
 (`b2735ca`) e a análise CLI (`eb6c671`). Produto exclusivamente Chromium/Electron.
 Atualização 17/11: interface integrada até 629254c, com operações de conversa

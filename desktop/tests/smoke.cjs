@@ -24,12 +24,17 @@ async function main() {
       ] }));
       return;
     }
+    if (req.url === "/fixture-download") {
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", 'attachment; filename="fixture.txt"');
+      res.end("Local download fixture"); return;
+    }
     if (req.url === "/fixture-image.svg") {
       res.setHeader("Content-Type", "image/svg+xml");
       res.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="blue"/></svg>');
       return;
     }
-    if (req.url === "/v1.2/generate" && req.method === "POST") {
+    if (["/v1.2/generate", "/v1.3/generate"].includes(req.url) && req.method === "POST") {
       let body = "";
       req.on("data", (chunk) => { body += chunk; });
       req.on("end", () => {
@@ -37,17 +42,18 @@ async function main() {
         generations.push(request);
         setTimeout(() => {
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ protocol_version: "1.2", request_id: request.request_id,
+          res.end(JSON.stringify({ protocol_version: request.protocol_version, request_id: request.request_id,
+            attachments_used: (request.attachments || []).map(a => ({id: a.id, sha256: a.sha256})),
             model_id: request.model_id, served_model: "claude-sonnet-5-5", output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
         }, 800);
       });
       return;
     }
-    if (req.url === "/v1.2/models") {
+    if (["/v1.2/models", "/v1.3/models"].includes(req.url)) {
       res.setHeader("Content-Type", "application/json");
       res.end(
         JSON.stringify({
-          protocol_version: "1.2",
+          protocol_version: req.url.includes("1.3") ? "1.3" : "1.2",
           models: [
             {
               id: "fixture:study",
@@ -57,6 +63,7 @@ async function main() {
               task_kinds: ["study"],
               context_char_limit: 80000,
               max_output_tokens: 64,
+              input: { image: { supported: req.url.includes("1.3") } },
               capabilities: {
                 output_limit: "best_effort",
                 cancellation: "local_process_only",
@@ -415,16 +422,16 @@ async function main() {
     await expect(confirmSend).toHaveCount(0);
     await expect.poll(() => generations.length).toBe(3);
     await expect(workspace.getByText("Não recebemos a confirmação do envio.")).toBeVisible();
-    const lostSend = await workspace.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send")));
+    const lostSend = await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"]));
     assert.equal(lostSend.turn.instruction, "Terceira mensagem");
     await workspace.getByRole("button", { name: "Consultar estado", exact: true }).click();
     await expect(workspace.getByText("O envio ainda não foi encontrado.")).toBeVisible();
     await expect(workspace.getByRole("button", { name: "Editar o texto", exact: true })).toHaveCount(0);
-    assert.deepEqual(await workspace.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send"))), lostSend);
+    assert.deepEqual(await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), lostSend);
     await workspace.getByRole("button", { name: "Reenviar o mesmo pedido", exact: true }).click();
     await expect(answers).toHaveCount(3, { timeout: 15000 });
     assert.equal(generations.length, 3, "replay of accepted turn never generates twice");
-    assert.equal(await workspace.evaluate(() => localStorage.getItem("yuki:pending-send")), null);
+    assert.equal(await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), null);
     await workspace.getByRole("button", { name: "Revogar", exact: true }).click();
     await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toHaveCount(0);
     await workspace.locator("#instruction").fill("Quarta mensagem");
@@ -773,10 +780,35 @@ async function main() {
     await expect(shell.locator("#bookmarks")).toBeHidden();
     await workspace.getByLabel("Mostrar abaixo do endereço").check();
     await openArea(workspace, "Chat");
+    // Browser data belongs to the main process; settings have actual runtime effects.
+    const browser = (operation, params = {}) => workspace.evaluate(({ operation, params }) =>
+      window.iaDesktop.runtime.sendMessage({ type: "browser.data", operation, params }), { operation, params });
+    const data = await browser("get");
+    assert.ok(data.history.some(row => row.url.startsWith(url)));
+    await browser("set", { key: "yuki:new-tab-background", value: "gelo" });
+    await browser("set", { key: "yuki:startup", value: "restore" });
+    await shell.evaluate(() => window.navigatorApp.command("new"));
+    const home = await expect.poll(() => app.windows().find(page => page.url().includes("/ui/home.html"))).toBeTruthy().then(() => app.windows().find(page => page.url().includes("/ui/home.html")));
+    await expect(home.locator("body")).toHaveAttribute("data-background", "gelo");
+    assert.equal(await home.evaluate(() => typeof window.iaDesktop), "undefined");
+    const mainData = await home.evaluate(() => window.yukiHome.get());
+    assert.equal(mainData.history, undefined);
+    await shell.evaluate((url) => window.navigatorApp.command("navigate", url), url);
+    const downloadPath = path.join(profile, "fixture-download.txt");
+    await app.evaluate(({ session, webContents }, { url, downloadPath }) => {
+      session.fromPartition("persist:web").once("will-download", (_event, item) => item.setSavePath(downloadPath));
+      webContents.getAllWebContents().find(w => w.getURL() === url + "/").downloadURL(url + "/fixture-download");
+    }, { url, downloadPath });
+    await expect.poll(async () => (await browser("get")).downloads[0]?.state).toBe("completed");
+    assert.equal(fs.readFileSync(downloadPath, "utf8"), "Local download fixture");
+    await openArea(workspace, "Downloads");
+    await expect(workspace.getByText("fixture.txt", { exact: true })).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Mostrar na pasta", exact: true })).toBeVisible();
+    await openArea(workspace, "Chat");
     const versions = await app.evaluate(() => process.versions);
     const generatedBeforeRestart = generations.length;
     // Restore an unresolved send, as if the process exited before its response arrived.
-    await workspace.evaluate((pending) => localStorage.setItem("yuki:pending-send", JSON.stringify(pending)), lostSend);
+    await workspace.evaluate((pending) => window.iaDesktop.storage.local.set({ "pending-send": JSON.stringify(pending) }), lostSend);
     await app.close();
     app = null;
     app = await launch();
@@ -790,11 +822,15 @@ async function main() {
     ).toBeVisible({ timeout: 15000 });
     assert.equal(generations.length, generatedBeforeRestart, "reopening does not generate");
     await expect(reopened.getByRole("button", { name: "Consultar estado", exact: true })).toBeVisible();
-    assert.deepEqual(await reopened.evaluate(() => JSON.parse(localStorage.getItem("yuki:pending-send"))), lostSend);
+    assert.deepEqual(await reopened.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), lostSend);
     await reopened.getByRole("button", { name: "Consultar estado", exact: true }).click();
-    await expect.poll(() => reopened.evaluate(() => localStorage.getItem("yuki:pending-send"))).toBe(null);
+    await expect.poll(() => reopened.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"]))).toBe(null);
     assert.equal(generations.length, generatedBeforeRestart, "consulting an unresolved turn never generates");
     assert.equal((await readChat(reopened)).data.task.status, "completed");
+    const browserAfterRestart = await reopened.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "browser.data", operation: "get" }));
+    assert.equal(browserAfterRestart.preferences["yuki:new-tab-background"], "gelo");
+    assert.equal(browserAfterRestart.downloads[0].state, "completed");
+    await expect.poll(() => app.windows().some(page => page.url().startsWith(url))).toBe(true);
     const persisted = await reopened.evaluate(() =>
       window.iaDesktop.runtime.sendMessage({
         type: "bridge.request",
@@ -807,6 +843,33 @@ async function main() {
       }),
     );
     assert.equal(persisted.data.items[0].title, "Teste Chromium");
+    // Separate opt-in contract 1.3, still using the local deterministic gateway.
+    await app.close(); app = null;
+    env.GATEWAY_PROTOCOL_VERSION = "1.3";
+    app = await launch();
+    const visualChat = await workspacePage();
+    await expect(visualChat.getByText("Backend local ativo", { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(visualChat.getByRole("button", { name: "Novo chat", exact: true })).toBeEnabled();
+    await visualChat.getByRole("button", { name: "Novo chat", exact: true }).click();
+    await visualChat.getByLabel("Imagens para a conversa", { exact: true }).setInputFiles([
+      { name: "primeira.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") },
+      { name: "segunda.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") },
+    ]);
+    await expect(visualChat.getByRole("button", { name: "Remover imagem: segunda.png", exact: true })).toBeVisible();
+    await visualChat.locator("#instruction").fill("Compare as duas imagens");
+    await visualChat.getByRole("button", { name: "Enviar", exact: true }).click();
+    const visualConfirm = visualChat.getByRole("group", { name: "Confirmar envio" });
+    await visualConfirm.getByRole("checkbox", { name: "Aceito o limite indicativo para esta tarefa" }).check();
+    await visualConfirm.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
+    await expect(visualConfirm.getByRole("button", { name: "Enviar ao Claude", exact: true })).toBeDisabled();
+    await visualConfirm.getByRole("checkbox", { name: "Enviar as imagens ao Claude (experimental)" }).check();
+    const beforeVisual = generations.length;
+    await visualConfirm.getByRole("button", { name: "Enviar ao Claude", exact: true }).click();
+    await expect.poll(() => generations.length).toBe(beforeVisual + 1);
+    assert.equal(generations.at(-1).attachments.length, 2);
+    assert.equal(generations.at(-1).protocol_version, "1.3");
+    assert.ok(!JSON.stringify(generations.at(-1).context).includes("base64"));
+    await expect(visualChat.getByRole("log").getByText("Resposta simulada da fila durável.", { exact: true })).toBeVisible();
     fs.writeFileSync(
       path.join(artifacts, "smoke.json"),
       JSON.stringify(
@@ -816,6 +879,8 @@ async function main() {
           chromiumSandbox: process.env.IA_BBARU_TEST_NO_SANDBOX !== "1",
           checks: [
             "native backend startup",
+            "main-process browser data, real download, personalization and restored tabs",
+            "two direct images in conversation with explicit opt-in and no library save",
             "single instance per profile",
             "project creation",
             "web navigation and back",

@@ -51,7 +51,10 @@ export type TaskResult = {
   served_model?: string | null;
 };
 
+export type DirectImage = { attachment_id: string; title: string; media: { kind: "image"; data_url: string } };
+
 export type Task = {
+  attachment_refs?: {id: string; sha256: string}[];
   id: string;
   instruction: string;
   status: string;

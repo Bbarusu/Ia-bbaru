@@ -196,7 +196,7 @@ class CliAdapterBase:
             raise errors.invalid_request("missing_previous_output", "Revisão exige previous_output")
         if request_budget(request) > self.settings.context_char_limit:
             raise errors.context_too_large()
-        if request.protocol_version in {"1.1", "1.2"}:
+        if request.protocol_version in {"1.1", "1.2", "1.3"}:
             # Acceptance belongs to the task, not to the operator's env flag.
             if not request.allow_unenforced_output_limit and self.capabilities.output_limit != "enforced":
                 raise errors.output_limit_not_accepted()

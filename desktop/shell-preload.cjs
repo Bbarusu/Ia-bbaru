@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("navigatorApp", {
+  data: (operation, params) => ipcRenderer.invoke("browser:data", operation, params),
+  onData: callback => ipcRenderer.on("browser:data", (_event, data) => callback(data)),
   command: (action, value) =>
     ipcRenderer.invoke("browser:command", action, value),
   state: () => ipcRenderer.invoke("browser:state"),

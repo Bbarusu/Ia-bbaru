@@ -20,57 +20,40 @@ function loadBookmarks() {
       localStorage.getItem("yuki:bookmarks") ||
       localStorage.getItem("ia-bbaru:bookmarks");
     const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed) && parsed.length) return parsed;
+    if (Array.isArray(parsed)) return parsed;
   } catch {}
   return DEFAULT_BOOKMARKS;
 }
 
+let browserCache;
 function saveBookmarks(items) {
-  try {
-    localStorage.setItem("yuki:bookmarks", JSON.stringify(items));
-  } catch {}
+  api.data("set", { key: "yuki:bookmarks", value: items }).catch(error => { ownMessage = error.message; if (state) render(state); });
 }
-
+function saveHistory(items) { api.data("set", { key: "yuki:history", value: items, revision: browserCache?.revision }).catch(error => { ownMessage = error.message; }); }
 function loadHistory() {
-  try {
-    const raw = localStorage.getItem("yuki:history");
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed)) return parsed;
-  } catch {}
-  return [];
+  try { return JSON.parse(localStorage.getItem("yuki:history") || "[]"); } catch { return []; }
 }
-
-function saveHistory(items) {
-  try {
-    localStorage.setItem("yuki:history", JSON.stringify(items.slice(0, 30)));
-  } catch {}
-}
-
 let bookmarks = loadBookmarks();
 let visitHistory = loadHistory();
-applyPreferences();
-
-function recordVisit(tab) {
-  if (!tab?.url || !/^https?:\/\//i.test(tab.url)) return;
-  const entry = {
-    title: (tab.title || tab.url).slice(0, 48),
-    url: tab.url,
-    at: new Date().toISOString(),
-    time: new Date().toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  };
-  visitHistory = pruneHistory([
-    entry,
-    ...visitHistory.filter((item) => item.url !== tab.url),
-  ]).slice(0, 25);
-  saveHistory(visitHistory);
+function applyBrowserData(data) {
+  browserCache = data; bookmarks = data.bookmarks; visitHistory = data.history;
+  applyPreferences();
+  if (state) renderSubbar(state.tabs.find(t => t.id === state.activeId));
 }
-
+api.onData(applyBrowserData);
+const legacyPreferences = {};
+for (const key of ["yuki:show-bookmarks", "yuki:history-retention"]) {
+  const value = localStorage.getItem(key); if (value !== null) legacyPreferences[key] = value;
+}
+api.data("migrate", { history: visitHistory, bookmarks, preferences: legacyPreferences }).then(data => {
+  applyBrowserData(data);
+  for (const key of ["yuki:history", "yuki:bookmarks", "ia-bbaru:bookmarks", "yuki:history-retention", "yuki:show-bookmarks"])
+    localStorage.removeItem(key);
+})
+  .catch(error => { ownMessage = error.message; });
 // Ajustes → Geral: "Remover itens do histórico" (dias; vazio = manualmente).
 function pruneHistory(items) {
-  const days = Number(localStorage.getItem("yuki:history-retention")) || 0;
+  const days = Number(browserCache?.preferences["yuki:history-retention"]) || 0;
   if (!days) return items;
   const limit = Date.now() - days * 86400000;
   return items.filter((item) => !item.at || Date.parse(item.at) >= limit);
@@ -81,15 +64,9 @@ function pruneHistory(items) {
 function applyPreferences() {
   document.querySelector(".subbar")?.classList.toggle(
     "no-bookmarks",
-    localStorage.getItem("yuki:show-bookmarks") === "0",
+    browserCache?.preferences["yuki:show-bookmarks"] === "0",
   );
 }
-window.addEventListener("storage", (event) => {
-  if (event.key === "yuki:history" || event.key === null) visitHistory = loadHistory();
-  if (event.key === "yuki:bookmarks" || event.key === null) bookmarks = loadBookmarks();
-  applyPreferences();
-  if (state) renderSubbar(state.tabs.find((t) => t.id === state.activeId));
-});
 
 /** Abre uma área do painel (Histórico, Downloads, Ajustes) pelo armazenamento compartilhado. */
 function openPanelArea(area) {
@@ -406,14 +383,12 @@ function renderSubbar(activeTab, mediaKind = "") {
 }
 
 function render(next) {
+  if (Number.isFinite(next.panelWidth)) panelWidth = Math.min(700, next.panelWidth);
   state = next;
   const focusedTabId = document.activeElement?.dataset.tabId;
   $("tabs").replaceChildren();
   for (const tab of next.tabs) {
     const isActive = tab.id === next.activeId;
-    if (isActive && !tab.loading && tab.url) {
-      recordVisit(tab);
-    }
     const item = document.createElement("div");
     item.className = [
       "tab",
