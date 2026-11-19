@@ -439,6 +439,20 @@ async function main() {
     await expect(confirmSend).toBeVisible();
     await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
     assert.equal(generations.length, 3, "revoked consent does not dispatch");
+    // I4 no runtime real: Ctrl+Shift+L fecha e reabre o painel com o foco no campo; nada é enviado.
+    // sendInputEvent passa pelo before-input-event do runtime, como um teclado real.
+    const panelShortcut = () => app.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      contents.focus();
+      for (const type of ["keyDown", "keyUp"])
+        contents.sendInputEvent({ type, keyCode: "L", modifiers: ["control", "shift"] });
+    });
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "false");
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "true");
+    await expect(workspace.locator("#instruction")).toBeFocused();
+    assert.equal(generations.length, 3, "opening the panel does not dispatch");
     await workspace.screenshot({ path: path.join(artifacts, "conversation.png") });
     await workspace.locator("#instruction").fill("");
     const rejected = await workspace.evaluate(async () => {
@@ -889,6 +903,7 @@ async function main() {
             "chat send without modal; nothing saved or generated before consents",
             "1.2 acceptance required per message and persisted",
             "panel width control in shell",
+            "Ctrl+Shift+L toggles the panel and focuses the composer",
             "settings page opened from the shell; bookmarks bar preference synced",
             "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",
             "answer shown in the conversation; technical details collapsed",
