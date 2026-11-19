@@ -11,7 +11,7 @@ from backend.main import ProjectInput, SourceInput, TaskInput
 from backend.gateway_errors import ERROR_STATUS, error_message
 from backend.conversations import ConversationInput, TurnInput, ConsentInput
 
-MAX_BYTES = 900_000
+MAX_BYTES = 4_000_000
 OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
               "sources.list", "sources.create", "sources.get", "models.list", "connections.list",
               "tasks.list", "tasks.plan", "tasks.get", "tasks.enqueue", "tasks.resume",
@@ -20,6 +20,9 @@ OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
               "conversations.consent.get", "conversations.consent.set", "conversations.consent.revoke")
 
 CHAT_ERRORS = {
+    "attachment_id_conflict": "Este identificador já pertence a outra imagem. Selecione novamente o arquivo.",
+    "duplicate_attachment": "Há identificadores de imagem repetidos neste envio.",
+    "invalid_image": "Use PNG ou JPEG válido, até 480 KB e 16 megapixels.",
     "source_snapshot_conflict": "Este material mudou desde o envio anterior. Use uma nova captura ou uma nova conversa.",
     "context_too_large": "O contexto excede o limite. Abra uma nova conversa ou envie menos material.",
     "no_model_fits_context": "O contexto e a reserva de resposta excedem o limite dos modelos permitidos.",

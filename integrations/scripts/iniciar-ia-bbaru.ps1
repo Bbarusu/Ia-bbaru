@@ -124,7 +124,7 @@ Write-Host "  Para acompanhar as requisições em outro PowerShell: Get-Content 
 
 # 5. Navegador; 6. encerra o gateway ao sair.
 $env:GATEWAY_URL = $url
-$env:GATEWAY_PROTOCOL_VERSION = '1.2'
+if (-not $env:GATEWAY_PROTOCOL_VERSION) { $env:GATEWAY_PROTOCOL_VERSION = '1.2' }
 try {
     if ($firstRun) {
         Write-Host 'Primeiro início: instalando a interface e o navegador (pode demorar alguns minutos)...'

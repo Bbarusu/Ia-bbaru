@@ -317,7 +317,7 @@ def i8_single_image_with_explicit_visual_consent(browser, url):
         limit.check()
     card.get_by_role("checkbox", name="Autorizo executar esta tarefa com minha conta").check()
     expect(send).to_be_disabled()  # a imagem pede o aceite visual próprio
-    card.get_by_role("checkbox", name="Enviar esta imagem ao Claude (experimental)").check()
+    card.get_by_role("checkbox", name="Enviar as imagens ao Claude (experimental)").check()
     send.click()
     panel.answers(1)
     body = panel.sends()[0]
@@ -329,7 +329,7 @@ def i8_single_image_with_explicit_visual_consent(browser, url):
     page.get_by_label("Usar Segundo gráfico no pedido").check()
     panel.menu("Chat")
     panel.ask("E as duas?")
-    expect(panel.card()).to_contain_text("Só uma imagem pode ir por conversa")
+    expect(panel.card()).to_contain_text("Este contexto excede 1 imagem(ns)")
     expect(panel.card().get_by_role("button", name="Enviar ao Claude", exact=True)).to_be_disabled()
     assert len(panel.sends()) == 1
     panel.close()

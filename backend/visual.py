@@ -31,6 +31,10 @@ def dispatch_attachments(store, task):
             # Both project identity and immutable content must still match.
             row = conn.execute("SELECT id FROM sources WHERE id=? AND project_id=?", (ref["id"], task["project_id"])).fetchone()
             image = source_attachment(conn, ref["id"], task["project_id"]) if row else None
+            if image is None and task.get("conversation_id"):
+                saved = conn.execute("SELECT body FROM conversation_media WHERE id=? AND conversation_id=?", (ref["id"], task["conversation_id"])).fetchone()
+                if saved:
+                    image = attachment(ref["id"], task["project_id"], json.loads(saved["body"])["media"])
             if not image or image.model_dump(exclude={"data_base64"}) != ref:
                 raise ValueError("attachment_changed_replan_required")
             images.append(image.model_dump())

@@ -1,5 +1,7 @@
 # Validar a integração no Windows — 17/11/2026
 
+**Verificação manual adicional.** Depois das suítes abaixo, confira arraste, redimensionamento, minimizar, maximizar, restaurar e fechar pelas bolinhas. Baixe um arquivo HTTP(S), cancele o primeiro diálogo e confirme o destino no segundo. Confira progresso, Mostrar na pasta e persistência depois de reiniciar. Em Ajustes, altere o fundo e ative a restauração de abas. O smoke cobre dois anexos com um gateway simulado. A leitura de pixels pela assinatura ainda precisa de teste real autorizado.
+
 Esta versão foi testada em Linux. Não marcar Windows como aprovado sem a saída
 do usuário. Usar a cópia atual W:\Projeto\Ia-bbaru-chat, preservando perfil e bancos.
 Fechar navegador/gateway antes de atualizar. Não apagar bancos nem repetir geração

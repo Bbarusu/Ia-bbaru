@@ -63,7 +63,7 @@ def preflight_error(task, catalog, steps):
             return "model_unavailable_replan_required"
         if task.get("attachment_refs"):
             from .visual import visual_policy
-            if catalog.protocol_version != "1.2" or visual_policy(model) or not task.get("allow_visual_input"):
+            if catalog.protocol_version not in {"1.2", "1.3"} or visual_policy(model) or not task.get("allow_visual_input"):
                 return "visual_input_not_supported"
         error = policy_error(model, accepted)
         if error:

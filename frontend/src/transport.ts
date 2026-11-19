@@ -66,16 +66,23 @@ export async function contextStatus(): Promise<PageStatus | null> {
   if (!localBridge) return null;
   return localBridge.runtime.sendMessage({ type: "context.status" });
 }
-/** Envio em curso guardado no próprio painel: o armazenamento do runtime aceita até 8.000 caracteres. */
+/** O runtime persiste o corpo completo antes do despacho. */
 const PENDING_KEY = "yuki:pending-send";
-export function readPendingSend(): PendingSend | null {
-  try {
-    return JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
-  } catch {
-    return null;
+export async function readPendingSend(): Promise<PendingSend | null> {
+  if (localBridge) {
+    const raw = (await localBridge.storage.local.get("pending-send"))["pending-send"];
+    if (raw) return JSON.parse(raw);
   }
+  const legacy = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
+  if (legacy && localBridge) await writePendingSend(legacy);
+  return legacy;
 }
-export function writePendingSend(value: PendingSend | null) {
+export async function writePendingSend(value: PendingSend | null) {
+  if (localBridge) {
+    await localBridge.storage.local.set({ "pending-send": JSON.stringify(value) });
+    localStorage.removeItem(PENDING_KEY);
+    return;
+  }
   if (value) localStorage.setItem(PENDING_KEY, JSON.stringify(value));
   else localStorage.removeItem(PENDING_KEY);
 }

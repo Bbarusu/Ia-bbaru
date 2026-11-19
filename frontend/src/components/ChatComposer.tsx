@@ -41,6 +41,7 @@ interface ChatComposerProps {
   removePasted: () => void;
   openPaste: () => void;
   attachPageVisual: () => void;
+  attachImages: () => void;
   imagesSupported: boolean;
   removeCapture: () => void;
   selectedSourcesCount: number;
@@ -74,6 +75,7 @@ export function ChatComposer({
   removePasted,
   openPaste,
   attachPageVisual,
+  attachImages,
   imagesSupported,
   removeCapture,
   selectedSourcesCount,
@@ -227,6 +229,9 @@ export function ChatComposer({
                       Usar página atual
                       <small>Texto visível da aba, até 38.000 caracteres</small>
                     </span>
+                  </button>
+                  <button type="button" onClick={choose(attachImages)} disabled={!imagesSupported}>
+                    <ImageIcon size={14} aria-hidden="true" /><span>Imagens nesta conversa<small>PNG/JPEG até 480 KB; sem salvar na biblioteca</small></span>
                   </button>
                   <button type="button" onClick={choose(attachPageVisual)}>
                     <ImageIcon size={14} aria-hidden="true" />

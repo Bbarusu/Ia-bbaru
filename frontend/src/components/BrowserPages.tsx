@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { Download, FileText, Puzzle, Settings2, Shield, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Download, Puzzle, Settings2, Shield, SlidersHorizontal, Trash2, X } from "lucide-react";
 import {
+  browserAction, useBrowserData, reportBrowserError,
   dayLabel,
   hostOf,
-  pruneHistory,
   useStored,
   useStoredList,
   type Bookmark,
@@ -112,35 +112,32 @@ export function WebHistoryPage() {
         ))
       )}
       <p className="browser-note">
-        Guarda as últimas 25 páginas web visitadas neste computador. Clicar abre a página numa nova aba.
+        Guarda as últimas 5.000 páginas web visitadas neste computador. Clicar abre a página numa nova aba.
       </p>
     </section>
   );
 }
 
 export function DownloadsPage() {
+  const data = useBrowserData();
+  const run = (operation: string, params = {}) => { void browserAction(operation, params).catch(reportBrowserError); };
+  const labels: Record<string, string> = { choosing: "Escolha onde salvar", progressing: "Baixando", paused: "Pausado", completed: "Concluído", cancelled: "Cancelado", interrupted: "Interrompido" };
   return (
     <section className="browser-page" aria-label="Downloads">
       <div className="browser-page-bar">
-        <span className="browser-page-title">
-          <Download size={16} aria-hidden="true" /> Downloads
-        </span>
-        <button type="button" className="outline-button" disabled data-codex="downloads.clear">
-          Limpar
-        </button>
+        <span className="browser-page-title"><Download size={16} aria-hidden="true" /> Downloads</span>
+        <button type="button" className="outline-button" disabled={!data?.downloads.length} onClick={() => run("downloads.clear")}>Limpar lista</button>
       </div>
-      <div className="browser-card downloads-empty">
-        <FileText size={22} aria-hidden="true" />
-        <div>
-          <strong>Nenhum download.</strong>
-          <p>
-            Este navegador bloqueia downloads por segurança: nenhum arquivo é baixado. A lista, o
-            progresso, “Mostrar na pasta” e “Cancelar” aparecem aqui quando a integração estiver
-            pronta. <Pending id="N3" />
-          </p>
+      {!data?.downloads.length && <p className="browser-empty">Nenhum download. Ao baixar um arquivo, escolha onde salvá-lo no diálogo do sistema.</p>}
+      {data?.downloads.map(row => (
+        <div className="browser-card" key={row.id}>
+          <strong>{row.name}</strong><p>{labels[row.state] || row.state} · {(row.received / 1024).toFixed(0)} KB{row.total > 0 ? ` / ${(row.total / 1024).toFixed(0)} KB` : ""}</p>
+          <progress aria-label={`Progresso: ${row.name}`} max={row.total || 1} value={row.total ? row.received : undefined} />
+          {["choosing", "progressing", "paused"].includes(row.state) && <button type="button" className="outline-button" onClick={() => run("downloads.cancel", { id: row.id })}>Cancelar</button>}
+          {row.state === "completed" && <button type="button" className="outline-button" onClick={() => run("downloads.show", { id: row.id })}>Mostrar na pasta</button>}
         </div>
-      </div>
-      <p className="browser-note">Arquivos baixados nunca abrem sozinhos.</p>
+      ))}
+      <p className="browser-note">Arquivos nunca abrem sozinhos. Limpar a lista não apaga os arquivos. Downloads interrompidos não reiniciam automaticamente.</p>
     </section>
   );
 }
@@ -168,6 +165,16 @@ export function SettingsPage() {
   const [showBookmarks, setShowBookmarks] = useStored("yuki:show-bookmarks");
   const [bookmarks, setBookmarks] = useStoredList<Bookmark>("yuki:bookmarks");
   const [history, setHistory] = useStoredList<HistoryEntry>("yuki:history");
+  const [startup, setStartup] = useStored("yuki:startup");
+  const [newTab, setNewTab] = useStored("yuki:new-tab");
+  const [background, setBackground] = useStored("yuki:new-tab-background");
+  const [welcome, setWelcome] = useStored("yuki:home-welcome");
+  const [homeBookmarks, setHomeBookmarks] = useStored("yuki:home-bookmarks");
+  const [ask, setAsk] = useStored("yuki:home-ask");
+  const [engine, setEngine] = useStored("yuki:search-engine");
+  const [zoom, setZoom] = useStored("yuki:default-zoom");
+  const data = useBrowserData();
+  const run = (operation: string) => { void browserAction(operation).catch(reportBrowserError); };
 
   return (
     <section className="browser-page settings-page" aria-label="Ajustes do navegador">
@@ -189,18 +196,16 @@ export function SettingsPage() {
         {section === "geral" && (
           <>
             <Row label="Ao abrir o Yuki" htmlFor="set-startup">
-              <select id="set-startup" disabled data-codex="settings.startup">
-                <option>Nova aba</option>
-                <option>Abas da última sessão</option>
+              <select id="set-startup" value={startup || "new"} onChange={event => setStartup(event.target.value)}>
+                <option value="new">Nova aba</option>
+                <option value="restore">Abas da última sessão</option>
               </select>
-              <Pending id="N5" />
             </Row>
             <Row label="Novas abas abrem com" htmlFor="set-newtab">
-              <select id="set-newtab" disabled data-codex="settings.newTab">
-                <option>Página inicial do Yuki</option>
-                <option>Página em branco</option>
+              <select id="set-newtab" value={newTab || "home"} onChange={event => setNewTab(event.target.value)}>
+                <option value="home">Página inicial do Yuki</option>
+                <option value="blank">Página em branco</option>
               </select>
-              <Pending id="N5" />
             </Row>
             <Row label="Remover itens do histórico" htmlFor="set-retention">
               <select
@@ -209,7 +214,7 @@ export function SettingsPage() {
                 onChange={(event) => {
                   const days = event.target.value;
                   setRetention(days || null);
-                  if (days) setHistory(pruneHistory(history, Number(days)));
+                  // Retention is enforced by the main process, including on startup.
                 }}
               >
                 <option value="">Manualmente</option>
@@ -219,10 +224,18 @@ export function SettingsPage() {
               </select>
             </Row>
             <Row label="Pasta dos downloads" htmlFor="set-downloads">
-              <select id="set-downloads" disabled data-codex="settings.downloadFolder">
-                <option>Downloads</option>
+              <span className="settings-text">{data?.downloadFolder || "Downloads do sistema"}</span>
+              <button id="set-downloads" type="button" className="outline-button" onClick={() => run("downloads.folder")}>Escolher pasta…</button>
+            </Row>
+            <Row label="Busca" htmlFor="set-search">
+              <select id="set-search" value={engine || "google"} onChange={event => setEngine(event.target.value)}>
+                <option value="google">Google</option><option value="bing">Bing</option><option value="duckduckgo">DuckDuckGo</option>
               </select>
-              <Pending id="N3" />
+            </Row>
+            <Row label="Zoom de novas abas" htmlFor="set-zoom">
+              <select id="set-zoom" value={zoom || "100"} onChange={event => setZoom(event.target.value)}>
+                {[80,90,100,110,125,150].map(value => <option key={value} value={value}>{value}%</option>)}
+              </select>
             </Row>
             <Row label="Painel do Claude">
               <span className="settings-text">
@@ -271,21 +284,19 @@ export function SettingsPage() {
               <div className="swatches" role="radiogroup" aria-label="Fundo da nova aba">
                 {["Gelo", "Neve", "Liso"].map((name, index) => (
                   <label key={name} className={`swatch swatch-${index}`}>
-                    <input type="radio" name="newtab-bg" disabled defaultChecked={index === 1} data-codex="settings.newTabBackground" />
+                    <input type="radio" name="newtab-bg" checked={(background || "neve") === name.toLowerCase()} onChange={() => setBackground(name.toLowerCase())} />
                     <span>{name}</span>
                   </label>
                 ))}
               </div>
-              <Pending id="N5" />
             </Row>
             <Row label="Na nova aba, mostrar">
-              {["Favoritos", "Mensagem de boas-vindas", "Botão “Perguntar ao Claude”"].map((name) => (
-                <label key={name} className="consent-check">
-                  <input type="checkbox" disabled defaultChecked data-codex="settings.newTabSections" />
-                  <span>{name}</span>
+              {[{name: "Favoritos", value: homeBookmarks, set: setHomeBookmarks}, {name: "Mensagem de boas-vindas", value: welcome, set: setWelcome}, {name: "Botão “Perguntar ao Claude”", value: ask, set: setAsk}].map(item => (
+                <label key={item.name} className="consent-check">
+                  <input type="checkbox" checked={item.value !== "0"} onChange={event => item.set(event.target.checked ? "1" : "0")} />
+                  <span>{item.name}</span>
                 </label>
               ))}
-              <Pending id="N5" />
             </Row>
           </>
         )}
@@ -300,10 +311,9 @@ export function SettingsPage() {
               )}
             </Row>
             <Row label="Cookies e dados de sites">
-              <button type="button" className="outline-button" disabled data-codex="privacy.clearSiteData">
+              <button type="button" className="outline-button" onClick={() => run("privacy.clearSiteData")}>
                 Limpar dados de sites…
               </button>
-              <Pending id="N5" />
             </Row>
             <Row label="Permissões de sites">
               <span className="settings-text">
@@ -311,7 +321,7 @@ export function SettingsPage() {
               </span>
             </Row>
             <Row label="Downloads">
-              <span className="settings-text">Bloqueados neste navegador.</span>
+              <span className="settings-text">Destino confirmado antes de salvar; sem abertura automática.</span>
             </Row>
           </>
         )}
@@ -333,11 +343,7 @@ export function SettingsPage() {
                 O Yuki usa o Chromium pelo Electron. Ele só carrega extensões a partir de uma pasta
                 descompactada, com parte das APIs do Chrome, e não instala pela Chrome Web Store.
               </p>
-              <ul>
-                <li>Cada extensão roda só nas abas web, nunca no painel do Claude.</li>
-                <li>As permissões pedidas aparecem antes de carregar.</li>
-                <li>Desativar ou remover vale na hora.</li>
-              </ul>
+              <p>Extensões adiadas nesta etapa por decisão do usuário. Nenhuma extensão é carregada; o botão permanece desativado.</p>
             </div>
           </div>
         )}

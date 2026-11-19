@@ -51,6 +51,9 @@ class Store:
                     title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                     revision INTEGER NOT NULL DEFAULT 0, consent TEXT, creation_hash TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS conversation_media (
+                    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id), body TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS conversation_turns (
                     id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id),
                     sequence INTEGER NOT NULL, task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id),

@@ -17,7 +17,7 @@ class GatewayUnavailable(Exception):
 class HttpGateway:
     def __init__(self, url: str | None, token: str | None, protocol_version: str = "1"):
         if protocol_version not in CATALOGS:
-            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1, 1.1 or 1.2")
+            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1, 1.1, 1.2 or 1.3")
         self.url = (url or "").rstrip("/")
         self.token = token
         self.protocol_version = protocol_version
@@ -94,7 +94,7 @@ class HttpGateway:
             result = schema.model_validate(raw)
             if result.request_id != request.request_id or result.model_id != request.model_id:
                 raise ValueError("Gateway response does not match the request")
-            if self.protocol_version == "1.2":
+            if self.protocol_version in {"1.2", "1.3"}:
                 expected = [{"id": a.id, "sha256": a.sha256} for a in request.attachments]
                 if [a.model_dump() for a in result.attachments_used] != expected:
                     raise ValueError("Gateway did not confirm the image input")

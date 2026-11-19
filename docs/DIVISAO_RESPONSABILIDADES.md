@@ -1,5 +1,7 @@
 # Responsabilidades dos colaboradores
 
+**Entrega de 18/11 à interface.** Histórico, favoritos, downloads e preferências agora vêm do processo principal por `browser.data`. O painel aprovado já usa essa fonte. A Frente 3 mantém a apresentação e a Frente 2 mantém a persistência e a migração. O contrato de imagens diretas está em [ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).
+
 Decisão solicitada pelo usuário em 11/11/2026, após conflito no adaptador Claude.
 Esta divisão substitui os escopos amplos anteriores dos prompts e passagens.
 O produto continua integrado exclusivamente com Claude Code; os nomes dos

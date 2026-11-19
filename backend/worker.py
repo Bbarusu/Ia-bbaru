@@ -139,7 +139,7 @@ class DurableWorker:
             version = task.get("gateway_protocol_version", "1")
             if version != "1":
                 fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
-            if version == "1.2":
+            if version in {"1.2", "1.3"}:
                 try:
                     fields.update(attachments=dispatch_attachments(self.store, task),
                                   allow_visual_input=task.get("allow_visual_input", False))

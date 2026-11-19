@@ -48,22 +48,22 @@ PDFs/iframes ou conteúdo ainda não carregado por rolagem infinita/lazy loading
 
 | Pedido | Estado e próximo passo |
 | --- | --- |
-| V2: imagem direta no turno | Pendente. Hoje somente snapshots de texto são aceitos; imagem tipada vem de `source_ids`. Não colocar base64 em `instruction`/`content`. Precisará armazenamento de anexos de conversa, UUID/hash imutáveis, replay e autorização antes do envio. |
-| V3: várias imagens/1.3 | Pendente. Não anunciar 1.3 nem aumentar `max_images` no frontend. Exige limites de quantidade/bytes totais, histórico e transporte/eco ordenado, com testes dos dois lados. |
+| V2: imagem direta no turno | Implementado. O compositor aceita arquivo PNG/JPEG e a fila conserva os pixels privados da conversa. O print integral ainda oferece revisão na biblioteca. |
+| V3: várias imagens/1.3 | Implementado no contrato opcional 1.3. Até quatro imagens incluindo histórico, 480.000 bytes cada, 1.920.000 bytes e 32 MP ao todo. Cada envio com imagem pede confirmação. |
 | V4: evidência da CLI | Frente 1 documenta em `ANALISE_CLI_CLAUDE.md`: várias imagens, limites, aliases, eco e cota; sem editar o adaptador nem executar geração real implícita. |
 | V5: validação real | Pendente no Windows, com uma imagem pequena e autorização explícita para consumir cota. Visão permanece experimental e desativada por padrão. |
-| V6: ação visual | Frente 3 pode ligar captura/prévia agora, com os limites acima. Envio direto e várias miniaturas aguardam V2/V3; não marcar compreensão visual comprovada. |
+| V6: ação visual | O compositor oferece prévias dos anexos novos. A captura integral continua limitada a uma imagem. |
 | C2: streaming | Pendente. `stream-json` interno recompõe resposta completa; não equivale a SSE. Não simular streaming nem criar nova chamada por reconexão. |
 | C3: Parar | Pendente. Precisa estado durável de cancelamento e distinção entre parar antes/depois do despacho. Revogar aceite não cancela execução em curso nem estorna cota. |
 | C4: PDF | Pendente extração dedicada no runtime. Não tratar a tela do visualizador como texto de todas as páginas. |
 | C5: ferramentas web | Não habilitadas. O pedido é de análise; não muda a regra atual `tools=[]`. Uma mudança de capacidade exige escopo explícito e contrato próprio. |
 | C6: contexto maior | Mantidos os limites atuais. Corrigido o orçamento comum backend/gateway, incluindo JSON e reserva de saída. Excesso é recusado antes de criar o turno. |
-| N1/N2/N5: páginas, histórico e ajustes | Pendente base persistente no processo principal. A seção 4 do pedido substitui o desenho preliminar: preservar o painel já aprovado. Migrar o histórico do localStorage sem perda/duplicação e publicar API mínima antes de ligar os controles. Não criar simultaneamente outra UI `yuki://` sem necessidade. |
-| N3: downloads | Pendente. O documento pede uma decisão de política; o bloqueio atual permanece. Gerenciador futuro deverá manter progresso/cancelamento, escolher pasta e não abrir arquivos automaticamente. |
-| N4: extensões | Pendente decisão de inclusão e escopo. Não prometer Chrome Web Store ou compatibilidade completa em Electron. |
+| N1/N2/N5: páginas, histórico e ajustes | Painel aprovado ligado ao processo principal. Histórico, retenção, favoritos, preferências, restauração de abas HTTP(S), busca, zoom, nova aba e limpeza de dados funcionais. Permissões de sites continuam bloqueadas. |
+| N3: downloads | Downloads HTTP(S) com diálogo de destino, progresso, cancelamento, lista persistente e Mostrar na pasta. Reiniciar marca transferências em curso como interrompidas. |
+| N4: extensões | Decisão encerrada pelo usuário. Extensões adiadas. |
 | N6: abas | Fixação e grupos pendentes. Visão geral sobre a nova aba foi reprovada na seção 4; não implementar esse desenho. |
-| W1: barra nativa | Pendente integração visual/runtime em conjunto. Apenas `maximize` entregue; arraste, controles de janela e acessibilidade precisam validação específica no Windows. |
-| Demais `data-codex` | Continuam “Em integração”; não ligar a mocks nem persistir configurações locais como se tivessem efeito no runtime. |
+| W1: barra nativa | Janela sem moldura no Windows com área de arraste e três controles próprios. Validação nativa pendente. |
+| Demais `data-codex` | A seção 4 do pedido registra a interface original. Use esta tabela para consultar a implementação vigente. |
 
 Não há mudança de responsável: Codex implementa backend/ponte/runtime; Claude da
 interface liga controles e preserva o desenho aprovado; Claude da CLI documenta

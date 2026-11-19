@@ -1,3 +1,5 @@
+const { BrowserData } = require("./browser-data.cjs");
+const { Downloads } = require("./downloads.cjs");
 const { captureFullPage } = require("./page-capture.cjs");
 const {
   app,
@@ -8,6 +10,7 @@ const {
   Menu,
   dialog,
   nativeImage,
+  shell,
 } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -30,6 +33,8 @@ if (!app.requestSingleInstanceLock()) {
 let win,
   workspace,
   service,
+  browserData,
+  downloads,
   startupError = "",
   stopped = false;
 let tabs = [],
@@ -57,6 +62,7 @@ function snapshot() {
     })),
     activeId,
     panel,
+    panelWidth: expanded ? win.getContentSize()[0] : Math.min(localData.panelWidth || PANEL, Math.max(320, Math.floor(win.getContentSize()[0] * 0.65))),
     expanded,
     back: tab?.view.webContents.navigationHistory.canGoBack() || false,
     forward: tab?.view.webContents.navigationHistory.canGoForward() || false,
@@ -180,7 +186,7 @@ function activate(id) {
 }
 function navigate(tab, url) {
   tab.error = "";
-  const target = url || pathToFileURL(homeFile).href;
+  const target = url || (browserData.state.preferences["yuki:new-tab"] === "blank" ? "about:blank" : pathToFileURL(homeFile).href);
   tab.view.webContents.loadURL(target).catch(() => {});
 }
 function newTab(url = null) {
@@ -189,6 +195,7 @@ function newTab(url = null) {
   const view = new WebContentsView({
     webPreferences: {
       session: session.fromPartition("persist:web"),
+      preload: path.join(__dirname, "home-preload.cjs"),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -214,6 +221,7 @@ function newTab(url = null) {
   }
   const wc = view.webContents;
   keyboard(wc);
+  wc.setZoomFactor(Number(browserData.state.preferences["yuki:default-zoom"]) / 100);
   wc.setWindowOpenHandler(({ url }) => {
     if (isWeb(url) && tabs.length < 20) newTab(url);
     return { action: "deny" };
@@ -246,12 +254,14 @@ function newTab(url = null) {
   });
   wc.on("did-stop-loading", () => {
     tab.loading = false;
+    if (isWeb(tab.url)) browserData.visit(tab.url, tab.title);
     publish();
   });
   const location = () => {
     tab.documentVersion = (tab.documentVersion || 0) + 1;
     const url = wc.getURL();
     tab.url = isWeb(url) ? url : "";
+    browserData.session(tabs.map(t => t.url));
     publish();
   };
   wc.on("did-navigate", location);
@@ -306,6 +316,7 @@ function closeTab(id) {
   win.contentView.removeChildView(tab.view);
   tab.view.webContents.close();
   tabs = tabs.filter((t) => t !== tab);
+  browserData.session(tabs.map(t => t.url));
   if (!tabs.length) newTab();
   else if (activeId === id) activate(tabs[tabs.length - 1].id);
   layout();
@@ -317,12 +328,11 @@ function captureFailure(error) {
   workspace.webContents.send("workspace:changed", { captureError: { newValue: error.message } });
 }
 function store() {
-  fs.writeFileSync(
-    path.join(app.getPath("userData"), "workspace.json"),
-    JSON.stringify(localData),
-    { mode: 0o600 },
-  );
+  const file = path.join(app.getPath("userData"), "workspace.json"), temp = file + "." + randomUUID() + ".tmp";
+  try { fs.writeFileSync(temp, JSON.stringify(localData), { mode: 0o600 }); fs.renameSync(temp, file); }
+  finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
+
 function saveCapture(tab, text, media = undefined, title = undefined, originUrl = undefined, kind = "selection") {
   if (
     !text?.trim() ||
@@ -453,6 +463,42 @@ async function selectCapture() {
     throw new Error("A página mudou. Selecione o trecho novamente.");
   return saveCapture(tab, text);
 }
+function homeData() {
+  return { preferences: browserData.state.preferences, bookmarks: browserData.state.bookmarks };
+}
+function notifyBrowserData(data) {
+  if (win && !win.isDestroyed()) win.webContents.send("browser:data", data);
+  if (workspace && !workspace.webContents.isDestroyed()) workspace.webContents.send("workspace:changed", { browserData: { newValue: data } });
+  for (const tab of tabs) if (!tab.view.webContents.isDestroyed() && tab.view.webContents.getURL() === pathToFileURL(homeFile).href)
+    tab.view.webContents.send("home:data", { preferences: data.preferences, bookmarks: data.bookmarks });
+}
+async function browserOperation(operation, params = {}) {
+  if (!params || typeof params !== "object" || Array.isArray(params) || JSON.stringify(params).length > 2_000_000)
+    throw new Error("Pedido de navegador inválido.");
+  switch (operation) {
+    case "get": browserData.prune(); return browserData.snapshot();
+    case "migrate": return browserData.migrate(params);
+    case "set": return browserData.set(params.key, params.value, params.revision);
+    case "downloads.cancel": downloads.cancel(params.id); return browserData.snapshot();
+    case "downloads.clear": downloads.clear(); return browserData.snapshot();
+    case "downloads.show": shell.showItemInFolder(downloads.completedPath(params.id)); return browserData.snapshot();
+    case "downloads.folder": {
+      const result = await dialog.showOpenDialog(win, { title: "Pasta dos downloads", properties: ["openDirectory", "createDirectory"] });
+      if (!result.canceled) browserData.commit({ ...browserData.state, downloadFolder: result.filePaths[0] });
+      return browserData.snapshot();
+    }
+    case "privacy.clearSiteData": {
+      const choice = await dialog.showMessageBox(win, { type: "question", buttons: ["Cancelar", "Limpar dados"], defaultId: 0, cancelId: 0,
+        message: "Limpar cookies, cache e dados dos sites?", detail: "Você sairá das contas dos sites. Conversas, materiais e login da CLI Claude serão preservados." });
+      if (choice.response === 1) {
+        const web = session.fromPartition("persist:web");
+        await web.clearStorageData(); await web.clearCache();
+      }
+      return browserData.snapshot();
+    }
+    default: throw new Error("Operação de navegador indisponível.");
+  }
+}
 function assertSender(event, contents, file) {
   if (!trustedFrame(event, contents, file))
     throw new Error("Origem não autorizada.");
@@ -472,6 +518,8 @@ app
       );
     } catch {}
     capture = localData.pendingCapture || null;
+    browserData = new BrowserData(path.join(app.getPath("userData"), "browser.json"), notifyBrowserData);
+    downloads = new Downloads(browserData, app.getPath("downloads"));
     for (const s of [
       session.defaultSession,
       session.fromPartition("persist:web"),
@@ -480,9 +528,15 @@ app
         callback(false),
       );
       s.setPermissionCheckHandler(() => false);
-      s.on("will-download", (event) => event.preventDefault());
+      s.on("will-download", (event, item, contents) => {
+        if (s !== session.fromPartition("persist:web") || !tabs.some(t => t.view.webContents === contents) || !isWeb(item.getURL())) {
+          event.preventDefault(); return;
+        }
+        downloads.accept(item);
+      });
     }
     win = new BrowserWindow({
+      frame: process.platform !== "win32",
       width: 1440,
       height: 960,
       minWidth: 900,
@@ -522,6 +576,16 @@ app
     });
     // Requests wait for startup; avoid an unhandled rejection before the first request.
     serviceReady.catch(() => {});
+    ipcMain.handle("browser:data", (event, operation, params) => {
+      assertSender(event, win.webContents, shellFile);
+      return browserOperation(operation, params);
+    });
+    const homeSender = event => tabs.some(t => trustedFrame(event, t.view.webContents, homeFile));
+    ipcMain.handle("home:get", event => { if (!homeSender(event)) throw new Error("Origem não autorizada."); return homeData(); });
+    ipcMain.handle("home:ask", event => {
+      if (!homeSender(event)) throw new Error("Origem não autorizada.");
+      panel = true; expanded = false; layout(); focusWorkspace();
+    });
     ipcMain.handle("browser:state", (event) => {
       assertSender(event, win.webContents, shellFile);
       return snapshot();
@@ -531,7 +595,14 @@ app
       try {
         switch (action) {
           case "navigate":
-            navigate(active(), webURL(value));
+            let target = webURL(value);
+            if (target?.startsWith("https://www.google.com/search?q=")) {
+              const query = new URL(target).searchParams.get("q");
+              const engine = browserData.state.preferences["yuki:search-engine"];
+              if (engine === "bing") target = "https://www.bing.com/search?q=" + encodeURIComponent(query);
+              if (engine === "duckduckgo") target = "https://duckduckgo.com/?q=" + encodeURIComponent(query);
+            }
+            navigate(active(), target);
             break;
           case "new":
             newTab(value ? webURL(value) : null);
@@ -615,6 +686,8 @@ app
       if (!msg || typeof msg !== "object")
         throw new Error("Mensagem inválida.");
       switch (msg.type) {
+        case "browser.data":
+          return browserOperation(msg.operation, msg.params);
         case "bridge.request":
           validateEnvelope(msg.request);
           await serviceReady;
@@ -660,7 +733,7 @@ app
       assertSender(event, workspace.webContents, workspaceFile);
       const valid = (key) =>
         typeof key === "string" &&
-        (key === "last-project" ||
+        (key === "pending-send" || key === "last-project" ||
           key === "captureError" ||
           /^draft:[\w-]{1,64}$/.test(key));
       if (operation === "get" && valid(value))
@@ -680,7 +753,7 @@ app
         if (
           entries.length > 10 ||
           entries.some(
-            ([k, v]) => !valid(k) || typeof v !== "string" || v.length > 8000,
+            ([k, v]) => !valid(k) || typeof v !== "string" || Buffer.byteLength(v) > (k === "pending-send" ? 4000000 : 8000),
           )
         )
           throw new Error("Rascunho inválido.");
@@ -703,7 +776,8 @@ app
       startupError = "Compile a interface com npm run build em desktop/.";
       publish();
     } else await workspace.webContents.loadFile(workspaceFile);
-    newTab();
+    const restore = browserData.state.preferences["yuki:startup"] === "restore" ? [...browserData.state.session] : [];
+    if (restore.length) restore.forEach(url => newTab(url)); else newTab();
     layout();
   })
   .catch((error) => {

@@ -1,5 +1,7 @@
 # Pedido do usuário — leitura visual, capacidades da IA e navegador (17/11/2026)
 
+**Atualização de 18/11.** O pedido abaixo registra o estado anterior à implementação. Consulte a resolução por item, incluindo V2/V3, W1, migração do histórico e a decisão sobre downloads e extensões em [RESPOSTA_VISAO_E_NAVEGADOR.md](RESPOSTA_VISAO_E_NAVEGADOR.md).
+
 Registrado pelo Claude de interface a pedido explícito do usuário ("caso seja tarefa
 dos outros agentes, faça o documento designando"). Formato de
 [DIVISAO_RESPONSABILIDADES.md](DIVISAO_RESPONSABILIDADES.md): problema, evidência,

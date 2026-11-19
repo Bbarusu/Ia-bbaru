@@ -37,10 +37,11 @@ conversas e consulta de envio pendente sobrevivem ao reinício sem nova geraçã
 HTTP 5xx mantém o pedido pendente; 404 em consulta não prova que o envio parou.
 Somente consulta ou replay do mesmo corpo ficam disponíveis nessa incerteza.
 
-Histórico de navegação, favoritos e preferências ativas ainda usam localStorage
-compartilhado entre barra e painel, com efeito real. Migração para processo
-principal pendente, preservando os dados. Downloads e controles sem runtime
-continuam desativados. Bolinha verde usa maximize; barra nativa Windows pendente.
+O processo principal persiste histórico, favoritos, ajustes e downloads por perfil.
+O painel e a barra importam os dados legados uma vez. A nova aba aplica as preferências.
+Downloads exigem confirmação de destino. Extensões adiadas. Janela Windows sem moldura,
+com validação nativa pendente. Imagens diretas ficam na conversa. O contrato opcional
+1.3 aceita até quatro imagens com aceite visual, incluindo o histórico.
 Captura limpa no IPC ainda exige fechar explicitamente sua revisão no painel;
 não fechar rascunhos automaticamente. Contrato em [ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).
 
@@ -50,8 +51,8 @@ frontend/ e desktop/ui/. Claude analista: somente ANALISE_CLI_CLAUDE.md.
 
 ## Evidências e validação pendente
 
-Testes desta rodada Linux: 96 backend aprovados; gateway108 executados (107 aprovados e 1 real ignorado);
-6 testes de política/captura desktop aprovados. Smoke Chromium integrado aprovado,
+Testes desta rodada Linux: 99 backend aprovados; gateway111 executados (110 aprovados e 1 real ignorado);
+9 testes de persistência/política/captura desktop aprovados. Smoke Chromium integrado aprovado,
 incluindo página visual maior que a janela, identidade de documento, recusa de
 menu antigo, maximize, navegação, isolamento, capturas, rascunhos, conversa pelo
 IPC e persistência após reiniciar, perda de resposta, replay idempotente e
