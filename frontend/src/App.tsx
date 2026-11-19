@@ -57,6 +57,9 @@ import {
   captureSnapshot,
   consentCovers,
   consentRejected,
+  contextBudgetError,
+  pageReadError,
+  videoInfo,
   conversationTitle,
   decideIncomingCapture,
   eligibleChatModels,
@@ -132,6 +135,18 @@ export default function App() {
   const [directImages, setDirectImages] = useState<DirectImage[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [chatCapture, setChatCapture] = useState<Capture | null>(null);
+  // "Página atual": ligado por padrão; a aba só é lida quando a pessoa envia.
+  const [readPage, setReadPage] = useState(true);
+  const capturingOwn = useRef(false);
+  const ownCaptures = useRef(new Set<string>());
+  useEffect(() => {
+    readDraft("draft:read-page").then((value) => setReadPage(value !== "0")).catch(() => {});
+  }, []);
+  function toggleReadPage() {
+    const next = !readPage;
+    setReadPage(next);
+    writeDraft("draft:read-page", next ? "1" : "0").catch(() => {});
+  }
   // Texto colado pela pessoa: contexto do turno (snapshot "text"), nunca parte do pedido.
   const [pasted, setPasted] = useState<{ id: string; text: string } | null>(null);
   const openPaste = () => setPasted((old) => old ?? { id: crypto.randomUUID(), text: "" });
@@ -491,6 +506,9 @@ export default function App() {
   }, [projectId, online]);
 
   function receiveCapture(value: Capture | null) {
+    // Leitura da aba feita pelo próprio envio ("Página atual") ou frame de vídeo:
+    // já tratada por quem pediu; não abre cartão nem revisão.
+    if (value && (ownCaptures.current.has(value.id) || capturingOwn.current)) return;
     // Um trecho pedido pelo compositor vira contexto visível da conversa, sem diálogo.
     if (value && wantsChatCapture.current && !value.media) {
       wantsChatCapture.current = false;
@@ -696,6 +714,9 @@ export default function App() {
   const previousImageIds = new Set(turns.flatMap(turn => (turn.task.attachment_refs || []).map(ref => ref.id)));
   const imageCount = new Set([...previousImageIds, ...imageSources.map(s => s.id), ...directImages.map(s => s.attachment_id)]).size;
   const imageLimit = catalogVersion === "1.3" ? 4 : 1;
+  const pageAvailable = Boolean(localBridge && pageStatus?.document_id);
+  const willReadPage = readPage && pageAvailable && !chatCapture;
+  const video = pageAvailable ? videoInfo(pageStatus) : null;
   async function attachImageFiles(files: FileList | null) {
     if (!files) return;
     try {
@@ -736,6 +757,32 @@ export default function App() {
   const attachSelection = () => captureForChat(selectCapture);
   const attachPage = () => captureForChat(capturePage);
   // capture.page.visual chega como captura de mídia: revisa e salva no projeto (V6).
+  // Quadro atual do vídeo como anexo direto (precisa de visão e do runtime; §5 do pedido).
+  async function attachVideoFrame() {
+    setError("");
+    capturingOwn.current = true;
+    try {
+      const result = await localBridge.runtime.sendMessage({ type: "capture.video.frame" });
+      if (!result?.ok) throw new Error(result?.error?.message || "Não foi possível capturar o quadro do vídeo.");
+      const frame = result.capture as Capture;
+      ownCaptures.current.add(frame.id);
+      await clearCapture(frame.id);
+      const data = frame.media?.data_url || "";
+      if (!/^data:image\/(png|jpeg);base64,/.test(data)) throw new Error("O quadro do vídeo não veio como PNG ou JPEG.");
+      if (Math.floor((data.length - data.indexOf(",") - 1) * 3 / 4) > 480000)
+        throw new Error("O quadro do vídeo passou de 480 KB. Nada foi anexado.");
+      if (directImages.length >= imageLimit)
+        throw new Error(`Este contrato permite até ${imageLimit} imagem(ns), incluindo o histórico.`);
+      setDirectImages((old) => [...old, { attachment_id: crypto.randomUUID(),
+        title: `Quadro do vídeo · ${frame.title || "aba atual"}`.slice(0, 120), media: { kind: "image", data_url: data } }]);
+      setSendImage(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      capturingOwn.current = false;
+    }
+  }
+
   function attachPageVisual() {
     setError("");
     wantsChatVisual.current = true;
@@ -888,7 +935,26 @@ export default function App() {
     setSendError("");
     setError("");
     setNotice("");
+    let pageCapture: Capture | null = null;
     try {
+      // Contexto fresco da aba, no momento do envio (nunca ao abrir ou navegar).
+      if (willReadPage) {
+        capturingOwn.current = true;
+        try {
+          pageCapture = await capturePage();
+          ownCaptures.current.add(pageCapture.id);
+        } catch (e) {
+          throw new Error(pageReadError((e as Error).message));
+        } finally {
+          capturingOwn.current = false;
+        }
+      }
+      const context = chatCapture || pageCapture;
+      const budget = contextBudgetError({
+        instruction: text,
+        snapshots: [captureSnapshot(context), captureSnapshot(pastedCapture)].filter(Boolean),
+      });
+      if (budget) throw new Error(budget);
       const conversation = await ensureConversation();
       const pending: PendingSend = {
         conversation,
@@ -901,18 +967,22 @@ export default function App() {
           acceptedLimit: needsLimitAcceptance && acceptedLimit,
           review,
           sourceIds: selectedSources,
-          snapshots: [captureSnapshot(chatCapture), captureSnapshot(pastedCapture)],
+          snapshots: [captureSnapshot(context), captureSnapshot(pastedCapture)],
           visual: sendImage && imageCount > 0,
           attachments: directImages,
         }),
-        captureId: chatCapture?.id,
-        titles: pendingTitles,
+        captureId: context?.id,
+        autoCapture: Boolean(pageCapture),
+        titles: pageCapture ? [...pendingTitles, pageCapture.title?.trim() || "Página atual"] : pendingTitles,
       };
+      pageCapture = null; // a partir daqui o envio pendente cuida da captura
       await writePendingSend(pending);
       setPendingSend(pending);
       setSendOpen(false);
       await dispatch(pending);
     } catch (e) {
+      // Captura feita só para este envio e não usada: libera o runtime.
+      if (pageCapture) clearCapture(pageCapture.id).catch(() => {});
       if (sendOpen) setSendError((e as Error).message);
       else setError((e as Error).message);
     } finally {
@@ -936,6 +1006,7 @@ export default function App() {
       }
       // Recusa definitiva: preserve também o texto recuperado após reiniciar.
       if (!textRef.current) setText(pending.turn.instruction);
+      if (pending.autoCapture && pending.captureId) clearCapture(pending.captureId).catch(() => {});
       await writePendingSend(null);
       setPendingSend(null);
       if (consentRejected(e)) {
@@ -1050,7 +1121,8 @@ export default function App() {
   // nada é enviado); fora dele, só preenchem o campo.
   const startWith = (prompt: string, attach?: () => void) => () => {
     if (!canAttachSelection) attach?.();
-    else if (!chatCapture) attach?.();
+    // Com "Página atual" ligado, a página já vai no envio: não precisa anexar antes.
+    else if (!chatCapture && !(willReadPage && attach === attachPage)) attach?.();
     changeText(prompt);
     inputRef.current?.focus();
   };
@@ -1110,6 +1182,12 @@ export default function App() {
         <p className="consent-note">
           Fable pode exigir créditos de uso adicionais na sua conta. Não há troca automática de
           modelo se ele for recusado.
+        </p>
+      )}
+      {willReadPage && (
+        <p className="consent-note">
+          Ao enviar, o Yuki lê agora o texto visível de “{pageStatus?.title || "aba atual"}” e manda junto
+          como contexto (até 38.000 caracteres).
         </p>
       )}
       <label className="consent-check">
@@ -1558,6 +1636,15 @@ export default function App() {
                   captureStale={captureIsStale(chatCapture, pageStatus)}
                   attachPage={attachPage}
                   attachPageVisual={attachPageVisual}
+                  page={{
+                    available: pageAvailable,
+                    on: readPage,
+                    title: pageStatus?.title || "",
+                    toggle: toggleReadPage,
+                    video,
+                    canAttachFrame: Boolean(video && video.frameCapture && canSeeImages),
+                    attachFrame: attachVideoFrame,
+                  }}
                   attachImages={() => imageInputRef.current?.click()}
                   imagesSupported={canSeeImages}
                   removeCapture={removeChatCapture}

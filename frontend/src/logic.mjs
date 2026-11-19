@@ -379,14 +379,23 @@ export function shortModelName(model) {
  * fonte, para respostas antigas. O gateway atual pede o título diretamente.
  */
 export function readableAnswer(output, context) {
-  let text = typeof output === "string" ? output : "";
+  const text = typeof output === "string" ? output : "";
   if (!Array.isArray(context)) return text;
-  for (const source of context) {
-    if (!source || typeof source.id !== "string" || source.id.length < 8) continue;
-    const title = (source.title || "fonte").trim() || "fonte";
-    text = text.split(source.id).join(`“${title}”`);
-  }
-  return text;
+  const sources = context.filter((s) => s && typeof s.id === "string" && s.id.length >= 8);
+  if (!sources.length) return text;
+  // A resposta é Markdown: não mexe em código nem no destino de links, e o título
+  // entra escapado para não virar formatação.
+  const parts = text.split(/(```[\s\S]*?```|`[^`\n]*`|\]\([^)\s]*\))/);
+  return parts
+    .map((part, index) => {
+      if (index % 2) return part;
+      for (const source of sources) {
+        const title = ((source.title || "fonte").trim() || "fonte").replace(/([\\`*_[\]<>#|])/g, "\\$1");
+        part = part.split(source.id).join(`“${title}”`);
+      }
+      return part;
+    })
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -527,4 +536,60 @@ export function formatDuration(ms) {
   return ms < 1000
     ? `${ms} ms`
     : `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
+}
+
+// ---------------------------------------------------------------------------
+// Página atual no envio: lida só quando a pessoa envia, com orientação clara.
+// ---------------------------------------------------------------------------
+
+/** Orçamento do backend para o contexto de um turno (ENTREGA_BACKEND_CHAT.md). */
+export const CONTEXT_CHAR_LIMIT = 80000;
+
+/** Caracteres que este turno leva (pedido + títulos e textos dos snapshots). */
+export function turnContextChars(turn) {
+  if (!turn) return 0;
+  return (turn.instruction || "").length +
+    (turn.snapshots || []).reduce((sum, s) => sum + (s.title || "").length + (s.content || "").length, 0);
+}
+
+/** Excesso explicado, nunca corte silencioso. null quando cabe. */
+export function contextBudgetError(turn, limit = CONTEXT_CHAR_LIMIT) {
+  const chars = turnContextChars(turn);
+  if (chars <= limit) return null;
+  const fmt = (n) => n.toLocaleString("pt-BR");
+  return `Esta mensagem leva ${fmt(chars)} caracteres de contexto, acima do limite de ${fmt(limit)}. ` +
+    "Remova o texto colado ou anexos, desligue “Página atual” ou selecione só o trecho que importa. Nada foi enviado.";
+}
+
+/** Falha ao ler a aba no envio: diz o que fazer; o texto da mensagem fica no campo. */
+export function pageReadError(message) {
+  const text = String(message || "").trim();
+  if (/38[.\s]?000/.test(text))
+    return "A página tem mais de 38.000 caracteres de texto. Selecione o trecho que importa (+ → Usar seleção da aba) ou desligue “Página atual”. Nada foi enviado.";
+  return `Não foi possível ler a aba atual${text ? `: ${text}` : "."} Desligue “Página atual” para enviar sem a página. Nada foi enviado.`;
+}
+
+function clock(seconds) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return "";
+  const s = Math.floor(seconds), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+}
+
+/**
+ * Vídeo da aba, só com o que o runtime informar (proposta em
+ * PEDIDO_VISAO_E_NAVEGADOR.md, seção 5). Sem o campo, não mostra nada.
+ */
+export function videoInfo(status) {
+  const video = status && status.video;
+  if (!video || typeof video !== "object") return null;
+  const at = clock(video.current_time);
+  const total = clock(video.duration);
+  const time = at ? (total ? `${at} de ${total}` : at) : "";
+  const captions = video.captions === true;
+  return {
+    label: `Vídeo${time ? ` ${time}` : ""} · ${captions ? "com legendas capturadas" : "sem legenda no DOM"}`,
+    captions,
+    frameCapture: video.frame_capture === true,
+  };
 }

@@ -127,3 +127,24 @@ Quando um item do runtime existir, o Claude de interface liga o controle e tira 
 - Erros novos (`source_snapshot_conflict`, `context_too_large`,
   `no_model_fits_context`) são recusas definitivas: o texto volta ao campo, sem
   outro `turn_id` automático.
+
+## 5. Vídeo da aba e “Página atual” — proposta ao Codex (19/11/2026)
+
+**Feito na interface (`claude/friendly-curie-pxw81w`):** chip “Página atual: [título]”
+no compositor, ligado por padrão (1 clique desliga; escolha em `draft:read-page`).
+A aba só é lida no envio, depois do cartão/aceite, por `capture.page`. Vai como
+snapshot `page` (dado não confiável, separado do pedido), e a captura é liberada
+com `capture.clear`. Erro de leitura ou excesso de orçamento (80.000 caracteres
+no turno) aborta com orientação, sem corte silencioso. Abrir o painel ou navegar
+não lê nada.
+
+**Falta no runtime (Codex) para o vídeo:** a interface já mostra o chip e o botão
+quando estes campos existirem. Sem eles, nada aparece. Os nomes são proposta; se
+mudarem, a interface acompanha.
+
+| Item | Proposta |
+| --- | --- |
+| `context.status` / `activePage` | Campo aditivo `video: {current_time, duration, captions, frame_capture} \| null` do `<video>` principal da aba ativa (o que está tocando ou o maior visível). `captions: true` quando há faixa de legenda com texto no DOM (`textTracks` com cues). `frame_capture: true` quando o quadro pode ser capturado |
+| `capture.page` | Incluir o texto das legendas já carregadas (com tempo) no `text`, dentro do limite de 38.000 |
+| `capture.video.frame` | Mensagem do painel que devolve `{ok, capture:{id, title, url, document_id, media:{kind:"screenshot", data_url}}}` com o quadro atual em PNG/JPEG de até 480 KB (ou o limite da visão 2.000 px quando publicado). Mesma conferência de documento de `capture.page.visual`. A interface anexa como imagem direta (`attachments`) e chama `capture.clear` |
+| Visão 2.000 px / captura rica | Aguardando o contrato. Quando sair, a interface troca os limites fixos (480 KB, 1 ou 4 imagens) pelos do catálogo |

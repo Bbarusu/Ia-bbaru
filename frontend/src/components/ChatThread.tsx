@@ -15,6 +15,7 @@ import {
 } from "../logic.mjs";
 import type { Model, Task } from "../types";
 import { YukiMark } from "./YukiMark";
+import { AnswerMarkdown } from "./AnswerMarkdown";
 
 export type Starter = { label: string; hint: string; run: () => void };
 export type PendingMessage = { text: string; contextTitles: string[] };
@@ -368,7 +369,7 @@ export function ChatThread({
                   </div>
                 )}
 
-                {answer && <div className="turn-answer">{answer}</div>}
+                {answer && <AnswerMarkdown text={answer} />}
 
                 {(phase === "awaiting_consent" || phase === "blocked") &&
                   (executionEnabled ? (

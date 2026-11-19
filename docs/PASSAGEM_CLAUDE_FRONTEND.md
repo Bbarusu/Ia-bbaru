@@ -14,6 +14,15 @@ Sem alteração em backend, gateway, contratos ou persistência. Fora de `fronte
 testes de interface (`desktop/tests/smoke.cjs`, `scripts/verify_ui.py`) e as skills
 em `.agents/`. Tudo na PR #11, para integração pelo Codex.
 
+## Markdown e “Página atual” (19/11/2026)
+
+Base `f96ad93` (ajustes/downloads persistidos e imagens diretas na conversa) incorporada; conflito só no envio do `App.tsx`, resolvido mantendo texto colado e anexos.
+
+- Respostas em Markdown (`AnswerMarkdown.tsx`, `markdown.mjs`, `react-markdown` 10.1.0 + `remark-gfm` 4.0.1): títulos, ênfase, listas, citações, tabelas roláveis no próprio bloco e código com “Copiar código”. HTML bruto aparece como texto; links só http(s)/mailto, com `noopener`; imagens da resposta não carregam (viram link). Sem `dangerouslySetInnerHTML` nem `rehype-raw`.
+- `readableAnswer` não mexe em código nem no destino de links e escapa o título da fonte.
+- Chip “Página atual” e vídeo: ver [PEDIDO_VISAO_E_NAVEGADOR.md §5](PEDIDO_VISAO_E_NAVEGADOR.md).
+- Testes: `logic.test.mjs` (Markdown seguro/XSS, fontes, orçamento, erro de leitura, vídeo); `verify_chat_ui.py` (m1, p1, p2, v1); `smoke.cjs` (chip ligado, leitura só no envio, página no gateway, captura liberada).
+
 ## Cobertura de testes I1–I12 e F-4 (18/11/2026)
 
 Base `ad39437` (integração do Codex até `629254c`) incorporada sem conflito.

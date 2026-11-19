@@ -41,6 +41,15 @@ interface ChatComposerProps {
   removePasted: () => void;
   openPaste: () => void;
   attachPageVisual: () => void;
+  page: {
+    available: boolean;
+    on: boolean;
+    title: string;
+    toggle: () => void;
+    video: { label: string; captions: boolean; frameCapture: boolean } | null;
+    canAttachFrame: boolean;
+    attachFrame: () => void;
+  };
   attachImages: () => void;
   imagesSupported: boolean;
   removeCapture: () => void;
@@ -75,6 +84,7 @@ export function ChatComposer({
   removePasted,
   openPaste,
   attachPageVisual,
+  page,
   attachImages,
   imagesSupported,
   removeCapture,
@@ -100,8 +110,38 @@ export function ChatComposer({
   return (
     <form className="chat-composer" onSubmit={submit}>
       <div className="composer-box">
-        {(capture || selectedSourcesCount > 0) && (
+        {(capture || selectedSourcesCount > 0 || page.available) && (
           <div className="composer-context" aria-label="Contexto que será enviado">
+            {page.available && !capture && (
+              <span className={`context-chip page-chip ${page.on ? "" : "off"}`}>
+                <button
+                  type="button"
+                  className="context-chip-title"
+                  aria-pressed={page.on}
+                  title={
+                    page.on
+                      ? "Ao enviar, o texto visível desta aba vai junto (até 38.000 caracteres). Clique para não enviar a página."
+                      : "A página não vai junto. Clique para ler a aba atual ao enviar."
+                  }
+                  onClick={page.toggle}
+                >
+                  <span aria-hidden="true">🌐 </span>
+                  {page.on ? `Página atual: ${page.title || "aba sem título"}` : "Página atual: desligada"}
+                  {page.on && page.video && <small> · {page.video.label}</small>}
+                </button>
+              </span>
+            )}
+            {page.available && page.on && !capture && page.video && !page.video.captions && (
+              page.canAttachFrame ? (
+                <button type="button" className="context-chip frame-chip" onClick={page.attachFrame}>
+                  <ImageIcon size={12} aria-hidden="true" /> Anexar quadro do vídeo
+                </button>
+              ) : (
+                <span className="context-chip frame-chip off" title="Sem legenda no DOM: o quadro do vídeo exige um modelo com visão e o runtime.">
+                  Quadro do vídeo indisponível
+                </span>
+              )
+            )}
             {capture && (
               <span className={`context-chip ${captureStale ? "stale" : ""}`}>
                 <button

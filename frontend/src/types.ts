@@ -84,7 +84,11 @@ export type Capture = {
   kind?: string; document_id?: string | null; captured_at?: string;
   tab_id?: string | null; documentVersion?: number | null;
 };
-export type PageStatus = { document_id: string | null; url: string | null; title: string; capture_is_current: boolean };
+export type PageStatus = {
+  document_id: string | null; url: string | null; title: string; capture_is_current: boolean;
+  /** Proposta para o runtime (PEDIDO_VISAO_E_NAVEGADOR.md §5); ausente até o Codex publicar. */
+  video?: { current_time?: number; duration?: number; captions?: boolean; frame_capture?: boolean } | null;
+};
 
 export type Conversation = { id: string; project_id: string; title: string; created_at: string; updated_at: string; revision: number };
 export type Consent = {
@@ -99,6 +103,8 @@ export type PendingSend = {
   conversation: { conversation_id: string; project_id: string; title: string };
   turn: TurnBody;
   captureId?: string;
+  /** A captura foi feita pelo envio ("Página atual"), não anexada pela pessoa. */
+  autoCapture?: boolean;
   titles: string[];
 };
 export type Page<T> = { items: T[]; next_offset: number | null };

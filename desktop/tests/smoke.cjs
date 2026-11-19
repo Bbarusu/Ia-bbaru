@@ -283,6 +283,9 @@ async function main() {
       .getByLabel("Modelo Claude")
       .selectOption({ label: "Agente de teste local" });
     await expect(workspace.locator("#instruction")).toBeVisible();
+    // "Página atual" ligado por padrão: o chip mostra a aba, mas nada é lido antes do envio.
+    await expect(workspace.getByRole("button", { name: /^Página atual: / })).toHaveAttribute("aria-pressed", "true");
+    assert.equal(await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.read" })), null);
     await workspace
       .locator("#instruction")
       .fill("Explique este material em uma frase.");
@@ -341,6 +344,9 @@ async function main() {
     assert.equal(task.data.status, "completed");
     assert.equal(generations[0].request_id, `${task.data.id}:0`);
     assert.equal(generations[0].allow_unenforced_output_limit, true);
+    // A aba foi lida no envio (runtime real) e foi como contexto, não no pedido; a captura foi liberada.
+    assert.ok(JSON.stringify(generations[0]).includes("fotossíntese"), "Página atual reaches the gateway");
+    assert.equal(await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.read" })), null);
     assert.equal(generations.length, 1);
     await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
     // Detalhes técnicos ficam recolhidos e continuam acessíveis para diagnóstico.
@@ -903,6 +909,7 @@ async function main() {
             "chat send without modal; nothing saved or generated before consents",
             "1.2 acceptance required per message and persisted",
             "panel width control in shell",
+            "Página atual chip on by default; tab read only on send and sent as context",
             "Ctrl+Shift+L toggles the panel and focuses the composer",
             "settings page opened from the shell; bookmarks bar preference synced",
             "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",

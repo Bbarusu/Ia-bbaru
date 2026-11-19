@@ -52,13 +52,16 @@ BRIDGE = r"""
   const turns = F.turns || {};
   const consents = F.consents || {};
   const store = Object.assign({}, F.store || {});
+  window.__store = store;
   let n = 0;
   window.iaDesktop = {
     runtime: { sendMessage: async (m) => {
       calls.push(JSON.parse(JSON.stringify(m)));
       if (m.type === "capture.read") return null;
       if (m.type === "context.status") return F.status || null;
-      if (m.type === "capture.page") return { ok: true, capture: F.pageCapture };
+      if (m.type === "capture.page")
+        return F.pageCaptureError ? { ok: false, error: { message: F.pageCaptureError } } : { ok: true, capture: F.pageCapture };
+      if (m.type === "capture.video.frame") return { ok: true, capture: F.frameCapture };
       if (m.type === "capture.selection") return { ok: true, capture: F.selectionCapture };
       if (m.type === "capture.clear") return { ok: true };
       if (m.type !== "bridge.request") return null;
@@ -87,7 +90,7 @@ BRIDGE = r"""
           return t ? ok(t) : fail("http_404");
         }
         case "conversations.turns.send": {
-          const body = p.turn, model = body.allowed_model_ids[0], answer = "Resposta de teste " + (++n);
+          const body = p.turn, model = body.allowed_model_ids[0], answer = (F.answer ? F.answer + "\n\n" : "") + "Resposta de teste " + (++n);
           const task = { id: "task-" + n, instruction: body.instruction, status: "completed", created_at: now,
             plan: [{ role: "answer", model_id: model }], output: answer,
             results: [{ model_id: model, role: "answer", output: answer, served_model: "claude-teste" }],
@@ -119,8 +122,10 @@ BRIDGE = r"""
 
 
 class Panel:
-    def __init__(self, browser, url, fixture=None, width=440, bridge=True, local=None):
+    def __init__(self, browser, url, fixture=None, width=440, bridge=True, local=None, init=None):
         self.page = browser.new_page(viewport={"width": width, "height": 794})
+        if init:
+            self.page.add_init_script(init)
         self.errors = []
         self.page.on("pageerror", lambda e: self.errors.append(str(e)))
         if local:
@@ -422,7 +427,134 @@ def f4_pasted_text_is_a_snapshot(browser, url):
     plain.close()
 
 
-CHECKS = [i3_snapshot_survives_navigation, i4_focus_composer, i5_profiles_and_explicit_models,
+PAGE = {"id": "c0ffee00-0000-4000-8000-0000000000aa", "kind": "page", "title": "Aula de biologia",
+        "url": "https://exemplo.org/aula", "text": "A fotossíntese transforma luz em energia química.",
+        "document_id": "tab1:1", "tab_id": "tab1", "documentVersion": 1, "captured_at": "2026-11-19T10:00:00Z"}
+STATUS = {"document_id": "tab1:1", "url": PAGE["url"], "title": PAGE["title"], "capture_is_current": False}
+
+
+def runtime_calls(panel, kind):
+    return [c for c in panel.calls() if c.get("type") == kind]
+
+
+def m1_markdown_answer_is_rich_and_safe(browser, url):
+    answer = ("## Resumo da aula\n\nA **fotossíntese** usa luz. Veja [a fonte](https://exemplo.org/aula) "
+              "e [isto](javascript:window.__xss=1).\n\n> Citação importante.\n\n- primeiro\n- segundo\n\n"
+              "| Etapa | Onde | Entrada | Saída | Observação longa sem espaço |\n|---|---|---|---|---|\n"
+              "| Clara | Tilacoide | Luz, água | ATP, NADPH, O2 | " + "x" * 120 + " |\n\n"
+              "```python\nprint('ok')  # " + "y" * 200 + "\n```\n\n"
+              "<script>window.__xss = 2</script><img src=x onerror=\"window.__xss=3\">")
+    clip = "window.__copied = []; navigator.clipboard.writeText = async (t) => { window.__copied.push(t); };"
+    panel = Panel(browser, url, {"models": MODELS, "answer": answer}, width=360, init=clip)
+    page = panel.page
+    panel.ask("Resuma a aula")
+    panel.confirm()
+    panel.answers(1)
+    log = page.get_by_role("log", name="Conversa com o Claude")
+    expect(log.get_by_role("heading", name="Resumo da aula")).to_be_visible()
+    expect(log.locator("strong", has_text="fotossíntese")).to_be_visible()
+    expect(log.locator("blockquote")).to_contain_text("Citação importante.")
+    expect(log.locator(".md-table table")).to_be_visible()
+    link = log.get_by_role("link", name="a fonte")
+    expect(link).to_have_attribute("target", "_blank")
+    expect(link).to_have_attribute("rel", "noopener noreferrer")
+    expect(log.get_by_role("link", name="isto")).to_have_count(0)  # javascript: vira texto
+    assert log.locator(".markdown script, .markdown img").count() == 0
+    expect(log.get_by_text("<script>window.__xss = 2</script>", exact=False)).to_be_visible()
+    assert page.evaluate("window.__xss") is None, "HTML/links da resposta não executam"
+    log.get_by_role("button", name="Copiar código").click()
+    expect(log.get_by_role("button", name="Copiado")).to_be_visible()
+    assert page.evaluate("window.__copied")[0].startswith("print('ok')")
+    # Tabela e código largos rolam dentro do bloco; a conversa não rola de lado.
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "rolagem horizontal em 360 px"
+    assert page.evaluate("document.querySelector('.md-table').scrollWidth > document.querySelector('.md-table').clientWidth")
+    page.screenshot(path=str(ROOT / "artifacts" / "chat-markdown-360.png"), full_page=True)
+    panel.close()
+
+
+def p1_current_page_toggle(browser, url):
+    panel = Panel(browser, url, {"models": MODELS, "status": STATUS, "pageCapture": PAGE})
+    page = panel.page
+    chip = page.get_by_role("button", name="Página atual: Aula de biologia")
+    expect(chip).to_have_attribute("aria-pressed", "true")
+    assert not runtime_calls(panel, "capture.page"), "abrir o painel não lê a aba"
+    # Navegar também não lê nada: só atualiza o título do chip.
+    page.evaluate("window.__emit({ activePage: { newValue: { document_id: 'tab1:2', url: 'https://exemplo.org/b', title: 'Outra aula', capture_is_current: false } } })")
+    expect(page.get_by_role("button", name="Página atual: Outra aula")).to_be_visible()
+    assert not runtime_calls(panel, "capture.page")
+    panel.ask("O que diz a página?")
+    expect(panel.card()).to_contain_text("Ao enviar, o Yuki lê agora o texto visível de “Outra aula”")
+    assert not runtime_calls(panel, "capture.page"), "nada é lido antes da confirmação"
+    panel.confirm()
+    panel.answers(1)
+    assert len(runtime_calls(panel, "capture.page")) == 1
+    snap = panel.sends()[0]["snapshots"][0]
+    assert snap["kind"] == "page" and snap["content"] == PAGE["text"] and snap["document_id"] == "tab1:1", snap
+    assert panel.sends()[0]["instruction"] == "O que diz a página?", "a página vai como contexto, não no pedido"
+    assert [c["id"] for c in runtime_calls(panel, "capture.clear")] == [PAGE["id"]], "captura liberada após o envio"
+    # 1 clique desliga; a escolha fica guardada; o envio segue sem a página.
+    page.get_by_role("button", name="Página atual: Outra aula").click()
+    off = page.get_by_role("button", name="Página atual: desligada")
+    expect(off).to_have_attribute("aria-pressed", "false")
+    assert page.evaluate("window.__store['draft:read-page']") == "0"
+    panel.ask("Sem a página agora")
+    expect(panel.card()).not_to_contain_text("Ao enviar, o Yuki lê agora")
+    panel.confirm()
+    panel.answers(2)
+    assert len(runtime_calls(panel, "capture.page")) == 1 and panel.sends()[1]["snapshots"] == []
+    panel.close()
+    # Preferência desligada sobrevive à reabertura.
+    again = Panel(browser, url, {"models": MODELS, "status": STATUS, "pageCapture": PAGE, "store": {"draft:read-page": "0"}})
+    expect(again.page.get_by_role("button", name="Página atual: desligada")).to_be_visible()
+    again.close()
+
+
+def p2_page_errors_guide_instead_of_cutting(browser, url):
+    too_long = Panel(browser, url, {"models": MODELS, "status": STATUS,
+                                    "pageCaptureError": "Selecione um trecho de até 38.000 caracteres em uma página web."})
+    too_long.ask("Resuma a página enorme")
+    too_long.confirm()
+    expect(too_long.card()).to_contain_text("A página tem mais de 38.000 caracteres de texto")
+    assert not too_long.sends(), "nada é enviado"
+    too_long.card().get_by_role("button", name="Cancelar", exact=True).click()
+    expect(too_long.page.locator("#instruction")).to_have_value("Resuma a página enorme")
+    too_long.close()
+    big = dict(PAGE, id="c0ffee00-0000-4000-8000-0000000000bb", text="z" * 79990)
+    budget = Panel(browser, url, {"models": MODELS, "status": STATUS, "pageCapture": big})
+    budget.ask("Pergunta com página grande demais para o orçamento")
+    budget.confirm()
+    expect(budget.card()).to_contain_text("acima do limite de 80.000")
+    assert not budget.sends()
+    assert [c["id"] for c in runtime_calls(budget, "capture.clear")] == [big["id"]], "captura não usada é liberada"
+    budget.close()
+
+
+def v1_video_chip(browser, url):
+    with_captions = dict(STATUS, video={"current_time": 754, "duration": 1800, "captions": True})
+    panel = Panel(browser, url, {"models": MODELS, "status": with_captions})
+    expect(panel.page.locator(".page-chip")).to_contain_text("Vídeo 12:34 de 30:00 · com legendas capturadas")
+    expect(panel.page.get_by_role("button", name="Anexar quadro do vídeo")).to_have_count(0)
+    panel.close()
+    no_captions = dict(STATUS, video={"current_time": 61, "captions": False, "frame_capture": True})
+    frame = {"id": "f0000000-0000-4000-8000-000000000001", "kind": "screenshot", "title": "Aula de biologia", "url": PAGE["url"],
+             "text": "Quadro", "media": {"kind": "screenshot", "data_url": "data:image/jpeg;base64," + "A" * 400}}
+    vision = Panel(browser, url, {"models": [model("sonnet", image=True)], "status": no_captions, "frameCapture": frame})
+    page = vision.page
+    vision.choose("Sonnet")
+    expect(page.locator(".page-chip")).to_contain_text("Vídeo 1:01 · sem legenda no DOM")
+    page.get_by_role("button", name="Anexar quadro do vídeo").click()
+    expect(page.get_by_role("button", name="Remover imagem: Quadro do vídeo · Aula de biologia")).to_be_visible()
+    assert len(runtime_calls(vision, "capture.video.frame")) == 1
+    assert frame["id"] in [c["id"] for c in runtime_calls(vision, "capture.clear")]
+    expect(page.get_by_role("dialog")).to_have_count(0)  # o quadro não abre a revisão da biblioteca
+    vision.close()
+    plain = Panel(browser, url, {"models": [model("sonnet")], "status": no_captions})
+    expect(plain.page.get_by_text("Quadro do vídeo indisponível")).to_be_visible()
+    expect(plain.page.get_by_role("button", name="Anexar quadro do vídeo")).to_have_count(0)
+    plain.close()
+
+
+CHECKS = [m1_markdown_answer_is_rich_and_safe, p1_current_page_toggle, p2_page_errors_guide_instead_of_cutting, v1_video_chip, i3_snapshot_survives_navigation, i4_focus_composer, i5_profiles_and_explicit_models,
           i6_review_is_advanced_and_per_message, i7_scope_change_reopens_card,
           i8_single_image_with_explicit_visual_consent, i10_switch_and_block_while_pending,
           i11_narrow_with_consent_and_paste, f4_pasted_text_is_a_snapshot]
@@ -444,7 +576,7 @@ def main():
             print(f"ok  {check.__name__}")
         browser.close()
     server.shutdown()
-    print(f"Chat UI checks passed: {len(CHECKS)} (I3–I8, I10, I11, F-4; I9 em frontend/tests).")
+    print(f"Chat UI checks passed: {len(CHECKS)} (Markdown, Página atual, vídeo, I3–I8, I10, I11, F-4; I9 em frontend/tests).")
 
 
 if __name__ == "__main__":

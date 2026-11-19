@@ -460,3 +460,72 @@ test("F-4: texto colado vira snapshot kind text, sem origem, e não entra no ped
   assert.equal(turn.instruction, "Resuma o texto colado.");
   assert.equal(turn.snapshots[0].content, "conteúdo colado");
 });
+
+// ---- Markdown seguro nas respostas ----
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import Markdown from "react-markdown";
+import { MARKDOWN_OPTIONS, safeUrl } from "../src/markdown.mjs";
+import { contextBudgetError, pageReadError, turnContextChars, videoInfo } from "../src/logic.mjs";
+
+const md = (text) => renderToStaticMarkup(createElement(Markdown, MARKDOWN_OPTIONS, text));
+
+test("markdown: títulos, ênfase, listas, citação, tabela e código", () => {
+  const html = md("## Título\n\n**negrito** e *itálico*\n\n- um\n- dois\n\n1. a\n\n> citação\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```js\nconst x = 1;\n```");
+  assert.match(html, /<h2>Título<\/h2>/);
+  assert.match(html, /<strong>negrito<\/strong>/);
+  assert.match(html, /<em>itálico<\/em>/);
+  assert.match(html, /<ul>/);
+  assert.match(html, /<ol>/);
+  assert.match(html, /<blockquote>/);
+  assert.match(html, /<div class="md-table"[^>]*><table>/);
+  assert.match(html, /<code class="language-js">const x = 1;/);
+});
+
+test("markdown: HTML bruto vira texto, links perigosos somem, imagens não carregam", () => {
+  const html = md('Oi <script>window.x=1</script> <img src=x onerror="alert(1)"> <a href="javascript:alert(1)">a</a>\n\n[clique](javascript:alert(1)) [site](https://exemplo.org) [dados](data:text/html,<b>x</b>)\n\n![rastreio](https://t.exemplo/p.png)');
+  assert.doesNotMatch(html, /<script/);
+  assert.doesNotMatch(html, /<img/);
+  assert.doesNotMatch(html, /onerror="/);
+  assert.doesNotMatch(html, /href="javascript:/i);
+  assert.doesNotMatch(html, /href="data:/i);
+  assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /<a href="https:\/\/exemplo.org" target="_blank" rel="noopener noreferrer">site<\/a>/);
+  assert.match(html, /<span>clique<\/span>/);
+  assert.match(html, /Imagem: rastreio/);
+  assert.doesNotMatch(html, /rel="preload"/);
+  assert.equal(safeUrl("javascript:alert(1)"), "");
+  assert.equal(safeUrl("mailto:a@b.c"), "mailto:a@b.c");
+});
+
+test("readableAnswer: troca id por título fora de código e de destino de link, escapando Markdown", () => {
+  const id = "3ca05830-926f-47ca-96d8-0ccfe7399a4d";
+  const ctx = [{ id, title: "Aula *1* [revisão]" }];
+  const out = readableAnswer(`Ver ${id}. [link](https://x.org/${id}) e \`${id}\`\n\n\`\`\`\n${id}\n\`\`\``, ctx);
+  assert.match(out, /^Ver “Aula \\\*1\\\* \\\[revisão\\\]”\./);
+  assert.ok(out.includes(`(https://x.org/${id})`), "destino do link intacto");
+  assert.ok(out.includes(`\`${id}\``), "código inline intacto");
+  assert.ok(out.includes(`\`\`\`\n${id}\n\`\`\``), "bloco de código intacto");
+  assert.match(md(out), /“Aula \*1\* \[revisão\]”/, "título aparece literal, sem virar formatação");
+});
+
+test("página atual: orçamento explicado e falha de leitura orienta, sem corte silencioso", () => {
+  const turn = { instruction: "abc", snapshots: [{ title: "T", content: "x".repeat(10) }] };
+  assert.equal(turnContextChars(turn), 14);
+  assert.equal(contextBudgetError(turn), null);
+  const big = { instruction: "p", snapshots: [{ title: "Pág", content: "x".repeat(80000) }] };
+  assert.match(contextBudgetError(big), /80\.004 caracteres de contexto, acima do limite de 80\.000/);
+  assert.match(contextBudgetError(big), /Nada foi enviado/);
+  assert.match(pageReadError("Selecione um trecho de até 38.000 caracteres em uma página web."), /mais de 38\.000 caracteres/);
+  assert.match(pageReadError("Abra uma página web."), /Não foi possível ler a aba atual: Abra uma página web\. Desligue “Página atual”/);
+});
+
+test("vídeo: só aparece com o campo do runtime; tempo, legendas e quadro", () => {
+  assert.equal(videoInfo(null), null);
+  assert.equal(videoInfo({ document_id: "t:1" }), null);
+  assert.deepEqual(videoInfo({ video: { current_time: 754.9, duration: 1800, captions: true } }),
+    { label: "Vídeo 12:34 de 30:00 · com legendas capturadas", captions: true, frameCapture: false });
+  assert.deepEqual(videoInfo({ video: { current_time: 3725, captions: false, frame_capture: true } }),
+    { label: "Vídeo 1:02:05 · sem legenda no DOM", captions: false, frameCapture: true });
+  assert.equal(videoInfo({ video: {} }).label, "Vídeo · sem legenda no DOM");
+});
