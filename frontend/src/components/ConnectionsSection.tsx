@@ -5,10 +5,11 @@ import {
   formatOutputLimit,
   formatUnavailableReason,
 } from "../logic.mjs";
-import type { Model } from "../types";
+import type { Model, Connection } from "../types";
 
 interface ConnectionsSectionProps {
-  inFirefox: boolean;
+  connections: Connection[];
+  diagnosticError: string;
   inDesktop: boolean;
   demo: boolean;
   host: boolean;
@@ -24,7 +25,8 @@ interface ConnectionsSectionProps {
 }
 
 export function ConnectionsSection({
-  inFirefox,
+  connections,
+  diagnosticError,
   inDesktop,
   demo,
   host,
@@ -41,13 +43,20 @@ export function ConnectionsSection({
   return (
     <div className="connections-grid">
       <section className="card connection-details">
+        {connections.map((connection) => (
+          <div className="connection-line" key={connection.provider}>
+            <span>Claude Code · {connection.version || "versão não identificada"}</span>
+            <span>{!connection.configured ? "Nenhum modelo configurado" : connection.ready ? "Pronto" : formatUnavailableReason(connection.reason, connection.provider)}</span>
+          </div>
+        ))}
+        {diagnosticError && <p className="small-note">{diagnosticError}</p>}
         <h2>Conexão com seu computador</h2>
         <p>Seu espaço usa um componente local para acessar os projetos.</p>
 
         <div className="connection-line">
-          <span>{inDesktop ? "Navegador Chromium" : "Extensão Firefox"}</span>
-          <span className={inFirefox || inDesktop ? "good" : ""}>
-            {inFirefox || inDesktop
+          <span>Navegador Chromium</span>
+          <span className={inDesktop ? "good" : ""}>
+            {inDesktop
               ? "Disponível"
               : demo
                 ? "Demonstração"

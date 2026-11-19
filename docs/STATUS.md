@@ -1,77 +1,79 @@
-# Estado do Ia-bbaru / Yuki
+# Estado atual — Yuki, Chromium e Claude
 
-Atualizado em 9/11/2026. Base integrada: `main`.
+Validação Windows da base aprovada pelo usuário em 18/11. A rodada posterior de captura rica e vídeo aguarda repetição no Windows.
 
-As PRs #4 → #5 → #1 foram integradas nessa ordem, sem conflitos. O gateway vem de
-`dad0696`; a interface do Gemini inclui `638e681` (tema claro Yuki). O primeiro
-início com as três frentes já funcionou no Windows do usuário, sem geração.
+Atualizado em 17/11/2026. Branch codex/browser-capture-clis, PR #7, fora da main.
+Interface integrada até 75db802 (inclui F-4 e imagens diretas). Base anterior integrada até 629254c por fast-forward sobre 93b44f6; análise CLI até 2f6fda8.
 
-## Entrega atual
+- Produto somente Electron/Chromium. Extensão, instalador e guia Firefox removidos;
+  a ponte native_host permanece porque o desktop a usa. Dados antigos preservados.
+- Único provedor: Claude Code por assinatura. Fable explícito, sem troca automática
+  de modelo; login não prova acesso a cada modelo.
+- Correção da perda de blocos: stream-json interno recompõe a última resposta e
+  verifica result/modelo/ferramentas. HTTP continua sem entrega incremental.
+- Erros classificados por api_error conhecido, com fallback textual; diagnósticos
+  sanitizados coerentes e versão last_verified. Sem repetição automática de cota,
+  teto, timeout, erro final ou resultado incerto. Fonte citada por título.
+- Contrato1.2 publicado: modelo servido e imagem tipada; 1/1.1 preservados.
+- Backend de conversas: histórico, aceite revogável, contexto por turno,
+  projeto implícito, envio idempotente/atômico pela fila existente. Tabela
+  conversation_turns com upgrade não destrutivo de chat_turns. Fontes únicas no
+  histórico e orçamento JSON/reserva compartilhado com o gateway, inclusive revisão.
+- Captura textual estruturada no IPC, com vídeo, legendas acessíveis e extratos parciais identificados, limitada a 38.000 caracteres,
+  com identidade de documento, tab_id e documentVersion. Foco/atalho/largura
+  disponíveis no runtime; menu antigo não captura seleção após navegar.
+- Captura visual inteira via capture.page.visual: CDP privado, HTTP(S), máximo
+  8.000 px por lado/16 MP de página original, saída para visão até 2.000 px por lado e 480 KB. Preserva print
+  da área visível, recorte de imagem e importação. Comando maximize disponível.
+- Visão experimental: modelo explicitamente configurado, uma PNG/JPEG até480KB,
+  aceite separado, hash/eco da CLI. Testada com dublês; sem validação real da conta.
+- Ícones .ico/.icns gerados do PNG aprovado e configurados para empacotamento.
+  Instalador assinado/publicado não foi produzido.
 
-- C-1: códigos sanitizados do gateway preservados e gravados por etapa. Somente
-  pares código/status conhecidos; mensagens livres não são propagadas.
-- C-2: fila SQLite, worker exclusivo, IDs estáveis, gravação antes da chamada,
-  recuperação conservadora e acompanhamento pelo painel/histórico. Confirmação
-  explícita para executar; `resume` apenas após falha anterior à geração.
-- `gateway_busy` e `request_in_progress` aguardam com o mesmo corpo/ID. Timeout,
-  transporte incerto e interrupção em voo nunca repetem. Cota/autenticação após
-  início e validação são erros finais. `unknown` preserva saída incompleta sem revisão.
-- C-3: `scripts/start-browser.ps1` em UTF-8 com BOM, sem alterar parâmetros.
-- C-4: grupo de botões de seleção de abas, com `aria-pressed` e setas/Home/End;
-  foco preservado durante atualização. As páginas são WebContents separados,
-  portanto não se anuncia um tablist com tabpanels DOM inexistentes. O visual do
-  Gemini e os botões de fechar permanecem. Verificação axe ARIA passou.
-- C-5: merges concluídos; schemas 1.1 do gateway importam os do backend. O caminho
-  antigo de importação permanece como compatibilidade, sem duplicar os modelos.
-- C-6: sem mudança no timeout de 20 s da ponte; o primeiro catálogo funcionou.
+## Interface integrada
 
-A execução usa `tasks.enqueue`/`tasks.resume`, não `tasks.execute`. Páginas externas
-continuam sem acesso à ponte. A extensão Firefox mantém planejamento. Fechar o
-painel mantém o worker; fechar o aplicativo encerra seu serviço. Na reabertura,
-trabalho em fila continua e chamadas interrompidas ficam incertas.
+Chat lateral usa conversations.*, corpo/turn_id persistidos antes do envio,
+aceite revogável, perfis e snapshots de página/seleção. Imagem e revisão pedem
+confirmação; print integral passa pela revisão da biblioteca. Histórico de
+conversas e consulta de envio pendente sobrevivem ao reinício sem nova geração.
+HTTP 5xx mantém o pedido pendente; 404 em consulta não prova que o envio parou.
+Somente consulta ou replay do mesmo corpo ficam disponíveis nessa incerteza.
 
-## Validação e limites
+O processo principal persiste histórico, favoritos, ajustes e downloads por perfil.
+O painel e a barra importam os dados legados uma vez. A nova aba aplica as preferências.
+Downloads exigem confirmação de destino. Extensões adiadas. Janela Windows sem moldura. Imagens diretas ficam na conversa. O contrato opcional
+1.3 aceita até quatro imagens com aceite visual, incluindo o histórico.
+Captura limpa no IPC ainda exige fechar explicitamente sua revisão no painel;
+não fechar rascunhos automaticamente. Contrato em [ENTREGA_BACKEND_CHAT.md](ENTREGA_BACKEND_CHAT.md).
 
-- Linux: testes de backend/fila/ponte, gateway, frontend e políticas Electron;
-  build, teste gráfico Chromium e integração por HTTP com CLI simulado.
-- Testes da fila cobrem IDs/corpos repetidos, reinício, exclusão de segundo worker,
-  falha ao gravar resultado, bloqueio anterior à geração, timeout, cota e revisão.
-- HTTP real: dublê nos modos `success`, `no_stop_reason`, `auth_error`, `usage_limit`
-  e `sleep`; respectivamente concluída, incompleta, autenticação, cota e timeout.
-- Electron: confirmação desmarcada, execução simulada, painel oculto, resultado
-  acompanhado, teclado e ARIA, captura/rascunhos e persistência.
-- Nenhuma conta real nem cota de IA usada nesta entrega. Testes gráficos Linux com
-  Xvfb e `IA_BBARU_TEST_NO_SANDBOX=1`: não validam a sandbox do sistema operacional.
-- A versão nova da fila/interface ainda precisa do teste Windows. A execução real
-  pelo painel e revisão com dois modelos ainda não foram verificadas na conta do usuário.
+Codex: backend/gateway/contratos/runtime e integração. Claude de interface:
+frontend/ e desktop/ui/. Claude analista: somente ANALISE_CLI_CLAUDE.md.
+[Divisão vigente](DIVISAO_RESPONSABILIDADES.md).
 
-## Próximo teste no Windows
+## Evidências e validação pendente
 
-Com o aplicativo fechado e o checkout limpo, na pasta `W:\Projeto\Ia-bbaru-inicio`:
+Testes desta rodada Linux: 100 backend aprovados; gateway111 executados (110 aprovados e 1 real ignorado);
+9 testes de persistência/política/captura desktop aprovados. Smoke Chromium integrado aprovado,
+incluindo página visual maior que a janela, identidade de documento, recusa de
+menu antigo, maximize, navegação, isolamento, capturas, rascunhos, conversa pelo
+IPC e persistência após reiniciar, perda de resposta, replay idempotente e
+restauração de envio pendente sem despacho automático. Build/ícones
+e 24 testes frontend aprovados nesta integração. Xvfb, com sandbox do
+sistema desativada só no teste Linux. Nenhuma geração real nesta rodada.
 
-```powershell
-git fetch origin
-git merge --no-edit origin/main
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
+Windows: usuário forneceu tarefa3ca05830-926f-47ca-96d8-0ccfe7399a4d com resposta
+cortada na versão anterior. Cota esgotada também foi confirmada em teste anterior.
+Leitura comparativa dos bancos pronta, mas ainda não recebida/executada pelo Codex.
+Não concluir retroativamente a causa da resposta nem marcar o teste real aprovado.
+[Roteiro Windows e leitura sem geração](VALIDACAO_WINDOWS_ATUAL.md).
 
-Abra com `.\integrations\scripts\iniciar-ia-bbaru.ps1`. Planejar continua sem
-geração; executar exige a confirmação separada no diálogo e pode consumir cota.
+[Resposta à análise e revisão da PR](RESPOSTA_ANALISE_CLI.md).
+Cancelamento de chamada em curso e entrega progressiva não estão no contrato atual.
+Renovação de cota não é exposta; não inventar horário. Históricos de implantação,
+limpeza de cópias e testes anteriores em [HISTORICO_STATUS.md](HISTORICO_STATUS.md).
 
-Guias: [execução durável](EXECUCAO_DURAVEL.md),
-[Windows](TESTAR_NAVEGADOR_CHROMIUM.md),
-[Claude](PROMPT_CLAUDE_EXECUCAO.md), [Gemini](PROMPT_GEMINI_EXECUCAO.md).
-
-## Pendências de produto
-
-- Importação automática NotebookLM e projetos dos outros aplicativos; hoje a
-  captura e seleção de materiais são explícitas. Abas logadas não conectam agentes.
-- Novos transportes oficiais, instalador assinado e atualização automática.
-- As sub-abas visuais do Gemini reutilizam a mesma WebContents e não restauram
-  histórico/estado de página independente. O botão “minimizar” apenas oculta o
-  painel. Alinhar rótulos e comportamento com o runtime antes de anunciar essas
-  funções como completas; detalhes no prompt do Gemini.
-- Aplicação local, sem login multiusuário nem deployment público.
-
-Revisões anteriores permanecem como histórico. Código no GitHub; bancos, sessões,
-segredos e materiais pessoais fora do versionamento.
+Pedido e interface incorporados até `claude/friendly-curie-pxw81w@629254c`. [Resposta por item](RESPOSTA_VISAO_E_NAVEGADOR.md):
+captura integral limitada, N7 e maximize entregues; anexos diretos no turno,
+multimagem/1.3, PDF, streaming, cancelamento, ajustes persistidos, downloads e
+extensões continuam pendentes. Preservar o painel aprovado, não recriar a visão
+geral de abas sobre a nova aba que foi reprovada. Não liberar visão por padrão.

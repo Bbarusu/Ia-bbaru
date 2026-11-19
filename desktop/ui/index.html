@@ -10,7 +10,7 @@
     <title>Yuki</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23ffffff'/%3E%3Cg fill='none' stroke='%2307090d' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2v20M19.07 4.93 4.93 19.07M22 12H2M19.07 19.07 4.93 4.93'/%3E%3Cpath d='m10 4 2 2 2-2M14 20l-2-2-2 2M4 10l2 2-2 2M20 14l-2-2 2-2'/%3E%3C/g%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='0'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%23ffffff'/%3E%3Cstop%20offset='1'%20stop-color='%23e6eef8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='.3'%20y='.3'%20width='23.4'%20height='23.4'%20rx='6'%20fill='url(%23g)'%20stroke='%23c5d4e6'%20stroke-width='.6'/%3E%3Cg%20fill='none'%20stroke='%2307090d'%20stroke-width='1.15'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12.00%209.80L12.00%202.80M12.00%207.10L9.75%205.80M12.00%207.10L14.25%205.80M12.00%204.70L10.53%203.85M12.00%204.70L13.47%203.85M13.91%2010.90L19.97%207.40M16.24%209.55L16.24%206.95M16.24%209.55L18.50%2010.85M18.32%208.35L18.32%206.65M18.32%208.35L19.79%209.20M13.91%2013.10L19.97%2016.60M16.24%2014.45L18.50%2013.15M16.24%2014.45L16.24%2017.05M18.32%2015.65L19.79%2014.80M18.32%2015.65L18.32%2017.35M12.00%2014.20L12.00%2021.20M12.00%2016.90L14.25%2018.20M12.00%2016.90L9.75%2018.20M12.00%2019.30L13.47%2020.15M12.00%2019.30L10.53%2020.15M10.09%2013.10L4.03%2016.60M7.76%2014.45L7.76%2017.05M7.76%2014.45L5.50%2013.15M5.68%2015.65L5.68%2017.35M5.68%2015.65L4.21%2014.80M10.09%2010.90L4.03%207.40M7.76%209.55L5.50%2010.85M7.76%209.55L7.76%206.95M5.68%208.35L4.21%209.20M5.68%208.35L5.68%206.65'/%3E%3Cpath%20d='M12.00%209.80L13.91%2010.90L13.91%2013.10L12.00%2014.20L10.09%2013.10L10.09%2010.90Z'/%3E%3C/g%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="shell.css" />
   </head>
@@ -25,66 +25,38 @@
               height="13"
               fill="none"
               stroke="#07090d"
-              stroke-width="2"
+              stroke-width="1.4"
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <path d="M12 2v20M19.07 4.93 4.93 19.07M22 12H2M19.07 19.07 4.93 4.93" />
-              <path d="m10 4 2 2 2-2M14 20l-2-2-2 2M4 10l2 2-2 2M20 14l-2-2 2-2" />
+              <path d="M12.00 9.80L12.00 2.80M12.00 7.10L9.75 5.80M12.00 7.10L14.25 5.80M12.00 4.70L10.53 3.85M12.00 4.70L13.47 3.85M13.91 10.90L19.97 7.40M16.24 9.55L16.24 6.95M16.24 9.55L18.50 10.85M18.32 8.35L18.32 6.65M18.32 8.35L19.79 9.20M13.91 13.10L19.97 16.60M16.24 14.45L18.50 13.15M16.24 14.45L16.24 17.05M18.32 15.65L19.79 14.80M18.32 15.65L18.32 17.35M12.00 14.20L12.00 21.20M12.00 16.90L14.25 18.20M12.00 16.90L9.75 18.20M12.00 19.30L13.47 20.15M12.00 19.30L10.53 20.15M10.09 13.10L4.03 16.60M7.76 14.45L7.76 17.05M7.76 14.45L5.50 13.15M5.68 15.65L5.68 17.35M5.68 15.65L4.21 14.80M10.09 10.90L4.03 7.40M7.76 9.55L5.50 10.85M7.76 9.55L7.76 6.95M5.68 8.35L4.21 9.20M5.68 8.35L5.68 6.65" />
+              <path d="M12.00 9.80L13.91 10.90L13.91 13.10L12.00 14.20L10.09 13.10L10.09 10.90Z" />
             </svg>
           </span>
           <span class="brand-name">Yuki</span>
         </div>
         <div id="tabs" role="group" aria-label="Abas abertas"></div>
-        <button id="new" type="button" title="Nova aba" aria-label="Nova aba">
+        <button id="new" type="button" title="Nova aba (Ctrl+T)" aria-label="Nova aba">
           ＋
         </button>
+        <!-- Bolinhas no estilo do Safari, à direita. A barra nativa do sistema ainda
+             aparece (W1, docs/RESPOSTA_VISAO_E_NAVEGADOR.md). -->
         <div class="window-actions" role="group" aria-label="Controle da janela">
-          <button
-            id="minimize"
-            type="button"
-            class="win-circle"
-            title="Minimizar painel"
-            aria-label="Minimizar painel"
-          >
-            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-              <path
-                d="M6 12h12"
-                stroke="currentColor"
-                stroke-width="1.65"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-          <button
-            id="power"
-            type="button"
-            class="win-circle power"
-            title="Encerrar o Yuki"
-            aria-label="Encerrar o Yuki"
-          >
-            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-              <path
-                d="M12 3.5v7.5M6.8 6.8a7.5 7.5 0 1 0 10.4 0"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.65"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
+          <button id="power" type="button" class="win-dot close" title="Fechar o Yuki" aria-label="Fechar o Yuki"></button>
+          <button id="minimize" type="button" class="win-dot min" title="Minimizar janela" aria-label="Minimizar janela"></button>
+          <button id="maximize" type="button" class="win-dot max" title="Ampliar ou restaurar a janela" aria-label="Ampliar ou restaurar a janela"></button>
         </div>
       </div>
 
       <div class="toolbar">
-        <button id="back" type="button" aria-label="Voltar" title="Voltar">
+        <button id="back" type="button" aria-label="Voltar" title="Voltar (Alt+←)">
           ←
         </button>
         <button
           id="forward"
           type="button"
           aria-label="Avançar"
-          title="Avançar"
+          title="Avançar (Alt+→)"
         >
           →
         </button>
@@ -92,12 +64,21 @@
           id="reload"
           type="button"
           aria-label="Recarregar"
-          title="Recarregar"
+          title="Recarregar (Ctrl+R)"
         >
           ↻
         </button>
+
         <form id="navigation">
-          <span class="address-icon" aria-hidden="true">⌕</span>
+          <button
+            id="site-security"
+            type="button"
+            class="omnibox-badge"
+            title="Segurança da conexão e isolamento da aba"
+            aria-label="Segurança da página"
+          >
+            ❄
+          </button>
           <input
             id="address"
             aria-label="Endereço ou pesquisa"
@@ -105,31 +86,39 @@
             autocomplete="off"
             spellcheck="false"
           />
+          <button
+            id="bookmark-toggle"
+            type="button"
+            class="omnibox-action"
+            title="Salvar página atual nos favoritos"
+            aria-label="Favoritar página"
+          >
+            ★
+          </button>
         </form>
+
+
+
         <button
-          id="bookmark-toggle"
+          id="more"
           type="button"
           class="sub-action"
-          title="Salvar página atual nos favoritos"
-          aria-label="Favoritar página"
+          title="Mais ações: capturas, busca, zoom e histórico"
+          aria-label="Mais ações"
+          aria-controls="shell-actions"
+          aria-expanded="false"
         >
-          ★
-        </button>
-        <button
-          id="capture"
-          type="button"
-          class="capture"
-          title="Adicionar o texto selecionado ao projeto"
-        >
-          ＋ Capturar
+          ⋯
         </button>
         <button
           id="panel"
           type="button"
           class="primary"
           aria-pressed="true"
+          aria-keyshortcuts="Control+Shift+L"
+          title="Abrir ou fechar a conversa com o Claude ao lado da página (Ctrl+Shift+L)"
         >
-          ❄ Agentes
+          ❄ Perguntar ao Claude
         </button>
         <button
           id="expand"
@@ -143,19 +132,30 @@
       </div>
 
       <div class="subbar">
-        <div
-          id="subtabs"
-          class="subtabs"
-          role="group"
-          aria-label="Sub-abas da aba ativa"
-        ></div>
-        <span class="subbar-divider" aria-hidden="true"></span>
-        <div
-          id="bookmarks"
-          class="bookmarks"
-          role="group"
-          aria-label="Barra de favoritos"
-        ></div>
+        <div id="subbar-default" class="subbar-default">
+          <div
+            id="bookmarks"
+            class="bookmarks"
+            role="group"
+            aria-label="Barra de favoritos"
+          ></div>
+          <div id="shell-actions" class="shell-actions" role="group" aria-label="Mais ações do navegador" hidden>
+            <button id="capture" type="button" class="shell-action" title="Enviar o texto selecionado ao chat (pede confirmação)">Capturar trecho</button>
+            <button id="capture-print" type="button" class="shell-action" title="Salvar um print da aba na biblioteca">Capturar print</button>
+            <button id="capture-image" type="button" class="shell-action" title="Salvar uma imagem da página na biblioteca">Capturar imagem</button>
+            <button id="find-toggle" type="button" class="shell-action" title="Buscar nesta página (Ctrl+F)">Buscar na página</button>
+            <button id="zoom-toggle" type="button" class="shell-action" aria-label="Zoom da página" title="Ajustar zoom da página">100%</button>
+            <button id="width-toggle" type="button" class="shell-action" aria-label="Largura do painel" title="Ajustar a largura do painel do Claude">Largura</button>
+            <button id="downloads-open" type="button" class="shell-action" title="Downloads no painel">Downloads</button>
+            <button id="settings-open" type="button" class="shell-action" title="Ajustes do navegador no painel">Ajustes</button>
+            <button id="history-toggle" type="button" class="shell-action" title="Histórico de navegação">Histórico</button>
+            <button id="home" type="button" class="shell-action" aria-label="Página inicial" title="Ir para a página inicial do Yuki">Início</button>
+            <button id="reopen-tab" type="button" class="shell-action" title="Reabrir última aba fechada (Ctrl+Shift+T)">Reabrir aba</button>
+          </div>
+        </div>
+
+        <div id="subbar-tool" class="subbar-tool" hidden></div>
+
         <div id="message" role="status" aria-live="polite"></div>
       </div>
     </header>

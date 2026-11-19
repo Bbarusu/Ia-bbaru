@@ -1,8 +1,10 @@
 import httpx
+import re
 from .gateway_errors import ERROR_STATUS
 
 from .contracts import GenerateRequest, GenerateResponse, ModelCatalog
 from .contracts_v1_1 import GenerateRequestV11, GenerateResponseV11, ModelCatalogV11
+from .protocols import CATALOGS, RESPONSES
 
 
 class GatewayUnavailable(Exception):
@@ -14,8 +16,8 @@ class GatewayUnavailable(Exception):
 
 class HttpGateway:
     def __init__(self, url: str | None, token: str | None, protocol_version: str = "1"):
-        if protocol_version not in {"1", "1.1"}:
-            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1 or 1.1")
+        if protocol_version not in CATALOGS:
+            raise ValueError("GATEWAY_PROTOCOL_VERSION must be 1, 1.1, 1.2 or 1.3")
         self.url = (url or "").rstrip("/")
         self.token = token
         self.protocol_version = protocol_version
@@ -50,24 +52,52 @@ class HttpGateway:
     def catalog(self):
         try:
             raw = self._request("GET", f"/v{self.protocol_version}/models")
-            schema = ModelCatalogV11 if self.protocol_version == "1.1" else ModelCatalog
-            if self.protocol_version == "1.1" and raw.get("protocol_version") != "1.1":
+            schema = CATALOGS[self.protocol_version]
+            if self.protocol_version != "1" and raw.get("protocol_version") != self.protocol_version:
                 raise ValueError("Gateway catalog version does not match configuration")
-            return schema.model_validate(raw)
+            catalog = schema.model_validate(raw)
+            catalog.models = [m for m in catalog.models if m.provider == "claude-code"]
+            return catalog
         except (ValueError, AttributeError) as exc:
             raise GatewayUnavailable("gateway_invalid_catalog") from exc
+
+    def connections(self):
+        raw = self._request("GET", "/v1/connections")
+        if not isinstance(raw, dict) or not isinstance(raw.get("connections"), list) or len(raw["connections"]) > 10:
+            raise GatewayUnavailable("gateway_invalid_response")
+        rows = []
+        reasons = {"cli_not_installed", "cli_not_runnable", "cli_version_unsupported", "auth_status_unknown",
+                   "not_logged_in", "not_subscription_login", "output_limit_not_enforced"}
+        for item in raw["connections"]:
+            if (not isinstance(item, dict) or not isinstance(item.get("provider"), str)
+                    or item["provider"] not in {"claude-code"}):
+                continue
+            raw_version = item.get("version") if isinstance(item.get("version"), str) else ""
+            version = re.search(r"\b\d{1,4}\.\d{1,4}\.\d{1,6}\b", raw_version[:160])
+            reason = item.get("reason")
+            rows.append({"provider": item["provider"], "version": version.group() if version else None,
+                         "installed": item.get("installed") is True,
+                         "ready": item.get("ready") is True,
+                         "configured": isinstance(item.get("configured_models"), list) and bool(item["configured_models"]),
+                         "reason": reason if isinstance(reason, str) and reason in reasons else None,
+                         "model_access": "not_verified_without_generation"})
+        return {"connections": rows}
 
     def generate(self, request: GenerateRequest | GenerateRequestV11):
         try:
             if request.protocol_version != self.protocol_version:
                 raise ValueError("Task gateway version does not match configuration")
-            schema = GenerateResponseV11 if self.protocol_version == "1.1" else GenerateResponse
+            schema = RESPONSES[self.protocol_version]
             raw = self._request("POST", f"/v{self.protocol_version}/generate", request.model_dump())
-            if self.protocol_version == "1.1" and raw.get("protocol_version") != "1.1":
+            if self.protocol_version != "1" and raw.get("protocol_version") != self.protocol_version:
                 raise ValueError("Gateway response version does not match configuration")
             result = schema.model_validate(raw)
             if result.request_id != request.request_id or result.model_id != request.model_id:
                 raise ValueError("Gateway response does not match the request")
+            if self.protocol_version in {"1.2", "1.3"}:
+                expected = [{"id": a.id, "sha256": a.sha256} for a in request.attachments]
+                if [a.model_dump() for a in result.attachments_used] != expected:
+                    raise ValueError("Gateway did not confirm the image input")
             return result
         except (ValueError, AttributeError) as exc:
             raise GatewayUnavailable("gateway_invalid_response") from exc

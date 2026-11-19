@@ -1,9 +1,8 @@
-import type { Capture } from "./types";
+import type { Capture, PageStatus, PendingSend } from "./types";
 
 export const demo = new URLSearchParams(location.search).get("demo") === "1";
-export const inFirefox = !!window.browser?.runtime?.sendMessage;
 export const inDesktop = !!window.iaDesktop;
-export const localBridge = window.iaDesktop || window.browser;
+export const localBridge = window.iaDesktop;
 export async function request<T>(
   operation: string,
   params: object = {},
@@ -14,7 +13,7 @@ export async function request<T>(
   }
   if (!localBridge)
     throw new Error(
-      "Abra o navegador Yuki ou a extensão Firefox para conectar ao componente local.",
+      "Abra o navegador Yuki para conectar ao componente local.",
     );
   const response = await localBridge.runtime.sendMessage({
     type: "bridge.request",
@@ -25,10 +24,14 @@ export async function request<T>(
       params,
     },
   });
-  if (!response?.ok)
-    throw new Error(
+  if (!response?.ok) {
+    // O código distingue recusa definitiva de resultado desconhecido (ver logic.mjs).
+    const error = new Error(
       response?.error?.message || "Componente local indisponível.",
-    );
+    ) as Error & { code?: string };
+    error.code = response?.error?.code;
+    throw error;
+  }
   return response.data;
 }
 export async function pendingCapture(): Promise<Capture | null> {
@@ -50,6 +53,38 @@ export async function selectCapture(): Promise<Capture> {
       result?.error?.message || "Não foi possível capturar a seleção.",
     );
   return result.capture;
+}
+/** Texto visível da aba inteira (capture.page), por ação explícita. */
+export async function capturePage(): Promise<Capture> {
+  if (!localBridge) throw new Error("Abra uma página no navegador Yuki.");
+  const result = await localBridge.runtime.sendMessage({ type: "capture.page" });
+  if (!result?.ok)
+    throw new Error(result?.error?.message || "Não foi possível ler a página.");
+  return result.capture;
+}
+export async function contextStatus(): Promise<PageStatus | null> {
+  if (!localBridge) return null;
+  return localBridge.runtime.sendMessage({ type: "context.status" });
+}
+/** O runtime persiste o corpo completo antes do despacho. */
+const PENDING_KEY = "yuki:pending-send";
+export async function readPendingSend(): Promise<PendingSend | null> {
+  if (localBridge) {
+    const raw = (await localBridge.storage.local.get("pending-send"))["pending-send"];
+    if (raw) return JSON.parse(raw);
+  }
+  const legacy = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
+  if (legacy && localBridge) await writePendingSend(legacy);
+  return legacy;
+}
+export async function writePendingSend(value: PendingSend | null) {
+  if (localBridge) {
+    await localBridge.storage.local.set({ "pending-send": JSON.stringify(value) });
+    localStorage.removeItem(PENDING_KEY);
+    return;
+  }
+  if (value) localStorage.setItem(PENDING_KEY, JSON.stringify(value));
+  else localStorage.removeItem(PENDING_KEY);
 }
 export async function expand() {
   if (localBridge)

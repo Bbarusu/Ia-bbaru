@@ -1,16 +1,18 @@
 const api = window.navigatorApp;
 const $ = (id) => document.getElementById(id);
 let state,
-  ownMessage = "";
+  ownMessage = "",
+  activeSubbarMode = null, // null | "find" | "zoom" | "width" | "history" | "security" | "capture-media"
+  currentZoom = 100,
+  findQuery = "",
+  // shortcut: o estado do runtime não informa a largura atual; vale a última escolhida aqui (padrão 440).
+  panelWidth = Number(localStorage.getItem("yuki:panel-width")) || 440;
 
 const DEFAULT_BOOKMARKS = [
-  { title: "NotebookLM", url: "https://notebooklm.google.com/" },
   { title: "Claude", url: "https://claude.ai/" },
-  { title: "ChatGPT", url: "https://chatgpt.com/" },
-  { title: "Gemini", url: "https://gemini.google.com/" },
 ];
 
-const subtabsByTab = new Map();
+
 
 function loadBookmarks() {
   try {
@@ -18,44 +20,67 @@ function loadBookmarks() {
       localStorage.getItem("yuki:bookmarks") ||
       localStorage.getItem("ia-bbaru:bookmarks");
     const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed) && parsed.length) return parsed;
+    if (Array.isArray(parsed)) return parsed;
   } catch {}
   return DEFAULT_BOOKMARKS;
 }
 
+let browserCache;
 function saveBookmarks(items) {
-  try {
-    localStorage.setItem("yuki:bookmarks", JSON.stringify(items));
-  } catch {}
+  api.data("set", { key: "yuki:bookmarks", value: items }).catch(error => { ownMessage = error.message; if (state) render(state); });
+}
+function saveHistory(items) { api.data("set", { key: "yuki:history", value: items, revision: browserCache?.revision }).catch(error => { ownMessage = error.message; }); }
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem("yuki:history") || "[]"); } catch { return []; }
+}
+let bookmarks = loadBookmarks();
+let visitHistory = loadHistory();
+function applyBrowserData(data) {
+  browserCache = data; bookmarks = data.bookmarks; visitHistory = data.history;
+  applyPreferences();
+  if (state) renderSubbar(state.tabs.find(t => t.id === state.activeId));
+}
+api.onData(applyBrowserData);
+const legacyPreferences = {};
+for (const key of ["yuki:show-bookmarks", "yuki:history-retention"]) {
+  const value = localStorage.getItem(key); if (value !== null) legacyPreferences[key] = value;
+}
+api.data("migrate", { history: visitHistory, bookmarks, preferences: legacyPreferences }).then(data => {
+  applyBrowserData(data);
+  for (const key of ["yuki:history", "yuki:bookmarks", "ia-bbaru:bookmarks", "yuki:history-retention", "yuki:show-bookmarks"])
+    localStorage.removeItem(key);
+})
+  .catch(error => { ownMessage = error.message; });
+// Ajustes → Geral: "Remover itens do histórico" (dias; vazio = manualmente).
+function pruneHistory(items) {
+  const days = Number(browserCache?.preferences["yuki:history-retention"]) || 0;
+  if (!days) return items;
+  const limit = Date.now() - days * 86400000;
+  return items.filter((item) => !item.at || Date.parse(item.at) >= limit);
 }
 
-let bookmarks = loadBookmarks();
+// O painel (mesma origem file://) edita histórico, favoritos e preferências;
+// o evento storage mantém a barra em dia sem passar pelo runtime.
+function applyPreferences() {
+  document.querySelector(".subbar")?.classList.toggle(
+    "no-bookmarks",
+    browserCache?.preferences["yuki:show-bookmarks"] === "0",
+  );
+}
 
-function ensureSubtabs(tab) {
-  if (!tab) return [];
-  let list = subtabsByTab.get(tab.id);
-  if (!list || !list.length) {
-    list = [
-      {
-        id: "main",
-        title: tab.title || "Principal",
-        url: tab.url || "",
-        active: true,
-      },
-    ];
-    subtabsByTab.set(tab.id, list);
-  } else {
-    const current = list.find((s) => s.active) || list[0];
-    current.title = tab.title || current.title || "Sub-aba";
-    current.url = tab.url || "";
-  }
-  return list;
+/** Abre uma área do painel (Histórico, Downloads, Ajustes) pelo armazenamento compartilhado. */
+function openPanelArea(area) {
+  try {
+    localStorage.setItem("yuki:open-area", JSON.stringify({ area, at: Date.now() }));
+  } catch {}
+  if (!state?.panel) command("panel");
 }
 
 async function command(action, value) {
   const result = await api.command(action, value);
   ownMessage = result.ok ? "" : result.error;
   renderMessage();
+  return result;
 }
 
 function renderMessage() {
@@ -86,44 +111,258 @@ function createPowerIconSvg() {
   return svg;
 }
 
-function renderSubbar(activeTab) {
-  const subtabsEl = $("subtabs");
-  subtabsEl.replaceChildren();
-  const subs = ensureSubtabs(activeTab);
+function updateSiteSecurityBadge(activeTab) {
+  const badge = $("site-security");
+  if (!badge) return;
+  const url = activeTab?.url || "";
+  if (!url) {
+    badge.textContent = "❄";
+    badge.title = "Página interna isolada do Yuki (Nova aba)";
+  } else if (url.startsWith("https://")) {
+    badge.textContent = "🔒";
+    badge.title = `Endereço HTTPS (${url})`;
+  } else {
+    badge.textContent = "ⓘ";
+    badge.title = `Conexão HTTP (${url}) · Sandbox Chromium ativo`;
+  }
+}
 
-  for (const sub of subs) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "subtab-chip" + (sub.active ? " active" : "");
-    btn.textContent = sub.title || "Sub-aba";
-    btn.title = sub.url ? `${sub.title} — ${sub.url}` : sub.title;
-    btn.onclick = () => {
-      for (const item of subs) item.active = item.id === sub.id;
-      renderSubbar(activeTab);
-      command("navigate", sub.url || "");
-    };
-    subtabsEl.appendChild(btn);
+function closeSubbarTool() {
+  if (activeSubbarMode === "find") command("find", { text: "", forward: true });
+  activeSubbarMode = null;
+  renderSubbar(state?.tabs.find((t) => t.id === state?.activeId));
+}
+
+function setSubbarTool(mode, mediaKind = "") {
+  if (activeSubbarMode === mode && !mediaKind) {
+    closeSubbarTool();
+    return;
+  }
+  activeSubbarMode = mode;
+  renderSubbar(state?.tabs.find((t) => t.id === state?.activeId), mediaKind);
+}
+
+function renderSubbarToolContent(activeTab, mediaKind = "") {
+  const toolEl = $("subbar-tool");
+  const defEl = $("subbar-default");
+  if (!activeSubbarMode) {
+    toolEl.hidden = true;
+    defEl.hidden = false;
+    return;
   }
 
-  const addSub = document.createElement("button");
-  addSub.type = "button";
-  addSub.className = "subtab-chip add";
-  addSub.textContent = "+ Sub-aba";
-  addSub.title = "Criar sub-aba nesta aba";
-  addSub.onclick = () => {
-    if (!activeTab) return;
-    for (const item of subs) item.active = false;
-    subs.push({
-      id: String(Date.now()),
-      title: `Sub-aba ${subs.length + 1}`,
-      url: "",
-      active: true,
-    });
-    renderSubbar(activeTab);
-    command("navigate", "");
-  };
-  subtabsEl.appendChild(addSub);
+  defEl.hidden = true;
+  toolEl.hidden = false;
+  toolEl.replaceChildren();
 
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "tool-close-btn";
+  closeBtn.textContent = "✕";
+  closeBtn.title = "Voltar para a barra de favoritos";
+  closeBtn.onclick = closeSubbarTool;
+
+  if (activeSubbarMode === "find") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = "⌕ Buscar na página:";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tool-input";
+    input.placeholder = "Digite um termo para localizar…";
+    input.value = findQuery;
+    input.oninput = (e) => {
+      findQuery = e.target.value;
+    };
+    input.onkeydown = (e) => {
+      if (e.key === "Escape") closeSubbarTool();
+      if (e.key === "Enter" && findQuery.trim()) {
+        command("find", { text: findQuery, forward: true });
+      }
+    };
+
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "context-chip";
+    prevBtn.textContent = "↑ Anterior";
+    prevBtn.onclick = () => {
+      if (findQuery.trim()) {
+        command("find", { text: findQuery, forward: false });
+      }
+    };
+
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "context-chip";
+    nextBtn.textContent = "↓ Próxima";
+    nextBtn.onclick = () => {
+      if (findQuery.trim()) {
+        command("find", { text: findQuery, forward: true });
+      }
+    };
+
+    const count = document.createElement("span");
+    count.setAttribute("role", "status");
+    count.textContent = state?.find ? `${state.find.activeMatchOrdinal} / ${state.find.matches}` : "";
+    toolEl.append(label, input, prevBtn, nextBtn, count, closeBtn);
+    setTimeout(() => input.focus(), 10);
+    return;
+  }
+
+  if (activeSubbarMode === "zoom") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = `Zoom da página (${currentZoom}%):`;
+
+    for (const step of [80, 90, 100, 110, 125, 150]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "context-chip" + (currentZoom === step ? " active" : "");
+      btn.textContent = `${step}%`;
+      btn.onclick = () => {
+        command("zoom", step);
+      };
+      toolEl.appendChild(btn);
+    }
+
+    toolEl.appendChild(closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "width") {
+    // panel.resize aceita 320–800 px; acima de 700 o painel troca para o layout amplo
+    // (com menu lateral), então o controle para em 700. O runtime ainda limita a 65% da janela.
+    const label = document.createElement("label");
+    label.className = "tool-label";
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = "320";
+    input.max = "700";
+    input.step = "20";
+    input.value = String(panelWidth);
+    input.disabled = !state?.panel || state?.expanded;
+    const value = document.createElement("span");
+    value.textContent = `${panelWidth} px`;
+    label.append("Largura do painel ", input, value);
+    let frame = 0;
+    input.oninput = () => {
+      value.textContent = `${input.value} px`;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => command("panel.resize", Number(input.value)));
+    };
+    input.onchange = () => {
+      panelWidth = Number(input.value);
+      try { localStorage.setItem("yuki:panel-width", String(panelWidth)); } catch {}
+    };
+    toolEl.append(label);
+    if (input.disabled) {
+      const note = document.createElement("span");
+      note.className = "tool-note";
+      note.textContent = state?.expanded ? "Saia da tela ampla para ajustar." : "Abra o painel do Claude para ajustar.";
+      toolEl.append(note);
+    }
+    toolEl.appendChild(closeBtn);
+    setTimeout(() => input.focus(), 10);
+    return;
+  }
+
+  if (activeSubbarMode === "history") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    label.textContent = "🕘 Histórico recente:";
+    toolEl.appendChild(label);
+
+    if (!visitHistory.length) {
+      const empty = document.createElement("span");
+      empty.className = "tool-note";
+      empty.textContent = "Nenhuma página web visitada ainda nesta sessão.";
+      toolEl.appendChild(empty);
+    } else {
+      for (const item of visitHistory.slice(0, 5)) {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "bookmark-chip";
+        link.textContent = `${item.title} (${item.time})`;
+        link.title = item.url;
+        link.onclick = () => {
+          closeSubbarTool();
+          command("navigate", item.url);
+        };
+        toolEl.appendChild(link);
+      }
+      const allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.className = "context-chip";
+      allBtn.textContent = "Ver tudo";
+      allBtn.onclick = () => {
+        closeSubbarTool();
+        openPanelArea("web-history");
+      };
+      toolEl.appendChild(allBtn);
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "context-chip";
+      clearBtn.textContent = "Limpar";
+      clearBtn.onclick = () => {
+        visitHistory = [];
+        saveHistory([]);
+        renderSubbarToolContent(activeTab);
+      };
+      toolEl.appendChild(clearBtn);
+    }
+
+    toolEl.appendChild(closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "security") {
+    const label = document.createElement("span");
+    label.className = "tool-label";
+    const url = activeTab?.url || "yuki://nova-aba";
+    label.textContent = url.startsWith("https://")
+      ? "🔒 Endereço HTTPS"
+      : url.startsWith("http://")
+        ? "ⓘ HTTP local/padrão"
+        : "❄ Página interna Yuki";
+
+    const details = document.createElement("span");
+    details.className = "tool-note";
+    details.textContent =
+      "Sandbox Chromium ativo · Sem acesso a Node/IPC · Cookies isolados dos agentes CLI.";
+
+    toolEl.append(label, details, closeBtn);
+    return;
+  }
+
+  if (activeSubbarMode === "capture-media") {
+    const isPrint = mediaKind === "print";
+    const badge = document.createElement("span");
+    badge.className = "tool-label";
+    badge.textContent = isPrint
+      ? "📸 Capturar Print da Tela:"
+      : "🖼 Capturar Imagem da Página:";
+
+    const info = document.createElement("span");
+    info.className = "tool-note";
+    info.textContent = isPrint
+      ? "Use o painel lateral (+ Material → aba Print / Ctrl+V) ou clique com botão direito na página."
+      : "Use o painel lateral (+ Material → aba Imagem) para colar ou importar imagens da página.";
+
+    const openPanelBtn = document.createElement("button");
+    openPanelBtn.type = "button";
+    openPanelBtn.className = "context-chip active";
+    openPanelBtn.textContent = "❄ Abrir no Painel Yuki →";
+    openPanelBtn.onclick = () => {
+      if (!state?.panel) command("panel");
+      closeSubbarTool();
+    };
+
+    toolEl.append(badge, info, openPanelBtn, closeBtn);
+  }
+}
+
+function renderSubbar(activeTab, mediaKind = "") {
   const bookmarksEl = $("bookmarks");
   bookmarksEl.replaceChildren();
   for (const bm of bookmarks) {
@@ -139,9 +378,12 @@ function renderSubbar(activeTab) {
   const isBookmarked =
     Boolean(activeTab?.url) && bookmarks.some((b) => b.url === activeTab.url);
   $("bookmark-toggle").classList.toggle("active", isBookmarked);
+  updateSiteSecurityBadge(activeTab);
+  renderSubbarToolContent(activeTab, mediaKind);
 }
 
 function render(next) {
+  if (Number.isFinite(next.panelWidth)) panelWidth = Math.min(700, next.panelWidth);
   state = next;
   const focusedTabId = document.activeElement?.dataset.tabId;
   $("tabs").replaceChildren();
@@ -176,7 +418,6 @@ function render(next) {
     close.setAttribute("aria-label", `Fechar ${tab.title}`);
     close.title = `Encerrar aba ${tab.title}`;
     close.onclick = () => {
-      subtabsByTab.delete(tab.id);
       command("close", tab.id);
     };
 
@@ -193,6 +434,9 @@ function render(next) {
   }
   $("back").disabled = !next.back;
   $("forward").disabled = !next.forward;
+  $("reopen-tab").disabled = !next.canReopen;
+  currentZoom = next.zoom || 100;
+  $("zoom-toggle").textContent = `${currentZoom}%`;
   $("panel").setAttribute("aria-pressed", String(Boolean(next.panel)));
   $("panel").classList.toggle("active", Boolean(next.panel));
   $("expand").setAttribute("aria-pressed", String(Boolean(next.expanded)));
@@ -213,13 +457,38 @@ for (const id of [
   $(id).onclick = () => command(id);
 }
 
-$("minimize").onclick = () => {
-  if (state?.panel) command("panel");
-};
+$("home").onclick = () => command("navigate", "");
+
+$("reopen-tab").onclick = () => command("reopen");
+$("minimize").onclick = () => command("minimize");
+$("maximize").onclick = () => command("maximize");
+$("downloads-open").onclick = () => openPanelArea("downloads");
+$("settings-open").onclick = () => openPanelArea("settings");
 
 $("power").onclick = () => {
   window.close();
 };
+
+$("site-security").onclick = () => setSubbarTool("security");
+$("find-toggle").onclick = () => setSubbarTool("find");
+$("zoom-toggle").onclick = () => setSubbarTool("zoom");
+$("width-toggle").onclick = () => setSubbarTool("width");
+$("history-toggle").onclick = () => setSubbarTool("history");
+
+$("capture-print").onclick = () => command("capture.screenshot");
+$("capture-image").onclick = () => command("capture.image");
+
+// "⋯" troca os favoritos pelas ações menos usadas; escolher uma ação volta aos favoritos.
+function toggleActions(open = $("shell-actions").hidden) {
+  if (open && activeSubbarMode) closeSubbarTool();
+  $("shell-actions").hidden = !open;
+  $("bookmarks").hidden = open;
+  $("more").setAttribute("aria-expanded", String(open));
+}
+$("more").onclick = () => toggleActions();
+$("shell-actions").addEventListener("click", (event) => {
+  if (event.target.closest("button")) toggleActions(false);
+});
 
 $("bookmark-toggle").onclick = () => {
   const tab = state?.tabs.find((t) => t.id === state.activeId);
@@ -276,14 +545,23 @@ $("tabs").addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
+  // Ctrl+Shift+L é do painel (runtime); só Ctrl+L vai para o endereço.
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "l") {
     event.preventDefault();
     $("address").focus();
     $("address").select();
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "t") {
     event.preventDefault();
-    command("new");
+    if (event.shiftKey) {
+      $("reopen-tab").click();
+    } else {
+      command("new");
+    }
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    setSubbarTool("find");
   }
 });
 
@@ -293,3 +571,5 @@ api.focusAddress(() => {
   $("address").focus();
   $("address").select();
 });
+
+api.openTool((name) => { if (name === "find") setSubbarTool("find"); });

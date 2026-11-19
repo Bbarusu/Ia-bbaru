@@ -20,7 +20,9 @@ export function ProjectSwitch({
 }: ProjectSwitchProps) {
   return (
     <div className="project-switch">
-      <label htmlFor="project">PROJETO ATUAL</label>
+      <label htmlFor="project" className="sr-only">
+        Projeto atual
+      </label>
       <div className="project-select-wrap">
         <Folder size={15} className="folder-icon" aria-hidden="true" />
         <select

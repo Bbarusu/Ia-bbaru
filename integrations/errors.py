@@ -12,6 +12,9 @@ class GatewayError(Exception):
         self.code = code
         self.message = message
         self.next_action = next_action
+        # Sanitized signature (integrations/failures.py). Stored locally; never
+        # part of the HTTP body.
+        self.diagnostic: dict | None = None
 
     def body(self) -> dict:
         error = {"code": self.code, "message": self.message}
@@ -58,7 +61,7 @@ def busy():
 def quota_exceeded():
     return GatewayError(
         429, "provider_quota_exceeded", "Limite de uso do provedor atingido",
-        "Aguarde a renovação da cota do plano; o gateway não troca para API paga.",
+        "Confira a disponibilidade e a renovação no Claude Code; o gateway não troca para API paga.",
     )
 
 

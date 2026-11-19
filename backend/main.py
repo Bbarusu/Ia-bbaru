@@ -3,20 +3,27 @@ import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import Field, field_validator
 
-from .contracts import ContextItem, GenerateRequest, ModelCatalog, StrictModel, TaskKind
-from .contracts_v1_1 import GenerateRequestV11, ModelCatalogV11
-from .capabilities import plan_step, policy_error, preflight_error
+from .contracts import ContextItem, ModelCatalog, StrictModel
+from .contracts_v1_1 import ModelCatalogV11
+from .contracts_v1_2 import ModelCatalogV12
+from .contracts_v1_3 import ModelCatalogV13
+from .protocols import REQUESTS
+from .capabilities import preflight_error
 from .gateway import GatewayUnavailable, HttpGateway
 from .gateway_errors import ERROR_STATUS
 from .store import Store
 from .worker import DurableWorker
+from .media import MediaInput, validate_media
+from .planning import TaskInput, build_task
+from .prompting import planned_budget
+from .conversations import attach_conversations
+from .visual import source_attachment, dispatch_attachments
 
 
 def now():
@@ -36,32 +43,7 @@ class ProjectInput(StrictModel):
 
 class SourceInput(ProjectInput):
     content: str = Field(min_length=1, max_length=40000)
-
-
-class TaskInput(StrictModel):
-    instruction: str = Field(min_length=1, max_length=8000)
-    kind: TaskKind = "general"
-    source_ids: list[str] = Field(default_factory=list, max_length=20)
-    allowed_model_ids: list[str] = Field(min_length=1, max_length=20)
-    mode: Literal["single", "review"] = "single"
-    # Omit to recommend using configured task tags and the user's preference order.
-    preferred_model_id: str | None = None
-    reviewer_model_id: str | None = None
-    allow_unenforced_output_limit: bool = Field(default=False, strict=True)
-
-    @field_validator("instruction")
-    @classmethod
-    def nonblank(cls, value):
-        if not value.strip():
-            raise ValueError("Instruction must not be blank")
-        return value.strip()
-
-    @field_validator("source_ids", "allowed_model_ids")
-    @classmethod
-    def unique(cls, value):
-        if len(value) != len(set(value)):
-            raise ValueError("IDs must be unique")
-        return value
+    media: MediaInput | None = None
 
 
 def create_app(db_path=None, api_token=None, gateway=None, durable_execution=None):
@@ -114,7 +96,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
     def health():
         return {"status": "ok", "version": "0.2.0", "task_execution": bool(worker)}
 
-    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11, dependencies=protected)
+    @app.get("/v1/models", response_model=ModelCatalog | ModelCatalogV11 | ModelCatalogV12 | ModelCatalogV13, dependencies=protected)
     def models():
         try:
             return gateway.catalog()
@@ -128,6 +110,13 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             conn.execute("INSERT INTO projects VALUES (:id,:title,:created_at)", project)
         return project
 
+    @app.get("/v1/connections", dependencies=protected)
+    def connections():
+        try:
+            return gateway.connections()
+        except (GatewayUnavailable, AttributeError):
+            raise HTTPException(503, "gateway_diagnostics_unavailable") from None
+
     @app.get("/v1/projects", dependencies=protected)
     def list_projects(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
         with store.connect() as conn:
@@ -137,10 +126,18 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
     @app.post("/v1/projects/{project_id}/sources", status_code=201, dependencies=protected)
     def add_source(project_id: str, data: SourceInput):
         project_exists(project_id)
+        try:
+            media = validate_media(data.media) if data.media else None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         source = {"id": str(uuid4()), "project_id": project_id,
                   "title": data.title, "content": data.content, "created_at": now()}
         with store.connect() as conn:
             conn.execute("INSERT INTO sources VALUES (:id,:project_id,:title,:content,:created_at)", source)
+            if media:
+                conn.execute("INSERT INTO source_media VALUES (?,?)", (source["id"], json.dumps(media)))
+        if media:
+            source["media"] = media
         return source
 
     @app.get("/v1/projects/{project_id}/sources", dependencies=protected)
@@ -151,6 +148,10 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             rows = conn.execute("SELECT * FROM sources WHERE project_id=? ORDER BY created_at, id LIMIT ? OFFSET ?",
                                 (project_id, limit + 1, offset)).fetchall()
             items = [dict(r) for r in rows[:limit]]
+            for item in items:
+                media_row = conn.execute("SELECT body FROM source_media WHERE source_id=?", (item["id"],)).fetchone()
+                if media_row:
+                    item["media"] = {k: v for k, v in json.loads(media_row["body"]).items() if k != "data_url"}
             if summary:
                 for item in items:
                     content = item.pop("content")
@@ -164,69 +165,32 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
             row = conn.execute("SELECT * FROM sources WHERE id=? AND project_id=?", (source_id, project_id)).fetchone()
         if not row:
             raise HTTPException(404, "source_not_found")
-        return dict(row)
+        source = dict(row)
+        with store.connect() as conn:
+            media_row = conn.execute("SELECT body FROM source_media WHERE source_id=?", (source_id,)).fetchone()
+        if media_row:
+            source["media"] = json.loads(media_row["body"])
+        return source
 
     @app.post("/v1/projects/{project_id}/tasks", status_code=201, dependencies=protected)
     def create_task(project_id: str, data: TaskInput):
         project_exists(project_id)
         if data.mode == "single" and data.reviewer_model_id:
             raise HTTPException(422, "reviewer_requires_review_mode")
-        context = []
+        context, attachments = [], []
         with store.connect() as conn:
             for source_id in data.source_ids:
                 row = conn.execute("SELECT id,title,content FROM sources WHERE id=? AND project_id=?",
                                    (source_id, project_id)).fetchone()
                 if row is None:
                     raise HTTPException(422, "source_not_in_project")
+                if "AnexoVisual:" in row["content"]:
+                    raise HTTPException(422, "visual_context_not_supported")
+                image = source_attachment(conn, source_id, project_id)
+                if image:
+                    attachments.append(image.model_dump(exclude={"data_base64"}))
                 context.append(dict(row))
-        chars = len(data.instruction) + sum(len(s["content"]) + len(s["title"]) for s in context)
-        if chars > 80000:
-            raise HTTPException(422, "context_too_large")
-        try:
-            catalog = gateway.catalog()
-        except GatewayUnavailable as exc:
-            raise HTTPException(503, exc.code if exc.code in ERROR_STATUS else "gateway_unavailable")
-        available = {m.id: m for m in catalog.models if m.available}
-        if any(mid not in available for mid in data.allowed_model_ids):
-            raise HTTPException(422, "model_unknown_or_unavailable")
-        policy_errors = {mid: policy_error(available[mid], data.allow_unenforced_output_limit)
-                         for mid in data.allowed_model_ids}
-        for explicit in (data.preferred_model_id, data.reviewer_model_id):
-            if policy_errors.get(explicit):
-                raise HTTPException(422, policy_errors[explicit])
-        candidates = [available[mid] for mid in data.allowed_model_ids
-                      if not policy_errors[mid] and available[mid].context_char_limit >= chars]
-        # Stable sorting preserves the order explicitly supplied by the user.
-        candidates.sort(key=lambda model: data.kind not in model.task_kinds)
-        if not candidates:
-            if all(policy_errors.values()):
-                raise HTTPException(422, next(iter(policy_errors.values())))
-            raise HTTPException(422, "no_model_fits_context")
-        candidate_ids = {m.id for m in candidates}
-        if data.preferred_model_id and data.preferred_model_id not in candidate_ids:
-            raise HTTPException(422, "preferred_model_not_eligible")
-        writer = available[data.preferred_model_id] if data.preferred_model_id else candidates[0]
-        plan = [plan_step("answer", writer)]
-        if data.mode == "review":
-            # Review receives the answer too. Recheck its actual size at execution.
-            reviewers = [m for m in candidates if m.id != writer.id]
-            if data.reviewer_model_id:
-                reviewers = [m for m in reviewers if m.id == data.reviewer_model_id]
-            if not reviewers:
-                raise HTTPException(422, "review_requires_second_eligible_model")
-            reviewer = reviewers[0]
-            plan.append(plan_step("review", reviewer))
-        task = {
-            "id": str(uuid4()), "project_id": project_id, "created_at": now(),
-            "status": "planned", "instruction": data.instruction, "kind": data.kind,
-            "gateway_protocol_version": catalog.protocol_version,
-            "allow_unenforced_output_limit": data.allow_unenforced_output_limit,
-            "allowed_model_ids": data.allowed_model_ids, "context": context, "plan": plan,
-            "routing": {"method": "configured_tags_and_user_preference",
-                        "reason": "Escolha explícita" if data.preferred_model_id else
-                        "Compatibilidade de contexto, categorias configuradas e sua ordem de preferência. Não é um ranking de qualidade."},
-            "results": [], "error": None, "output": None,
-        }
+        task = build_task(project_id, data, context, gateway, attachments=attachments)
         with store.connect() as conn:
             conn.execute("INSERT INTO tasks VALUES (?,?,?,?)",
                          (task["id"], project_id, task["status"], json.dumps(task)))
@@ -298,9 +262,7 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                 task.update(status="failed", error=error, output=previous)
                 store.save_task(task)
                 return task
-            input_chars = len(task["instruction"]) + sum(
-                len(s["content"]) + len(s["title"]) for s in task["context"]
-            ) + len(previous or "")
+            input_chars = planned_budget(task["instruction"], task["context"], step["max_output_tokens"], step["role"], previous)
             if input_chars > step["context_char_limit"]:
                 task.update(status="failed", error="review_context_too_large")
                 store.save_task(task)
@@ -310,12 +272,17 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
                 instruction=task["instruction"], context=[ContextItem(**s) for s in task["context"]],
                 previous_output=previous, max_output_tokens=step["max_output_tokens"],
             )
-            if task.get("gateway_protocol_version", "1") == "1.1":
-                request = GenerateRequestV11(
-                    **request_fields, protocol_version="1.1",
-                    allow_unenforced_output_limit=task.get("allow_unenforced_output_limit", False))
-            else:
-                request = GenerateRequest(**request_fields)
+            version = task.get("gateway_protocol_version", "1")
+            if version != "1":
+                request_fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
+            if version in {"1.2", "1.3"}:
+                try:
+                    request_fields.update(attachments=dispatch_attachments(store, task), allow_visual_input=task.get("allow_visual_input", False))
+                except ValueError:
+                    task.update(status="failed", error="attachment_changed_replan_required")
+                    store.save_task(task)
+                    return public_task(task)
+            request = REQUESTS[version](**request_fields, protocol_version=version)
             try:
                 result = gateway.generate(request)
             except GatewayUnavailable as exc:
@@ -338,4 +305,5 @@ def create_app(db_path=None, api_token=None, gateway=None, durable_execution=Non
         store.save_task(task)
         return task
 
+    attach_conversations(app, store, gateway, worker, protected, public_task)
     return app

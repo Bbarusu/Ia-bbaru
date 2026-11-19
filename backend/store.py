@@ -1,7 +1,17 @@
 import json
+import hashlib
 import sqlite3
 from contextlib import closing, contextmanager
 from pathlib import Path
+
+
+def queued(task):
+    task["execution"] = {"mode": "durable", "steps": [
+        {"request_id": f"{task['id']}:{i}", "state": "pending", "attempts": 0,
+         "request_fingerprint": hashlib.sha256(f"{task['id']}:{i}".encode()).hexdigest()[:16]}
+        for i in range(len(task["plan"]))]}
+    task.update(status="queued", error=None)
+    return task
 
 
 class Store:
@@ -9,6 +19,13 @@ class Store:
         self.path = str(path)
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if "chat_turns" in tables:
+                if "conversation_turns" in tables:
+                    raise RuntimeError("Ambiguous conversation schema; preserve both tables for inspection")
+                conn.execute("ALTER TABLE chat_turns RENAME TO conversation_turns")
+            conn.commit()
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL
@@ -25,6 +42,25 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS sources_project ON sources(project_id);
                 CREATE INDEX IF NOT EXISTS tasks_project ON tasks(project_id);
+                CREATE TABLE IF NOT EXISTS source_media (
+                    source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+                    body TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+                    title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    revision INTEGER NOT NULL DEFAULT 0, consent TEXT, creation_hash TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS conversation_media (
+                    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id), body TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS conversation_turns (
+                    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id),
+                    sequence INTEGER NOT NULL, task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id),
+                    request_hash TEXT NOT NULL, context TEXT NOT NULL, snapshots TEXT NOT NULL,
+                    created_at TEXT NOT NULL, UNIQUE(conversation_id, sequence)
+                );
+                CREATE INDEX IF NOT EXISTS chat_conversation ON conversation_turns(conversation_id, sequence);
             """)
 
     @contextmanager
@@ -61,6 +97,22 @@ class Store:
             conn.execute("UPDATE tasks SET status=?, body=? WHERE id=?",
                          (body["status"], json.dumps(body), body["id"]))
 
+    def dispatch(self, body):
+        # Consent revocation and write-ahead dispatch are serialized. Revocation
+        # after this commit cannot retract an already authorized in-flight call.
+        with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            authorization = body.get("authorization", {})
+            if authorization.get("kind") == "conversation":
+                row = conn.execute("SELECT consent FROM conversations WHERE id=?",
+                                   (body["conversation_id"],)).fetchone()
+                consent = json.loads(row["consent"]) if row and row["consent"] else {}
+                if consent.get("id") != authorization.get("consent_id"):
+                    return False
+            conn.execute("UPDATE tasks SET status=?, body=? WHERE id=?",
+                         (body["status"], json.dumps(body), body["id"]))
+            return True
+
     def claim(self, task_id):
         with self.connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -88,9 +140,7 @@ class Store:
             else:
                 if body["status"] != "planned":
                     return None
-                body["execution"] = {"mode": "durable", "steps": [
-                    {"request_id": f"{body['id']}:{i}", "state": "pending", "attempts": 0}
-                    for i in range(len(body["plan"]))]}
+                queued(body)
             body.update(status="queued", error=None)
             conn.execute("UPDATE tasks SET status='queued', body=? WHERE id=?", (json.dumps(body), task_id))
             return body

@@ -283,6 +283,13 @@ class ContractV11Tests(unittest.TestCase):
 
 
 class HttpGatewayV11Tests(unittest.TestCase):
+    def test_catalog_filters_out_non_claude_providers(self):
+        gateway = HttpGateway("http://localhost:8010", "fixture", "1.1")
+        claude = {**profile("writer"), "id": "claude-code:sonnet", "provider": "claude-code"}
+        raw = ModelCatalogV11(models=[profile("retired"), claude]).model_dump()
+        with patch.object(gateway, "_request", return_value=raw):
+            self.assertEqual([m.id for m in gateway.catalog().models], ["claude-code:sonnet"])
+
     def request(self):
         return GenerateRequestV11(protocol_version="1.1", request_id="task:0", model_id="test:writer",
                                   role="answer", instruction="Explique", context=[], max_output_tokens=100,

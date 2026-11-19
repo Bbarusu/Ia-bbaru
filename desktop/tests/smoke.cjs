@@ -17,7 +17,24 @@ async function main() {
   fs.mkdirSync(artifacts, { recursive: true });
   const generations = [];
   const server = http.createServer((req, res) => {
-    if (req.url === "/v1.1/generate" && req.method === "POST") {
+    if (req.url === "/v1/connections") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ connections: [
+        { provider: "claude-code", version: "2.1.307", installed: true, ready: true, configured_models: ["claude-code:fixture"] },
+      ] }));
+      return;
+    }
+    if (req.url === "/fixture-download") {
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", 'attachment; filename="fixture.txt"');
+      res.end("Local download fixture"); return;
+    }
+    if (req.url === "/fixture-image.svg") {
+      res.setHeader("Content-Type", "image/svg+xml");
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="blue"/></svg>');
+      return;
+    }
+    if (["/v1.2/generate", "/v1.3/generate"].includes(req.url) && req.method === "POST") {
       let body = "";
       req.on("data", (chunk) => { body += chunk; });
       req.on("end", () => {
@@ -25,26 +42,28 @@ async function main() {
         generations.push(request);
         setTimeout(() => {
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ protocol_version: "1.1", request_id: request.request_id,
-            model_id: request.model_id, output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
+          res.end(JSON.stringify({ protocol_version: request.protocol_version, request_id: request.request_id,
+            attachments_used: (request.attachments || []).map(a => ({id: a.id, sha256: a.sha256})),
+            model_id: request.model_id, served_model: "claude-sonnet-5-5", output: "Resposta simulada da fila durável.", finish_reason: "stop" }));
         }, 800);
       });
       return;
     }
-    if (req.url === "/v1.1/models") {
+    if (["/v1.2/models", "/v1.3/models"].includes(req.url)) {
       res.setHeader("Content-Type", "application/json");
       res.end(
         JSON.stringify({
-          protocol_version: "1.1",
+          protocol_version: req.url.includes("1.3") ? "1.3" : "1.2",
           models: [
             {
               id: "fixture:study",
-              provider: "fixture",
+              provider: "claude-code",
               label: "Agente de teste local",
               available: true,
               task_kinds: ["study"],
               context_char_limit: 80000,
               max_output_tokens: 64,
+              input: { image: { supported: req.url.includes("1.3") } },
               capabilities: {
                 output_limit: "best_effort",
                 cancellation: "local_process_only",
@@ -62,7 +81,7 @@ async function main() {
     }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(
-      '<!doctype html><html lang="pt-BR"><head><title>Aula de teste</title></head><body style="background:#f4f4f7;color:#222;padding:45px;font:20px sans-serif"><h1>Material da faculdade</h1><p id="source">A fotossíntese transforma energia luminosa em energia química.</p><a href="/segunda">Segunda página</a><button onclick="window.open(\'/popup\')">Abrir outra aba</button></body></html>',
+      '<!doctype html><html lang="pt-BR"><head><title>Aula de teste</title></head><body style="background:#f4f4f7;color:#222;padding:45px;font:20px sans-serif"><h1>Material da faculdade</h1><p id="source">A fotossíntese transforma energia luminosa em energia química.</p><a href="/segunda">Segunda página</a><button onclick="window.open(\'/popup\')">Abrir outra aba</button><p><img id="diagram" src="/fixture-image.svg" alt="Diagrama de teste" /></p></body></html>',
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -71,7 +90,7 @@ async function main() {
   const env = { ...process.env, IA_BBARU_PROFILE_DIR: profile };
   env.GATEWAY_URL = url;
   env.GATEWAY_TOKEN = "fixture-only-not-a-secret-0123456789";
-  env.GATEWAY_PROTOCOL_VERSION = "1.1";
+  env.GATEWAY_PROTOCOL_VERSION = "1.2";
   delete env.IA_BBARU_REAL_TEST;
   const launch = () =>
     electron.launch({
@@ -102,6 +121,11 @@ async function main() {
   try {
     app = await launch();
     const shell = await app.firstWindow();
+    // Ações menos usadas ficam atrás de "⋯" (a página web cobre o resto do shell).
+    const shellAction = async (id) => {
+      if (!(await shell.locator(`#${id}`).isVisible())) await shell.locator("#more").click();
+      await shell.locator(`#${id}`).click();
+    };
     const workspace = await workspacePage();
     await expect(
       workspace.getByText("Backend local ativo", { exact: true }),
@@ -141,10 +165,13 @@ async function main() {
       });
     });
     assert.equal(secondCode, 0);
-    await workspace
-      .getByRole("button", { name: "Novo projeto", exact: true })
-      .first()
-      .click();
+    // No painel lateral, projetos e áreas ficam no menu "Mais opções" do topo.
+    const openArea = async (page, name) => {
+      await page.getByRole("button", { name: "Mais opções", exact: true }).click();
+      // O papel menuitem vem do focusgroup do Chromium; o Playwright não o infere.
+      await page.locator(".header-menu").getByRole("button", { name, exact: false }).click();
+    };
+    await openArea(workspace, "Novo projeto");
     await workspace.getByLabel("Nome do projeto").fill("Teste Chromium");
     await workspace
       .getByRole("dialog")
@@ -183,7 +210,17 @@ async function main() {
       s.removeAllRanges();
       s.addRange(range);
     });
-    await shell.locator("#capture").click();
+    // Fora da Biblioteca, o trecho só pede confirmação para ir ao chat: sem título nem salvamento.
+    await shellAction("capture");
+    const captureConfirm = workspace.getByRole("group", { name: "Confirmar trecho" });
+    await expect(captureConfirm).toContainText("fotossíntese");
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await captureConfirm.getByRole("button", { name: "Usar no chat", exact: true }).click();
+    await expect(workspace.getByRole("button", { name: "Remover trecho da página" })).toBeVisible();
+    await workspace.getByRole("button", { name: "Remover trecho da página" }).click();
+    // Na Biblioteca, a captura continua virando material revisado.
+    await openArea(workspace, "Biblioteca");
+    await shellAction("capture");
     await expect(workspace.getByRole("dialog")).toBeVisible();
     await expect(workspace.locator("dialog textarea")).toHaveValue(
       /fotossíntese/,
@@ -191,6 +228,7 @@ async function main() {
     await workspace
       .getByRole("button", { name: "Salvar no projeto", exact: true })
       .click();
+    await openArea(workspace, "Chat");
     await expect(workspace.getByRole("dialog")).not.toBeVisible();
     const saved = await workspace.evaluate(async () => {
       const req = (operation, params = {}) =>
@@ -225,43 +263,66 @@ async function main() {
     );
     assert.match(detail.data.content, /fotossíntese/);
     assert.ok(detail.data.content.includes(url));
+    // Chat lateral: sem modal e sem cadastro manual de plano. Nada é salvo nem
+    // gerado antes dos aceites desta mensagem.
+    const listTasks = () =>
+      workspace.evaluate(
+        (project) =>
+          window.iaDesktop.runtime.sendMessage({
+            type: "bridge.request",
+            request: {
+              protocol_version: "0",
+              request_id: crypto.randomUUID(),
+              operation: "tasks.list",
+              params: { project_id: project },
+            },
+          }),
+        saved.projects[0].id,
+      );
     await workspace
-      .getByRole("button", { name: "Agente de teste local", exact: false })
-      .click();
+      .getByLabel("Modelo Claude")
+      .selectOption({ label: "Agente de teste local" });
+    await expect(workspace.locator("#instruction")).toBeVisible();
     await workspace
       .locator("#instruction")
       .fill("Explique este material em uma frase.");
-    await workspace
-      .getByRole("button", { name: "Criar plano", exact: true })
-      .click();
-    await expect(
-      workspace.getByText(
-        "Aceite o limite indicativo antes de criar este plano.",
-        { exact: true },
-      ),
-    ).toBeVisible();
-    await workspace
+    await workspace.locator("#instruction").press("Enter");
+    const confirmSend = workspace.getByRole("group", { name: "Confirmar envio" });
+    const sendToClaude = confirmSend.getByRole("button", {
+      name: "Enviar ao Claude",
+      exact: true,
+    });
+    await expect(sendToClaude).toBeDisabled();
+    await confirmSend
       .getByRole("checkbox", {
         name: "Aceito o limite indicativo para esta tarefa",
       })
       .check();
-    await workspace
-      .getByRole("button", { name: "Criar plano", exact: true })
-      .click();
-    await expect(workspace.getByRole("dialog")).toBeVisible();
-    const tasks = await workspace.evaluate(
-      (project) =>
-        window.iaDesktop.runtime.sendMessage({
-          type: "bridge.request",
-          request: {
-            protocol_version: "0",
-            request_id: crypto.randomUUID(),
-            operation: "tasks.list",
-            params: { project_id: project },
-          },
-        }),
-      saved.projects[0].id,
-    );
+    // O aceite do limite sozinho não autoriza a execução.
+    await expect(sendToClaude).toBeDisabled();
+    assert.equal((await listTasks()).data.items.length, 0);
+    assert.equal(generations.length, 0);
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-consent.png") });
+    await confirmSend
+      .getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" })
+      .check();
+    await sendToClaude.click();
+    // The worker continues while the panel is hidden.
+    await shell.locator("#panel").click();
+    await expect.poll(() => generations.length).toBe(1);
+    await shell.locator("#panel").click();
+    // A resposta aparece na conversa, sem abrir diálogo.
+    await expect(
+      workspace
+        .getByRole("log", { name: "Conversa com o Claude" })
+        .getByText("Resposta simulada da fila durável.", { exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    await expect(workspace.locator("#instruction")).toHaveValue("");
+    await expect(workspace.locator("#instruction")).toBeVisible();
+    const tasks = await listTasks();
+    assert.equal(tasks.data.items.length, 1);
     const task = await workspace.evaluate(
       (id) =>
         window.iaDesktop.runtime.sendMessage({
@@ -276,9 +337,19 @@ async function main() {
       tasks.data.items[0].id,
     );
     assert.equal(task.data.allow_unenforced_output_limit, true);
-    assert.equal(task.data.gateway_protocol_version, "1.1");
-    assert.equal(task.data.status, "planned");
-    assert.equal(generations.length, 0);
+    assert.equal(task.data.gateway_protocol_version, "1.2");
+    assert.equal(task.data.status, "completed");
+    assert.equal(generations[0].request_id, `${task.data.id}:0`);
+    assert.equal(generations[0].allow_unenforced_output_limit, true);
+    assert.equal(generations.length, 1);
+    await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
+    // Detalhes técnicos ficam recolhidos e continuam acessíveis para diagnóstico.
+    await expect(workspace.getByText("Limite indicativo (64 tokens)")).not.toBeVisible();
+    await workspace.getByText("Detalhes técnicos", { exact: true }).click();
+    await workspace
+      .getByRole("button", { name: "Abrir detalhes da tarefa", exact: true })
+      .click();
+    await expect(workspace.getByRole("dialog").getByRole("heading", { name: "Concluída", exact: true })).toBeVisible();
     await expect(
       workspace.getByRole("dialog").getByText("Assinatura (cota da conta)"),
     ).toBeVisible();
@@ -290,30 +361,100 @@ async function main() {
         .getByRole("dialog")
         .getByText(/Término informado pelo provedor/),
     ).toBeVisible();
-    await expect(workspace.getByRole("button", { name: "Executar tarefa", exact: true })).toBeDisabled();
     assert.equal(await workspace.locator("dialog").evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth), true);
-    await workspace.screenshot({ path: path.join(artifacts, "execution-consent.png") });
-    await workspace.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
-    await workspace.getByRole("button", { name: "Executar tarefa", exact: true }).click();
-    // The worker continues while the panel is hidden.
-    await shell.locator("#panel").click();
-    await expect.poll(() => generations.length).toBe(1);
-    await shell.locator("#panel").click();
-    await expect(workspace.getByRole("dialog").getByRole("heading", { name: "Concluída", exact: true })).toBeVisible({ timeout: 15000 });
-    await expect(workspace.getByRole("dialog").getByText("Resposta simulada da fila durável.", { exact: true })).toBeVisible();
-    assert.equal(generations[0].request_id, `${task.data.id}:0`);
-    assert.equal(generations[0].allow_unenforced_output_limit, true);
-    assert.equal(generations.length, 1);
-    await workspace.screenshot({ path: path.join(artifacts, "execution-completed.png") });
     await workspace
       .getByRole("dialog")
       .getByRole("button", { name: "Fechar", exact: true })
       .click();
+    // Os aceites valem só para a mensagem enviada; a próxima começa desmarcada.
+    await workspace.locator("#instruction").fill("Segunda mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
     await expect(
-      workspace.getByRole("checkbox", {
+      confirmSend.getByRole("checkbox", {
         name: "Aceito o limite indicativo para esta tarefa",
       }),
     ).not.toBeChecked();
+    await expect(
+      confirmSend.getByRole("checkbox", {
+        name: "Autorizo executar esta tarefa com minha conta",
+      }),
+    ).not.toBeChecked();
+    await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
+    // Cancelar preserva o rascunho e não cria tarefa.
+    await expect(workspace.locator("#instruction")).toHaveValue("Segunda mensagem");
+    assert.equal((await listTasks()).data.items.length, 1);
+    // Conversa real: aceite único revogável e histórico montado pelo backend.
+    const chatLog = workspace.getByRole("log", { name: "Conversa com o Claude" });
+    const answers = chatLog.getByText("Resposta simulada da fila durável.", { exact: true });
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await confirmSend.getByRole("checkbox", { name: "Aceito o limite indicativo para esta tarefa" }).check();
+    await confirmSend.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
+    await confirmSend.getByRole("checkbox", { name: "Não perguntar de novo nesta conversa" }).check();
+    await sendToClaude.click();
+    await expect.poll(() => generations.length).toBe(2);
+    assert.ok(JSON.stringify(generations[1]).includes("Explique este material em uma frase."), "history reaches the gateway");
+    await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toBeVisible();
+    await expect(answers).toHaveCount(2, { timeout: 15000 });
+    // Simulate a server error AFTER the durable turn was accepted. Test-only
+    // wrapping of Electron's registered handler; no production injection hook.
+    await app.evaluate(({ ipcMain }) => {
+      const handler = ipcMain._invokeHandlers.get("workspace:message");
+      let dropped = false, queried = false, lostTurn;
+      ipcMain.removeHandler("workspace:message");
+      ipcMain.handle("workspace:message", async (event, msg) => {
+        if (dropped && !queried && msg?.request?.operation === "conversations.turns.get" && msg.request.params.turn_id === lostTurn) {
+          queried = true;
+          return { protocol_version: "0", request_id: msg.request.request_id,
+            ok: false, error: { code: "http_404", message: "Synthetic not-yet-visible turn" } };
+        }
+        const result = await handler(event, msg);
+        if (!dropped && msg?.request?.operation === "conversations.turns.send" && result.ok) {
+          dropped = true;
+          lostTurn = msg.request.params.turn.turn_id;
+          return { protocol_version: "0", request_id: msg.request.request_id,
+            ok: false, error: { code: "http_500", message: "Synthetic lost response" } };
+        }
+        return result;
+      });
+    });
+    await workspace.locator("#instruction").fill("Terceira mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(confirmSend).toHaveCount(0);
+    await expect.poll(() => generations.length).toBe(3);
+    await expect(workspace.getByText("Não recebemos a confirmação do envio.")).toBeVisible();
+    const lostSend = await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"]));
+    assert.equal(lostSend.turn.instruction, "Terceira mensagem");
+    await workspace.getByRole("button", { name: "Consultar estado", exact: true }).click();
+    await expect(workspace.getByText("O envio ainda não foi encontrado.")).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Editar o texto", exact: true })).toHaveCount(0);
+    assert.deepEqual(await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), lostSend);
+    await workspace.getByRole("button", { name: "Reenviar o mesmo pedido", exact: true }).click();
+    await expect(answers).toHaveCount(3, { timeout: 15000 });
+    assert.equal(generations.length, 3, "replay of accepted turn never generates twice");
+    assert.equal(await workspace.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), null);
+    await workspace.getByRole("button", { name: "Revogar", exact: true }).click();
+    await expect(workspace.getByText("Envio autorizado nesta conversa", { exact: false })).toHaveCount(0);
+    await workspace.locator("#instruction").fill("Quarta mensagem");
+    await workspace.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(confirmSend).toBeVisible();
+    await confirmSend.getByRole("button", { name: "Cancelar", exact: true }).click();
+    assert.equal(generations.length, 3, "revoked consent does not dispatch");
+    // I4 no runtime real: Ctrl+Shift+L fecha e reabre o painel com o foco no campo; nada é enviado.
+    // sendInputEvent passa pelo before-input-event do runtime, como um teclado real.
+    const panelShortcut = () => app.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      contents.focus();
+      for (const type of ["keyDown", "keyUp"])
+        contents.sendInputEvent({ type, keyCode: "L", modifiers: ["control", "shift"] });
+    });
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "false");
+    await panelShortcut();
+    await expect(shell.locator("#panel")).toHaveAttribute("aria-pressed", "true");
+    await expect(workspace.locator("#instruction")).toBeFocused();
+    assert.equal(generations.length, 3, "opening the panel does not dispatch");
+    await workspace.screenshot({ path: path.join(artifacts, "conversation.png") });
+    await workspace.locator("#instruction").fill("");
     const rejected = await workspace.evaluate(async () => {
       try {
         await window.iaDesktop.runtime.sendMessage({
@@ -353,12 +494,13 @@ async function main() {
       .click();
     await expect(shell.locator("#tabs .choose")).toHaveCount(1);
     // A new capture while manually editing must not erase the draft (Path A: save then review queued).
+    await openArea(workspace, "Biblioteca");
     await workspace
       .getByRole("button", { name: "Adicionar texto", exact: true })
       .click();
     await workspace.getByLabel("Título", { exact: true }).fill("Meu rascunho");
     await workspace.locator("dialog textarea").fill("Texto manual preservado");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Meu rascunho",
     );
@@ -389,7 +531,7 @@ async function main() {
     await workspace
       .locator("dialog textarea")
       .fill("Rascunho que será substituído pelo botão explícito");
-    await shell.locator("#capture").click();
+    await shellAction("capture");
     await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue(
       "Rascunho substituível",
     );
@@ -509,7 +651,210 @@ async function main() {
           "Native screenshot unavailable; individual view screenshots saved.",
         );
     }
+    // Exercise the new browser tools against the actual remote WebContents.
+    await shell.locator("#address").fill(url);
+    await shell.locator("#address").press("Enter");
+    await expect(web.locator("h1")).toHaveText("Material da faculdade");
+    await shellAction("zoom-toggle");
+    await shell.getByRole("button", { name: "125%", exact: true }).click();
+    await expect.poll(() => app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find((w) => w.getURL().startsWith(url)).getZoomFactor(), url)).toBe(1.25);
+    await shell.getByRole("button", { name: "100%", exact: true }).click();
+    await shellAction("find-toggle");
+    await shell.locator(".tool-input").fill("fotossíntese");
+    await shell.locator(".tool-input").press("Enter");
+    await expect(shell.locator("#subbar-tool [role=status]")).toContainText("1 / 1");
+    await shell.locator(".tool-close-btn").click();
+    await shellAction("capture-print");
+    await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    const imageSource = await workspace.evaluate(async (project) => {
+      const call = (operation, params) => window.iaDesktop.runtime.sendMessage({ type: "bridge.request", request: {
+        protocol_version: "0", request_id: crypto.randomUUID(), operation, params }});
+      const list = await call("sources.list", { project_id: project });
+      const media = list.data.items.find((s) => s.media);
+      return (await call("sources.get", { project_id: project, source_id: media.id })).data;
+    }, saved.projects[0].id);
+    assert.equal(imageSource.media.kind, "screenshot");
+    assert.ok(imageSource.media.data_url.startsWith("data:image/jpeg;base64,"));
+    assert.ok(!imageSource.content.includes("base64"));
+    // Intercept only the native menu presentation; invoke the actual callback
+    // registered by the runtime for the user's right-click on the fixture image.
+    await app.evaluate(({ Menu }) => {
+      globalThis.originalBuildMenu = Menu.buildFromTemplate;
+      Menu.buildFromTemplate = (template) => { globalThis.imageMenu = template; return { popup() {} }; };
+    });
+    await web.locator("#diagram").click({ button: "right" });
+    await expect.poll(() => app.evaluate(() => Boolean(globalThis.imageMenu))).toBe(true);
+    await app.evaluate(async ({ Menu }) => {
+      const entry = globalThis.imageMenu.find((item) => item.label === "Capturar área visível da imagem");
+      if (!entry?.enabled) throw new Error("Image capture menu unavailable");
+      await entry.click();
+      Menu.buildFromTemplate = globalThis.originalBuildMenu;
+    });
+    await expect(workspace.getByRole("dialog").getByRole("heading")).toHaveText("Revisar captura visual");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    await workspace.screenshot({ path: path.join(artifacts, "media-library.png") });
+    await workspace.getByRole("button", { name: "Capturar imagem", exact: true }).click();
+    const tinyImage = await workspace.evaluate(() => {
+      const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 24;
+      const context = canvas.getContext("2d"); context.fillStyle = "blue"; context.fillRect(0, 0, 32, 24);
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    await workspace.locator('dialog input[type=file]').setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") });
+    await expect(workspace.getByLabel("Título", { exact: true })).toHaveValue("Imagem: tiny.png");
+    await expect(workspace.locator("dialog img")).toBeVisible();
+    await expect(workspace.locator("dialog textarea")).not.toHaveValue(/base64/);
+    await workspace.getByRole("button", { name: "Salvar no projeto", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).not.toBeVisible();
+    await openArea(workspace, "Conexões");
+    await expect(workspace.getByText("Claude Code · 2.1.307", { exact: true })).toBeVisible();
+    // Exercise the new chat contract through real IPC/backend, without depending
+    // on the separately owned frontend implementation of conversation widgets.
+    const chat = await workspace.evaluate(async (project_id) => {
+      const call = (operation, params) => window.iaDesktop.runtime.sendMessage({
+        type: "bridge.request", request: { protocol_version: "0", request_id: crypto.randomUUID(), operation, params },
+      });
+      const conversation_id = crypto.randomUUID();
+      const created = await call("conversations.create", { conversation_id, project_id });
+      if (!created.ok) throw new Error(JSON.stringify(created));
+      const turn = { turn_id: crypto.randomUUID(), instruction: "Converse comigo", confirmed: true,
+        allowed_model_ids: ["fixture:study"], allow_unenforced_output_limit: true };
+      const sent = await call("conversations.turns.send", { conversation_id, turn });
+      const replay = await call("conversations.turns.send", { conversation_id, turn });
+      if (!sent.ok || !replay.ok || sent.data.task_id !== replay.data.task_id) throw new Error("Chat idempotency failed");
+      return { conversation_id, turn_id: turn.turn_id };
+    }, saved.projects[0].id);
+    const readChat = (page) => page.evaluate((params) => window.iaDesktop.runtime.sendMessage({
+      type: "bridge.request", request: { protocol_version: "0", request_id: crypto.randomUUID(),
+        operation: "conversations.turns.get", params },
+    }), chat);
+    await expect.poll(async () => (await readChat(workspace)).data.task.status).toBe("completed");
+    assert.equal((await readChat(workspace)).data.task.results[0].served_model, "claude-sonnet-5-5");
+
+    await web.evaluate(() => {
+      const main = document.createElement("main");
+      main.innerHTML = '<h2>Leitura principal</h2><video title="Aula"></video><section data-transcript>Texto da aula</section>';
+      main.append("a".repeat(40000));
+      document.body.append(main);
+    });
+    await web.evaluate(async () => {
+      const frame = document.createElement("iframe");
+      frame.src = "/segunda";
+      await new Promise(resolve => { frame.onload = resolve; document.body.append(frame); });
+      frame.contentDocument.body.innerHTML = "<main>Texto do subquadro</main>";
+    });
+    const pageCapture = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page" }));
+    assert.equal(pageCapture.ok, true, JSON.stringify(pageCapture));
+    assert.match(pageCapture.capture.text, /Texto do subquadro/);
+    assert.match(pageCapture.capture.text, /H2: Leitura principal/);
+    assert.match(pageCapture.capture.text, /"estado":"paused"/);
+    assert.match(pageCapture.capture.text, /Legendas acessíveis: indisponíveis/);
+    assert.match(pageCapture.capture.text, /Painel de transcrição: Texto da aula/);
+    assert.ok(pageCapture.capture.text.length <= 38000 && pageCapture.capture.text.endsWith("[parcial]"));
+    assert.equal(pageCapture.capture.kind, "page");
+    assert.ok(Number.isInteger(pageCapture.capture.documentVersion));
+    assert.equal(pageCapture.capture.document_id, `${pageCapture.capture.tab_id}:${pageCapture.capture.documentVersion}`);
+    assert.ok(Number.isFinite(Date.parse(pageCapture.capture.captured_at)));
+    const status = () => workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "context.status" }));
+    assert.equal((await status()).capture_is_current, true);
+    assert.equal((await status()).has_video, true);
+    await web.evaluate(() => {
+      const video = document.querySelector("video");
+      const track = video.addTextTrack("captions", "Português");
+      track.mode = "hidden";
+      track.addCue(new VTTCue(0, 3, "Legenda local"));
+      video.scrollIntoView();
+    });
+    assert.equal((await status()).has_captions, true);
+    await workspace.evaluate(id => window.iaDesktop.runtime.sendMessage({type:"capture.clear", id}), pageCapture.capture.id);
+    const frame = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({type:"capture.video.frame"}));
+    assert.equal(frame.ok, true, JSON.stringify(frame.error));
+    assert.equal(frame.capture.document_id, pageCapture.capture.document_id);
+    await workspace.evaluate(id => window.iaDesktop.runtime.sendMessage({type:"capture.clear", id}), frame.capture.id);
+    await shell.evaluate(() => window.navigatorApp.command("reload"));
+    await expect.poll(async () => (await status()).document_id).not.toBe(pageCapture.capture.document_id);
+    assert.equal((await status()).capture_is_current, false);
+    await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), pageCapture.capture.id);
+    await expect(web.locator("h1")).toHaveText("Material da faculdade");
+    // Full document exceeds the viewport; prove the bottom is included in the image geometry.
+    await web.evaluate(() => { document.body.style.minHeight = "2400px"; });
+    const visual = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.page.visual" }));
+    assert.equal(visual.ok, true, JSON.stringify(visual));
+    const imageSize = await app.evaluate(({ nativeImage }, data) => nativeImage.createFromDataURL(data).getSize(), visual.capture.media.data_url);
+    assert.ok(imageSize.height <= 2000 && imageSize.height > 1500 && imageSize.width <= 2000, JSON.stringify(imageSize));
+    assert.equal(visual.capture.document_id, (await status()).document_id);
+    assert.equal(visual.capture.kind, "screenshot");
+    await workspace.evaluate((id) => window.iaDesktop.runtime.sendMessage({ type: "capture.clear", id }), visual.capture.id);
+    // Old context-menu text may not be attributed to a newly navigated document.
+    await app.evaluate(({ Menu, webContents }, url) => {
+      globalThis.savedMenuBuilder = Menu.buildFromTemplate;
+      Menu.buildFromTemplate = (template) => { globalThis.selectionMenu = template; return { popup() {} }; };
+      const contents = webContents.getAllWebContents().find(w => w.getURL().startsWith(url));
+      contents.emit("context-menu", {}, { selectionText: "Texto do documento anterior" });
+    }, url);
+    await shell.evaluate(() => window.navigatorApp.command("reload"));
+    await expect.poll(async () => (await status()).document_id).not.toBe(visual.capture.document_id);
+    await app.evaluate(({ Menu }) => {
+      globalThis.selectionMenu.find(item => item.label === "Perguntar ao Claude sobre a seleção").click();
+      Menu.buildFromTemplate = globalThis.savedMenuBuilder;
+    });
+    const stale = await workspace.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "capture.read" }));
+    assert.equal(stale, null);
+    // As capturas acima foram limpas pelo IPC; a revisão aberta no painel é fechada pela pessoa.
+    await expect(workspace.getByRole("dialog")).toBeVisible();
+    await workspace.getByRole("dialog").getByRole("button", { name: "Fechar", exact: true }).click();
+    await expect(workspace.getByRole("dialog")).toHaveCount(0);
+    assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
+    assert.equal((await shell.evaluate(() => window.navigatorApp.command("maximize"))).ok, true);
+    const resized = await shell.evaluate(() => window.navigatorApp.command("panel.resize", 520));
+    assert.equal(resized.ok, true);
+    // Controle visual de largura (barra "⋯"), pelo mesmo panel.resize.
+    const before = await workspace.evaluate(() => innerWidth);
+    await shellAction("width-toggle");
+    await shell.locator('#subbar-tool input[type="range"]').fill("320");
+    await expect.poll(() => workspace.evaluate(() => innerWidth)).toBeLessThan(before);
+    await shell.locator("#subbar-tool .tool-close-btn").click();
+    // Ajustes pela barra "⋯": a preferência vale na barra na hora, sem passar pelo runtime.
+    await shellAction("settings-open");
+    await expect(workspace.getByRole("heading", { name: "Ajustes." })).toBeVisible();
+    await workspace.getByRole("button", { name: "Personalização", exact: true }).click();
+    await workspace.getByLabel("Mostrar abaixo do endereço").uncheck();
+    await expect(shell.locator("#bookmarks")).toBeHidden();
+    await workspace.getByLabel("Mostrar abaixo do endereço").check();
+    await openArea(workspace, "Chat");
+    // Browser data belongs to the main process; settings have actual runtime effects.
+    const browser = (operation, params = {}) => workspace.evaluate(({ operation, params }) =>
+      window.iaDesktop.runtime.sendMessage({ type: "browser.data", operation, params }), { operation, params });
+    const data = await browser("get");
+    assert.ok(data.history.some(row => row.url.startsWith(url)));
+    await browser("set", { key: "yuki:new-tab-background", value: "gelo" });
+    await browser("set", { key: "yuki:startup", value: "restore" });
+    await shell.evaluate(() => window.navigatorApp.command("new"));
+    const home = await expect.poll(() => app.windows().find(page => page.url().includes("/ui/home.html"))).toBeTruthy().then(() => app.windows().find(page => page.url().includes("/ui/home.html")));
+    await expect(home.locator("body")).toHaveAttribute("data-background", "gelo");
+    assert.equal(await home.evaluate(() => typeof window.iaDesktop), "undefined");
+    const mainData = await home.evaluate(() => window.yukiHome.get());
+    assert.equal(mainData.history, undefined);
+    await shell.evaluate((url) => window.navigatorApp.command("navigate", url), url);
+    const downloadPath = path.join(profile, "fixture-download.txt");
+    await app.evaluate(({ session, webContents }, { url, downloadPath }) => {
+      session.fromPartition("persist:web").once("will-download", (_event, item) => item.setSavePath(downloadPath));
+      webContents.getAllWebContents().find(w => w.getURL() === url + "/").downloadURL(url + "/fixture-download");
+    }, { url, downloadPath });
+    await expect.poll(async () => (await browser("get")).downloads[0]?.state).toBe("completed");
+    assert.equal(fs.readFileSync(downloadPath, "utf8"), "Local download fixture");
+    await openArea(workspace, "Downloads");
+    await expect(workspace.getByText("fixture.txt", { exact: true })).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Mostrar na pasta", exact: true })).toBeVisible();
+    await openArea(workspace, "Chat");
     const versions = await app.evaluate(() => process.versions);
+    const generatedBeforeRestart = generations.length;
+    // Restore an unresolved send, as if the process exited before its response arrived.
+    await workspace.evaluate((pending) => window.iaDesktop.storage.local.set({ "pending-send": JSON.stringify(pending) }), lostSend);
     await app.close();
     app = null;
     app = await launch();
@@ -517,6 +862,21 @@ async function main() {
     await expect(
       reopened.getByText("Backend local ativo", { exact: true }),
     ).toBeVisible({ timeout: 30000 });
+    // A conversa ativa volta do backend depois de reiniciar, sem gerar nada.
+    await expect(
+      reopened.getByRole("log", { name: "Conversa com o Claude" }).locator(".chat-turn:not(.pending-turn)").getByText("Terceira mensagem", { exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    assert.equal(generations.length, generatedBeforeRestart, "reopening does not generate");
+    await expect(reopened.getByRole("button", { name: "Consultar estado", exact: true })).toBeVisible();
+    assert.deepEqual(await reopened.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"])), lostSend);
+    await reopened.getByRole("button", { name: "Consultar estado", exact: true }).click();
+    await expect.poll(() => reopened.evaluate(async () => JSON.parse((await window.iaDesktop.storage.local.get("pending-send"))["pending-send"]))).toBe(null);
+    assert.equal(generations.length, generatedBeforeRestart, "consulting an unresolved turn never generates");
+    assert.equal((await readChat(reopened)).data.task.status, "completed");
+    const browserAfterRestart = await reopened.evaluate(() => window.iaDesktop.runtime.sendMessage({ type: "browser.data", operation: "get" }));
+    assert.equal(browserAfterRestart.preferences["yuki:new-tab-background"], "gelo");
+    assert.equal(browserAfterRestart.downloads[0].state, "completed");
+    await expect.poll(() => app.windows().some(page => page.url().startsWith(url))).toBe(true);
     const persisted = await reopened.evaluate(() =>
       window.iaDesktop.runtime.sendMessage({
         type: "bridge.request",
@@ -529,6 +889,33 @@ async function main() {
       }),
     );
     assert.equal(persisted.data.items[0].title, "Teste Chromium");
+    // Separate opt-in contract 1.3, still using the local deterministic gateway.
+    await app.close(); app = null;
+    env.GATEWAY_PROTOCOL_VERSION = "1.3";
+    app = await launch();
+    const visualChat = await workspacePage();
+    await expect(visualChat.getByText("Backend local ativo", { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(visualChat.getByRole("button", { name: "Novo chat", exact: true })).toBeEnabled();
+    await visualChat.getByRole("button", { name: "Novo chat", exact: true }).click();
+    await visualChat.getByLabel("Imagens para a conversa", { exact: true }).setInputFiles([
+      { name: "primeira.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") },
+      { name: "segunda.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") },
+    ]);
+    await expect(visualChat.getByRole("button", { name: "Remover imagem: segunda.png", exact: true })).toBeVisible();
+    await visualChat.locator("#instruction").fill("Compare as duas imagens");
+    await visualChat.getByRole("button", { name: "Enviar", exact: true }).click();
+    const visualConfirm = visualChat.getByRole("group", { name: "Confirmar envio" });
+    await visualConfirm.getByRole("checkbox", { name: "Aceito o limite indicativo para esta tarefa" }).check();
+    await visualConfirm.getByRole("checkbox", { name: "Autorizo executar esta tarefa com minha conta" }).check();
+    await expect(visualConfirm.getByRole("button", { name: "Enviar ao Claude", exact: true })).toBeDisabled();
+    await visualConfirm.getByRole("checkbox", { name: "Enviar as imagens ao Claude (experimental)" }).check();
+    const beforeVisual = generations.length;
+    await visualConfirm.getByRole("button", { name: "Enviar ao Claude", exact: true }).click();
+    await expect.poll(() => generations.length).toBe(beforeVisual + 1);
+    assert.equal(generations.at(-1).attachments.length, 2);
+    assert.equal(generations.at(-1).protocol_version, "1.3");
+    assert.ok(!JSON.stringify(generations.at(-1).context).includes("base64"));
+    await expect(visualChat.getByRole("log").getByText("Resposta simulada da fila durável.", { exact: true })).toBeVisible();
     fs.writeFileSync(
       path.join(artifacts, "smoke.json"),
       JSON.stringify(
@@ -538,14 +925,24 @@ async function main() {
           chromiumSandbox: process.env.IA_BBARU_TEST_NO_SANDBOX !== "1",
           checks: [
             "native backend startup",
+            "main-process browser data, real download, personalization and restored tabs",
+            "two direct images in conversation with explicit opt-in and no library save",
             "single instance per profile",
             "project creation",
             "web navigation and back",
             "remote isolation",
             "selection capture and SQLite source",
-            "1.1 acceptance required and persisted",
-            "1.1 capability badges in plan modal (Término informado pelo provedor)",
-            "execution denied",
+            "chat send without modal; nothing saved or generated before consents",
+            "1.2 acceptance required per message and persisted",
+            "panel width control in shell",
+            "Ctrl+Shift+L toggles the panel and focuses the composer",
+            "settings page opened from the shell; bookmarks bar preference synced",
+            "conversation consent once, history to gateway, revocation blocks dispatch, reopen restores thread",
+            "answer shown in the conversation; technical details collapsed",
+            "1.2 capability badges in task details dialog (Término informado pelo provedor)",
+            "synchronous execution denied; durable enqueue confirmed",
+            "native zoom and findInPage",
+            "native screenshot and separate local image storage",
             "file navigation denied",
             "tabs",
             "manual draft preserved (save then review queued)",
@@ -562,7 +959,7 @@ async function main() {
       ),
     );
     console.log(
-      "Chromium UI passed: navigation, isolation, real backend, capture, draft preservation and restart persistence.",
+      "Chromium UI passed: navigation, isolation, real backend, capture, draft preservation, persistent chat IPC and restart persistence.",
     );
   } finally {
     if (app) await app.close();

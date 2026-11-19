@@ -53,6 +53,10 @@ test("desktop bridge refuses execution, unknown operations and oversized frames"
     params: {},
   };
   assert.equal(validateEnvelope(body), body);
+  for (const operation of ["conversations.create", "conversations.list", "conversations.get",
+    "conversations.turns.send", "conversations.turns.list", "conversations.turns.get",
+    "conversations.consent.set", "conversations.consent.get", "conversations.consent.revoke"])
+    assert.equal(validateEnvelope({ ...body, operation }).operation, operation);
   for (const operation of ["tasks.execute", "shell.exec", "cookies.get"])
     assert.throws(() => validateEnvelope({ ...body, operation }));
   assert.throws(() =>

@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from native_host.bridge import Bridge, MAX_BYTES, serve
-from native_host.install import prepare
 from native_host.__main__ import load_config
 
 
@@ -93,17 +92,23 @@ class NativeHostTests(unittest.TestCase):
         self.assertEqual(len({p['id'] for p in first['items']+second['items']}),33)
         self.assertIsNone(second['next_offset'])
 
-    def test_installer_preserves_token_and_only_authorizes_our_extension(self):
-        config,manifest=prepare(self.root/'local')
+    def write_config(self, folder):
+        folder.mkdir(parents=True, exist_ok=True)
+        config = folder/'config.json'
+        config.write_text(json.dumps({'backend_url':'http://127.0.0.1:8000',
+                                      'token':'t'*43,'db_path':str(folder/'launcher.sqlite3')}))
+        return config
+
+    def test_config_requires_loopback_backend_and_long_token(self):
+        config=self.write_config(self.root/'local')
         first=load_config(config)
-        prepare(self.root/'local')
-        self.assertEqual(load_config(config)['token'],first['token'])
-        self.assertEqual(json.loads(manifest.read_text())['allowed_extensions'],['ia-bbaru@bbarusu.local'])
         config.write_text(json.dumps({**first,'backend_url':'https://example.com'}))
+        with self.assertRaises(ValueError):load_config(config)
+        config.write_text(json.dumps({**first,'token':'curto'}))
         with self.assertRaises(ValueError):load_config(config)
 
     def test_native_process_exchanges_real_framed_bytes_without_token_in_response(self):
-        config,_=prepare(self.root/'process')
+        config=self.write_config(self.root/'process')
         message=json.dumps({'protocol_version':'0','request_id':str(uuid4()),'operation':'bridge.info','params':{}}).encode()
         proc=subprocess.run([sys.executable,'-m','native_host','--config',str(config)],
                             input=struct.pack('=I',len(message))+message,capture_output=True,timeout=10)

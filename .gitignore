@@ -18,7 +18,6 @@ credentials*.json
 *.key
 node_modules/
 frontend/dist/
-extension/app/
 artifacts/
 playwright-report/
 test-results/

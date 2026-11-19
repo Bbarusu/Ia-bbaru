@@ -1,4 +1,5 @@
 import { CircleHelp, Maximize2, RefreshCw } from "lucide-react";
+import type { ReactNode } from "react";
 import type { Tab } from "../types";
 import { YukiMark } from "./YukiMark";
 
@@ -12,6 +13,7 @@ interface TopBarProps {
   connect: () => void;
   expand: () => void;
   openGuide: () => void;
+  projectSwitch: ReactNode;
 }
 
 export function TopBar({
@@ -24,9 +26,10 @@ export function TopBar({
   connect,
   expand,
   openGuide,
+  projectSwitch,
 }: TopBarProps) {
   const currentTab =
-    tabs.find((t) => t.id === tab)?.label || "Área de trabalho";
+    tabs.find((t) => t.id === tab)?.label || "Chat";
 
   return (
     <>
@@ -39,6 +42,7 @@ export function TopBar({
           <span className="slash">/</span>
           <strong>{currentTab}</strong>
         </div>
+        {projectSwitch}
         <div className="top-actions">
           <span
             className={`status-pill ${online ? "connected" : ""}`}
@@ -54,7 +58,7 @@ export function TopBar({
           </span>
           <button
             type="button"
-            className="icon-button"
+            className="icon-button narrow-hidden"
             title="Conhecendo o Yuki (Guia)"
             aria-label="Abrir guia do Yuki"
             onClick={openGuide}
@@ -63,7 +67,7 @@ export function TopBar({
           </button>
           <button
             type="button"
-            className="icon-button"
+            className="icon-button narrow-hidden"
             title="Verificar conexão"
             aria-label="Verificar conexão"
             disabled={checking}

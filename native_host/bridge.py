@@ -9,13 +9,35 @@ from pydantic import Field, ValidationError
 from backend.contracts import StrictModel
 from backend.main import ProjectInput, SourceInput, TaskInput
 from backend.gateway_errors import ERROR_STATUS, error_message
+from backend.conversations import ConversationInput, TurnInput, ConsentInput
 
-HOST_NAME = "ia_bbaru.bridge"
-EXTENSION_ID = "ia-bbaru@bbarusu.local"
-MAX_BYTES = 900_000
+MAX_BYTES = 4_000_000
 OPERATIONS = ("bridge.info", "health.get", "projects.list", "projects.create",
-              "sources.list", "sources.create", "sources.get", "models.list",
-              "tasks.list", "tasks.plan", "tasks.get", "tasks.enqueue", "tasks.resume")
+              "sources.list", "sources.create", "sources.get", "models.list", "connections.list",
+              "tasks.list", "tasks.plan", "tasks.get", "tasks.enqueue", "tasks.resume",
+              "conversations.create", "conversations.list", "conversations.get",
+              "conversations.turns.send", "conversations.turns.get", "conversations.turns.list",
+              "conversations.consent.get", "conversations.consent.set", "conversations.consent.revoke")
+
+CHAT_ERRORS = {
+    "attachment_id_conflict": "Este identificador já pertence a outra imagem. Selecione novamente o arquivo.",
+    "duplicate_attachment": "Há identificadores de imagem repetidos neste envio.",
+    "image_dimensions_exceeded": "A visão aceita até 2.000 px por lado. Reduza a imagem antes de enviar.",
+    "invalid_image": "Use PNG ou JPEG válido, até 480 KB e 2.000 px por lado.",
+    "source_snapshot_conflict": "Este material mudou desde o envio anterior. Use uma nova captura ou uma nova conversa.",
+    "context_too_large": "O contexto excede o limite. Abra uma nova conversa ou envie menos material.",
+    "no_model_fits_context": "O contexto e a reserva de resposta excedem o limite dos modelos permitidos.",
+    "conversation_busy": "A conversa tem uma tarefa pendente. Consulte seu estado antes de enviar outra mensagem.",
+    "conversation_changed": "A conversa mudou. Consulte seu estado e mantenha o mesmo identificador do envio.",
+    "turn_id_conflict": "Este identificador já foi usado em outro envio. O pedido não foi executado novamente.",
+    "conversation_id_conflict": "Este identificador de conversa já está em uso.",
+    "conversation_consent_revoked": "A autorização desta conversa foi revogada. Confira os aceites antes de enviar.",
+    "conversation_consent_scope_changed": "A autorização não cobre este pedido ou as condições do modelo mudaram. Revise o aceite.",
+    "execution_confirmation_required": "Autorize o envio com sua conta antes de continuar.",
+    "explicit_model_selection_required": "Este modelo exige escolha explícita; não será selecionado automaticamente.",
+    "durable_execution_unavailable": "A execução durável precisa estar ativa para enviar mensagens.",
+    "review_requires_second_eligible_model": "Escolha um revisor elegível ou selecione explicitamente o modelo de revisão.",
+}
 
 
 class Envelope(StrictModel):
@@ -59,6 +81,26 @@ class QueueTask(TaskRef):
     confirmed: bool = Field(strict=True)
 
 
+class ConversationRef(StrictModel):
+    conversation_id: UUID
+
+
+class ConversationPage(ConversationRef, Page):
+    pass
+
+
+class TurnRef(ConversationRef):
+    turn_id: UUID
+
+
+class SendTurn(ConversationRef):
+    turn: TurnInput
+
+
+class SetConsent(ConversationRef):
+    consent: ConsentInput
+
+
 class Bridge:
     def __init__(self, client):
         self.client = client
@@ -93,6 +135,10 @@ class Bridge:
                     code = None
                 if isinstance(code, str) and code in ERROR_STATUS:
                     return reply(False, {"code": code, "message": error_message(code)})
+                if isinstance(code, str) and code in CHAT_ERRORS:
+                    return reply(False, {"code": code, "message": CHAT_ERRORS[code]})
+                if code == "visual_context_not_supported":
+                    return reply(False, {"code": code, "message": "A imagem está salva, mas estes agentes recebem somente texto. Selecione materiais de texto; análise visual depende de um transporte multimodal."})
                 messages = {401: "Autorização local inválida. Confira a instalação do componente local.",
                             404: "Item não encontrado.", 409: "A tarefa já foi iniciada.",
                             422: "Confira os campos e os limites de contexto.",
@@ -108,6 +154,31 @@ class Bridge:
 
     @staticmethod
     def route(op, params):
+        if op == "conversations.create":
+            data = ConversationInput.model_validate(params)
+            return "POST", "/v1/conversations", data.model_dump(mode="json"), None
+        if op == "conversations.list":
+            data = Page.model_validate(params)
+            return "GET", "/v1/conversations", None, {"offset": data.offset, "limit": 30}
+        if op == "conversations.turns.send":
+            data = SendTurn.model_validate(params)
+            return "POST", f"/v1/conversations/{data.conversation_id}/turns", data.turn.model_dump(mode="json"), None
+        if op == "conversations.turns.get":
+            data = TurnRef.model_validate(params)
+            return "GET", f"/v1/conversations/{data.conversation_id}/turns/{data.turn_id}", None, None
+        if op == "conversations.turns.list":
+            data = ConversationPage.model_validate(params)
+            return "GET", f"/v1/conversations/{data.conversation_id}/turns", None, {"offset": data.offset, "limit": 20}
+        if op == "conversations.consent.set":
+            data = SetConsent.model_validate(params)
+            return "POST", f"/v1/conversations/{data.conversation_id}/consent", data.consent.model_dump(mode="json"), None
+        if op in ("conversations.get", "conversations.consent.get", "conversations.consent.revoke"):
+            data = ConversationRef.model_validate(params)
+            suffix = "" if op == "conversations.get" else "/consent"
+            return "DELETE" if op.endswith("revoke") else "GET", f"/v1/conversations/{data.conversation_id}{suffix}", None, None
+        if op == "connections.list":
+            Empty.model_validate(params)
+            return "GET", "/v1/connections", None, None
         if op in ("tasks.enqueue", "tasks.resume"):
             data = QueueTask.model_validate(params)
             return "POST", f"/v1/tasks/{data.task_id}/{op.split('.')[1]}", {"confirmed": data.confirmed}, None

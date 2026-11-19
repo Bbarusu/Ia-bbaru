@@ -1,14 +1,16 @@
 """One durable queue consumer per database. Unconfirmed calls are never replayed."""
 import os
+import copy
 import threading
 import time
 from datetime import datetime, timezone
 
 from .capabilities import preflight_error
-from .contracts import GenerateRequest
-from .contracts_v1_1 import GenerateRequestV11
+from .prompting import planned_budget
+from .protocols import REQUESTS
 from .gateway import GatewayUnavailable
 from .gateway_errors import WAIT_CODES, PRESTART_CODES, UNCERTAIN_CODES
+from .visual import dispatch_attachments
 
 
 class WorkerLock:
@@ -127,31 +129,56 @@ class DurableWorker:
                 step.update(state="failed", error_code=error, phase="preflight")
                 task.update(status="failed", error=error); self.store.save_task(task); return
             previous = task["results"][-1]["output"] if task["results"] else None
-            chars = len(task["instruction"]) + sum(len(s["title"]) + len(s["content"]) for s in task["context"]) + len(previous or "")
+            chars = planned_budget(task["instruction"], task["context"], plan["max_output_tokens"], plan["role"], previous)
             if chars > plan["context_char_limit"]:
                 step.update(state="failed", error_code="review_context_too_large")
                 task.update(status="failed", error="review_context_too_large"); self.store.save_task(task); return
             fields = dict(request_id=step["request_id"], model_id=plan["model_id"], role=plan["role"],
                           instruction=task["instruction"], context=task["context"], previous_output=previous,
                           max_output_tokens=plan["max_output_tokens"])
-            if task.get("gateway_protocol_version", "1") == "1.1":
-                request = GenerateRequestV11(**fields, protocol_version="1.1",
-                    allow_unenforced_output_limit=task.get("allow_unenforced_output_limit", False))
-            else:
-                request = GenerateRequest(**fields)
+            version = task.get("gateway_protocol_version", "1")
+            if version != "1":
+                fields["allow_unenforced_output_limit"] = task.get("allow_unenforced_output_limit", False)
+            if version in {"1.2", "1.3"}:
+                try:
+                    fields.update(attachments=dispatch_attachments(self.store, task),
+                                  allow_visual_input=task.get("allow_visual_input", False))
+                except ValueError:
+                    self.fail(task, step, "attachment_changed_replan_required", "validation"); return
+            request = REQUESTS[version](**fields, protocol_version=version)
             step["request"] = request.model_dump()
+            for image in step["request"].get("attachments", []):
+                image.pop("data_base64", None)
         else:
-            schema = GenerateRequestV11 if task["gateway_protocol_version"] == "1.1" else GenerateRequest
-            request = schema.model_validate(step["request"])
+            schema = REQUESTS[task["gateway_protocol_version"]]
+            fields = copy.deepcopy(step["request"])
+            if fields.get("attachments"):
+                try:
+                    fields["attachments"] = dispatch_attachments(self.store, task)
+                except ValueError:
+                    code = "request_outcome_uncertain" if step.get("error_code") == "request_in_progress" else "attachment_changed_replan_required"
+                    self.fail(task, step, code, "validation"); return
+            request = schema.model_validate(fields)
         if self.stop_event.is_set():
             task["status"] = "queued"; self.store.save_task(task); return
+        previously_in_progress = replay and step.get("error_code") == "request_in_progress"
         step.update(state="in_flight", attempts=step["attempts"] + 1, error_code=None, http_status=None, phase="generate")
         task["error"] = None
-        self.store.save_task(task)  # Write-ahead intent, before any provider side effect.
+        if not self.store.dispatch(task):  # Authorization + write-ahead intent, before provider effects.
+            # Revocation stops further requests, but cannot cancel an already
+            # running provider job or prove its outcome.
+            state = "uncertain" if previously_in_progress else "failed"
+            step.update(state=state, error_code="conversation_consent_revoked", attempts=step["attempts"] - 1)
+            task.update(status=state, error="conversation_consent_revoked")
+            self.store.save_task(task)
+            return
+        started = time.monotonic()
         try:
             result = self.gateway.generate(request)
         except GatewayUnavailable as exc:
+            step["duration_ms"] = step.get("duration_ms", 0) + round((time.monotonic() - started) * 1000)
             self.fail(task, step, exc.code, "generate", exc.http_status); return
+        step["duration_ms"] = step.get("duration_ms", 0) + round((time.monotonic() - started) * 1000)
         task["results"].append({"role": plan["role"], **result.model_dump()})
         task["output"] = result.output
         step.update(state="completed", finish_reason=result.finish_reason, error_code=None, http_status=200)

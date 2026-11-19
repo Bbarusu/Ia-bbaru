@@ -91,7 +91,7 @@ h1 span {
   font-size: 13.5px;
   line-height: 1.7;
   color: var(--text-muted);
-  max-width: 560px;
+  max-width: 580px;
   margin: 0;
 }
 
@@ -171,288 +171,13 @@ em {
   color: var(--text);
 }
 
-/* KInfo-style Guide ("Conhecendo o Yuki") in Snow White */
-.kinfo-guide {
-  background:
-    var(--snow-bg),
-    #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 20px 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.gstep-radio {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.guide-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.guide-counter {
-  display: none;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.guide-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.guide-pill-tab {
-  font-size: 11.5px;
-  font-weight: 550;
-  color: var(--text-muted);
-  background: #eaf1f8;
-  border: 1px solid #d4e0ee;
-  border-radius: 999px;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: all 0.16s ease;
-}
-
-.guide-pill-tab:hover {
-  color: var(--text);
-  background: #dfeaf5;
-  border-color: #b6c8de;
-}
-
-.guide-step {
-  display: none;
-}
-
-.guide-mesa {
-  height: 92px;
-  border-radius: 16px;
-  background:
-    var(--snow-bg),
-    #f0f6fc;
-  border: 1px solid #d4e0ee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-}
-
-.mesa-pill {
-  min-height: 44px;
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: #ffffff;
-  border: 1px solid #d4e0ee;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.mesa-chip {
-  font-size: 12px;
-  font-weight: 550;
-  color: var(--text);
-  background: #f0f6fc;
-  border: 1px solid #d4e0ee;
-  border-radius: 999px;
-  padding: 5px 12px;
-}
-
-.mesa-chip.accent {
-  background: #dce8f6;
-  border-color: #adc2dc;
-  color: #0b0f17;
-  font-weight: 650;
-}
-
-.mesa-chip.good {
-  background: #e1f7ed;
-  border-color: #96ddb9;
-  color: #095c37;
-  font-weight: 600;
-}
-
-.guide-step h2 {
-  font-size: 17px;
-  font-weight: 650;
-  color: var(--text);
-  margin: 16px 0 8px;
-}
-
-.guide-step p {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.guide-item-row {
-  margin-top: 14px;
-  border-radius: 14px;
-  padding: 11px 15px;
-  background: #f5f9fd;
-  border: 1px solid #d4e0ee;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.guide-item-row div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.guide-tag {
-  font-size: 11.5px;
-  font-weight: 650;
-  color: #0b0f17;
-  background: #dce8f6;
-  border: 1px solid #adc2dc;
-  border-radius: 999px;
-  padding: 4px 12px;
-  white-space: nowrap;
-}
-
-.guide-footer {
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.guide-dots {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.gdot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #c5d4e6;
-  cursor: pointer;
-  transition: all 0.16s ease;
-}
-
-.guide-nav-btns {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.gbtn {
-  display: none;
-  height: 34px;
-  padding: 0 18px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    opacity 0.16s ease;
-}
-
-.gbtn.secondary {
-  background: #eaf1f8;
-  border: 1px solid #c5d4e6;
-  color: var(--text);
-}
-
-.gbtn.secondary:hover {
-  background: #dfeaf5;
-}
-
-.gbtn.primary {
-  background: #dce8f6;
-  border: 1px solid #9cb4d0;
-  color: #0b0f17;
-}
-
-.gbtn.primary:hover {
-  background: #cfe0f3;
-}
-
-#gstep-1:checked ~ .guide-header .step-label-1,
-#gstep-2:checked ~ .guide-header .step-label-2,
-#gstep-3:checked ~ .guide-header .step-label-3,
-#gstep-4:checked ~ .guide-header .step-label-4,
-#gstep-5:checked ~ .guide-header .step-label-5 {
-  display: inline;
-}
-
-#gstep-1:checked ~ .guide-header label[for="gstep-1"],
-#gstep-2:checked ~ .guide-header label[for="gstep-2"],
-#gstep-3:checked ~ .guide-header label[for="gstep-3"],
-#gstep-4:checked ~ .guide-header label[for="gstep-4"],
-#gstep-5:checked ~ .guide-header label[for="gstep-5"] {
-  background: #dce8f6;
-  border-color: #9cb4d0;
-  color: #0b0f17;
-  font-weight: 650;
-}
-
-#gstep-1:checked ~ .step-1,
-#gstep-2:checked ~ .step-2,
-#gstep-3:checked ~ .step-3,
-#gstep-4:checked ~ .step-4,
-#gstep-5:checked ~ .step-5 {
-  display: block;
-}
-
-#gstep-1:checked ~ .guide-footer .dot-1,
-#gstep-2:checked ~ .guide-footer .dot-2,
-#gstep-3:checked ~ .guide-footer .dot-3,
-#gstep-4:checked ~ .guide-footer .dot-4,
-#gstep-5:checked ~ .guide-footer .dot-5 {
-  width: 18px;
-  background: #0b0f17;
-}
-
-#gstep-1:checked ~ .guide-footer .next-to-2,
-#gstep-2:checked ~ .guide-footer .back-to-1,
-#gstep-2:checked ~ .guide-footer .next-to-3,
-#gstep-3:checked ~ .guide-footer .back-to-2,
-#gstep-3:checked ~ .guide-footer .next-to-4,
-#gstep-4:checked ~ .guide-footer .back-to-3,
-#gstep-4:checked ~ .guide-footer .next-to-5,
-#gstep-5:checked ~ .guide-footer .back-to-4,
-#gstep-5:checked ~ .guide-footer .next-to-1 {
-  display: inline-flex;
-}
-
 @media (max-width: 640px) {
   main {
     padding: 24px 18px;
   }
-  nav {
+  nav{
     grid-template-columns: 1fr;
-    margin: 18px 0;
-  }
-  .kinfo-guide {
-    padding: 16px;
-  }
-  .guide-item-row {
-    flex-direction: column;
-    align-items: flex-start;
+    margin: 16px 0;
   }
 }
 
@@ -463,3 +188,8 @@ em {
     transition: none !important;
   }
 }
+
+body[data-background="gelo"] { background: #e5eff9; }
+body[data-background="liso"] { background: #ffffff; }
+#ask-claude { margin-top: 20px; padding: 12px 18px; border-radius: 14px; border: 1px solid #b4c4d8; background: #fff; color: #0b0f17; font: inherit; cursor: pointer; }
+[hidden] { display: none !important; }

@@ -50,11 +50,15 @@ const operations = new Set([
   "sources.create",
   "sources.get",
   "models.list",
+  "connections.list",
   "tasks.list",
   "tasks.plan",
   "tasks.get",
   "tasks.enqueue",
   "tasks.resume",
+  "conversations.create", "conversations.list", "conversations.get",
+  "conversations.turns.send", "conversations.turns.get", "conversations.turns.list",
+  "conversations.consent.get", "conversations.consent.set", "conversations.consent.revoke",
 ]);
 function validateEnvelope(raw) {
   if (
@@ -66,7 +70,7 @@ function validateEnvelope(raw) {
     !raw.params ||
     typeof raw.params !== "object" ||
     Array.isArray(raw.params) ||
-    Buffer.byteLength(JSON.stringify(raw)) > 850000
+    Buffer.byteLength(JSON.stringify(raw)) > (raw.operation === "conversations.turns.send" ? 4000000 : 850000)
   )
     throw new Error("Operação local inválida.");
   return raw;

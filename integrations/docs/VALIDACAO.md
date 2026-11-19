@@ -3,7 +3,167 @@
 Cada linha diz **o que** foi validado, **onde** e **com quê**. Testes com fixture
 usam o dublê `tests/integrations/fixtures/fake_claude.py`, nunca uma conta.
 
-## Rodada atual: primeiro início com as três frentes (9/11/2026)
+## Rodada atual: P0 `provider_error` e chat lateral (11/11/2026)
+
+Prompt atualizado (`f7206ac`) e `docs/AJUSTES_CHAT_LATERAL.md`. Detalhes na seção P0
+de [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `tests/integrations` | fixtures, incluindo `test_failures.py` (8 novos) e `-W error::ResourceWarning` | ✅ 83 OK + 1 pulado |
+| `tests` (backend) | fixtures | ✅ OK |
+| `verify_gateway_v11.py` | fixtures, HTTP | ✅ |
+| Mensagem de teto de saída e esquema `error_*` | pacote oficial 2.1.322, sem gerar | ✅ registrado |
+| Causa do `provider_error` da captura | — | ⏳ só confirmável pelo usuário, com `failures` |
+
+## Rodada anterior: somente Claude (11/11/2026)
+
+Prompt `docs/PROMPT_CODE_CLAUDE_ONLY.md` (base `codex/browser-capture-clis`
+`fa24ef3`). Respostas e pendências: [PASSAGEM_CLAUDE_ONLY.md](PASSAGEM_CLAUDE_ONLY.md).
+
+| Verificação | Com quê | Resultado |
+| --- | --- | --- |
+| `python -m unittest discover -s tests` | fixtures | ✅ 67 OK |
+| `python -m unittest discover -s tests/integrations` | fixtures | ✅ 75 OK + 1 pulado (o real) |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | fixtures, HTTP | ✅ 5 cenários |
+| OpenAPI 1.1 do gateway | `export_openapi` | ✅ inalterado |
+| Aliases, troca de modelo, créditos, `stream-json`, imagem | pacote oficial 2.1.322 e 2.1.307, sem gerar (`--help`, `strings`) | ✅ registrado em PASSAGEM_CLAUDE_ONLY.md |
+| Resolução de aliases e `init.tools: []` | **4 gerações não intencionais** na conta do ambiente de nuvem (não a do usuário) | ⚠️ só vale para aquela conta/versão |
+| Windows do usuário, sem geração | tela `/model` + `diagnose` (código anterior a `eb94450`) | ✅ Claude Code 2.1.322 (atualizado sozinho), Claude Pro; Opus 5.5, Sonnet 5.5, Fable 5.2 (incluído até 16/11, consome cota mais rápido), Haiku 5.5; sem "Requires usage credits"; `ready: true`, 0,4 s |
+| Windows com esta branch, `diagnose` | `IA_BBARU_CLAUDE_CODE_MODELS=sonnet,haiku,opus`, sem geração | ✅ 2.1.322, `ready: true`, 0,4 s; os 3 modelos como alias da família certa, `resolved_version: null`, `access: not_verified_without_generation`; perfis sonnet estudo/programação, haiku geral/escrita, opus análise; nenhuma variável de chave de API; contrato 1 bloqueado (`output_limit_not_enforced`) |
+| Windows com esta branch, suítes e script HTTP | — | ⏳ resultado não informado |
+| Geração real do usuário | — | ⏳ não feito; roteiro no item 7 da passagem |
+
+Mudanças: `CLAUDE_CODE_NO_MODEL_FALLBACK=1` no processo; remoção das variáveis que
+redirecionam aliases; conferência estrita do `modelUsage`; nomes de modelo
+restritos aos conferíveis; perfis herdados por família; diagnóstico separa
+configuração de acesso; erros de créditos/acesso → `provider_unavailable`.
+
+## Rodada anterior: correções da revisão do Codex nos adaptadores (10/11/2026)
+
+Prompt `docs/PROMPT_CLAUDE_CLIS.md` e revisão `docs/REVISAO_CLIS_2026_11_10.md`
+(branch `codex/browser-capture-clis`, `5a55e69`). Resposta item a item:
+[RESPOSTA_REVISAO.md](RESPOSTA_REVISAO.md). Nenhuma conta real; nenhuma geração.
+
+### Linux (contêiner do Claude), fixtures
+
+| Verificação | Onde | Resultado |
+| --- | --- | --- |
+| `python -m unittest discover -s tests/integrations` | esta branch (base `main` `1c72ffa`) | ✅ 81 executados: 80 OK + 1 pulado (o real) |
+| `python -m unittest discover -s tests` | esta branch | ✅ 60 OK |
+| Backend + gateway | `codex/browser-capture-clis` `5a55e69` + esta branch (worktree local) | ✅ backend 66 OK; gateway 80 OK + 1 pulado |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | mesma combinação | ✅ |
+| `npm --prefix frontend test` / `desktop test` / build | mesma combinação | ✅ 11 / 3 / ✅ |
+| `desktop run test:ui` e `tests/integrations/desktop_gateway_smoke.cjs` (Electron real, Xvfb, sem sandbox do SO) | mesma combinação | ✅ |
+| Gemini CLI oficial 0.67.0, sem conta, pasta de usuário isolada | adaptador real | ✅ auto-teste: a CLI aplica `GEMINI_CLI_AUTH_OVERRIDE`; sonda de login → `not_logged_in`, com e sem "gemini-api-key" salvo; todas as sondas com entrada vazia; ~7 s na primeira verificação (4 processos) |
+
+Regressões novas em `tests/integrations/test_cli_adapters.py` (dublê `fake_gemini.py`,
+que imita a ordem de autenticação da CLI): login verificado pela CLI; declarado mas sem
+login; sem autorização (nenhuma sonda); CLI que ignora a variável; configuração de
+sistema; chave de API salva na CLI nunca usada; chaves no ambiente removidas; login
+perdido antes da geração; saída mista de modelos recusada e não repetida; reprodução
+mínima da revisão do Codex.
+
+### Windows do usuário (item 5 do prompt)
+
+Executado pelo usuário em 10/11/2026 na pasta `W:\Projeto\Ia-bbaru-validacao-pr7`
+(PR #7 do Codex + merge desta branch, `3fe8ecd`), PowerShell, sem conta real:
+
+| Comando | Resultado no Windows |
+| --- | --- |
+| `python -m unittest discover -s tests -v` | ✅ 66 OK em 10,5 s (fila, trava do worker, mídia, ponte e fechamento do SQLite; nenhum `PermissionError`) |
+| `python -m unittest discover -s tests/integrations -v` | ✅ 81 executados: 80 OK + 1 pulado (conta real), 69,8 s. Inclui timeout com `taskkill`, resolução `.cmd` simulada e as regressões novas do Gemini. As 2 falhas de acentuação relatadas antes na PR #7 não ocorreram mais (dublês em UTF-8) |
+| `python scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ 5 modos: incompleta, concluída com revisão, login, cota e timeout; sem repetição |
+| `python -m integrations diagnose` com `IA_BBARU_GEMINI_CLI_LOGIN=google` | ✅ sem geração. **Resolução `.exe`/`.cmd`:** as três CLIs instaladas e executáveis, sem `detail`. **Tempo (`probe_seconds`):** Claude Code 0,5 s; Codex CLI 0,5 s; Gemini CLI 5,7 s (em paralelo, bem abaixo dos 20 s da ponte). Claude Code 2.1.307 `claude.ai` e Codex CLI 0.167.0 `chatgpt` prontos. **Gemini CLI 0.67.0: `not_logged_in`** — o auto-teste da variável passou no Windows (senão seria `cli_version_unsupported`) e a sonda recebeu da CLI real "Manual authorization is required". **Confirmado correto:** ao tentar Sign in with Google, a CLI mostrou "This client is no longer supported for Gemini Code Assist for individuals... migrate to the Antigravity suite". O Google recusa o login individual; o agente Gemini fica indisponível para esta conta ([PASSAGEM_CLIS.md](PASSAGEM_CLIS.md), seção 1.2). O caso `logged_in: true` com conta real não pôde ser observado |
+
+Comandos usados:
+
+```powershell
+git status
+git fetch origin
+git merge --no-edit origin/claude/vibrant-meitner-ksbzgf
+git log --oneline -1
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/integrations -v
+.\.venv\Scripts\python.exe scripts/verify_gateway_v11.py --gateway-checkout .
+$env:IA_BBARU_GEMINI_CLI_LOGIN = "google"
+.\.venv\Scripts\python.exe -m integrations diagnose | clip
+```
+
+O que conferir e registrar (SHA, versão do Windows e do Python):
+- **Resolução `.exe`/`.cmd`:** as três CLIs com `installed: true` e sem `detail`.
+- **Tempo do catálogo:** `probe_seconds` de cada CLI no `diagnose`; a ponte do navegador
+  espera 20 s e as três são verificadas em paralelo.
+- **Processos e SQLite:** as suítes terminam com `OK`, sem `PermissionError`/`WinError 32`
+  (inclui timeout com `taskkill` e a trava do worker).
+- **Gemini:** com login Google feito, `ready: true`, `logged_in: true`; sem login,
+  `not_logged_in`. O `diagnose` não gera resposta.
+
+## Rodada anterior: CLIs do ChatGPT e do Gemini (10/11/2026)
+
+Base `main` `1c72ffa` + esta branch. Nenhuma conta real; nenhuma geração real.
+
+| Verificação | Resultado |
+| --- | --- |
+| `tests/integrations` (Linux) | ✅ 71 executados: 70 OK + 1 pulado (o real). Inclui 15 testes novos em `test_cli_adapters.py` |
+| `tests` (backend, Linux) | ✅ 60 OK |
+| Codex CLI oficial 0.167.0, sem login, pasta isolada | ✅ diagnóstico pelo adaptador; `features list` confirma a trava; `unified_exec` não desliga (por isso `tools: restricted`) |
+| Gemini CLI oficial 0.67.0, sem login, pasta isolada | ✅ diagnóstico e geração pelo adaptador → `provider_not_authenticated` (código 41) em ~2 s |
+| Backend + fila + gateway por HTTP (dublês) | ✅ ChatGPT recusado no plano (`model_tools_not_supported`); Gemini → `incomplete/completion_unconfirmed` |
+| Windows do usuário, 1ª tentativa | ⚠️ uma CLI em `cli_not_runnable` (sem detalhe na época). Corrigido em `732b0ac`: no Windows, preferir `.exe`/`.cmd` ao script sem extensão criado pelo npm; diagnóstico ganhou `detail` |
+| Windows do usuário, `diagnose` com `732b0ac` | ✅ Claude Code 2.1.307 pronto (`claude.ai`); **Codex CLI 0.167.0 instalada, `Logged in using ChatGPT`, flags presentes e trava de recursos confirmada no Windows** (`features list`); Gemini CLI 0.67.0 instalada e executável, `auth_status_unknown` (login ainda não declarado). Nenhuma chave de API no ambiente. Sem geração |
+| Windows: catálogo no navegador e geração real | ⏳ pendente |
+
+## Rodada: fila durável integrada no `main` (10/11/2026)
+
+Prompt: `docs/PROMPT_CLAUDE_EXECUCAO.md`. Base `main` `1c72ffa` (merges #4 → #5 → #1 e
+#6 do Codex: C-1 códigos do gateway, C-2 fila/worker). Esta branch recomeçou do `main`.
+
+### Linux (contêiner do Claude), dublê do CLI, sem conta real
+
+| Comando | Resultado |
+| --- | --- |
+| `python -m unittest discover -s tests -v` | ✅ 60 OK; também com `-X dev -W error::ResourceWarning` (nenhuma conexão SQLite ou arquivo esquecido aberto) |
+| `python -m unittest discover -s tests/integrations -v` | ✅ 56 executados: 55 OK + 1 pulado (o real) |
+| `python scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ `no_stop_reason` → incompleta; `success` → concluída com revisão (2 chamadas); `auth_error` → `provider_not_authenticated` final; `usage_limit` → `provider_quota_exceeded` final; `sleep` → `provider_timeout` incerta; sempre 1 chamada por etapa, sem repetição |
+| `npm --prefix frontend test` / `npm --prefix desktop test` / build | ✅ 11 / 3 / ✅ |
+| `npm --prefix desktop run test:ui` (Electron, Xvfb, sem sandbox do SO) | ✅ |
+| `node tests/integrations/desktop_gateway_smoke.cjs` | ✅ |
+| **Novo:** `tests/integrations/test_durable_gateway.py` (fila do backend + este gateway por HTTP real) | ✅ `gateway_busy` real → `waiting` → repetição com o **mesmo** `request_id` e o **mesmo corpo** (reenviar o corpo gravado devolve a resposta guardada sem nova geração); timeout → `uncertain`, `resume`/`enqueue` → 409, 1 chamada |
+
+Mudança no gateway: uma falha inesperada depois de iniciar o CLI agora responde
+409 `request_outcome_uncertain` já na primeira resposta (antes, 502
+`gateway_internal_error`, que a fila tratava como erro final). O gateway já
+gravava esse caso como incerto; agora a primeira resposta e as repetições dizem
+o mesmo. Ambos os códigos estão na lista do backend; nenhum schema mudou.
+
+Não coberto no Linux: a trava do worker no Windows (`msvcrt.locking`), que só
+roda lá; `test_worker_lock_excludes_second_consumer` a exercita no Windows.
+
+### No Windows do usuário
+
+⏳ Pendente. Na pasta `W:\Projeto\Ia-bbaru-inicio`, com o app fechado:
+
+```powershell
+git status
+git fetch origin
+git merge --no-edit origin/main
+git log --oneline -1
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/integrations -v
+.\.venv\Scripts\python.exe scripts/verify_gateway_v11.py --gateway-checkout .
+$env:IA_BBARU_PYTHON = (Resolve-Path .venv\Scripts\python.exe).Path
+npm.cmd --prefix frontend ci
+npm.cmd --prefix desktop ci
+npm.cmd --prefix desktop run build
+npm.cmd --prefix desktop run test:ui
+node tests/integrations/desktop_gateway_smoke.cjs
+```
+
+Esperado: 60 OK; 56 com 1 pulado; as 5 linhas do script; `Chromium UI passed`;
+`Gateway + Chromium verificados`. Nenhum comando usa a conta.
+
+## Rodada: primeiro início com as três frentes (9/11/2026)
 
 Codex `33fc1ea` + Gemini `00e2c8f` + este gateway, juntos numa worktree local.
 Resultado completo e achados: [REVISAO_PRIMEIRO_INICIO.md](REVISAO_PRIMEIRO_INICIO.md).
@@ -43,7 +203,7 @@ códigos de cor crus. O inicializador passou a rodar o gateway sem janela, com l
 em arquivo. A captura de tela do plano não mostra se essa versão já estava em uso.
 
 
-## Rodada anterior: navegador Chromium (9/11/2026)
+## Rodada: navegador Chromium (9/11/2026)
 
 Prompt: `docs/PROMPT_CLAUDE_CHROMIUM.md` (branch `codex/chromium-browser`).
 

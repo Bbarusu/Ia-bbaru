@@ -12,8 +12,17 @@ from dataclasses import dataclass
 # Variables that would switch the CLI from the user's subscription login to a
 # paid API or cloud account, plus this project's own secrets. Never forwarded.
 STRIPPED_ENV = (
+    # Claude Code: API key / cloud providers instead of the subscription.
     "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL",
+    # Claude Code: variables that redirect an alias or the model catalog, so a
+    # configured alias is resolved by the CLI itself (seen in 2.1.322).
+    "ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION", "CLAUDE_CODE_MODEL_CATALOG", "CLAUDE_CODE_MODEL_CATALOG_URL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    # This project's own secrets.
     "GATEWAY_TOKEN", "LAUNCHER_API_TOKEN",
 )
 
@@ -63,7 +72,9 @@ def run_process(args: list[str], stdin_text: str, timeout_s: float,
             cwd=cwd, env=env, text=True, encoding="utf-8", errors="replace", **kwargs,
         )
     except OSError as exc:
-        raise ProcessStartError(type(exc).__name__) from exc
+        # Type and OS error number only (e.g. WinError 193 = not a Windows program).
+        code = getattr(exc, "winerror", None) or exc.errno
+        raise ProcessStartError(f"{type(exc).__name__} {code}" if code else type(exc).__name__) from exc
     try:
         stdout, stderr = proc.communicate(stdin_text, timeout=timeout_s)
     except subprocess.TimeoutExpired:

@@ -20,7 +20,7 @@ try {
     if (-not (Test-Path $pythonPath)) { throw 'Execute scripts\start-browser.ps1 -Install para preparar o ambiente.' }
     if (-not (Test-Path 'desktop\node_modules')) { throw 'Execute scripts\start-browser.ps1 -Install para instalar o navegador.' }
     $env:IA_BBARU_PYTHON = $pythonPath
-    if (-not $env:GATEWAY_PROTOCOL_VERSION) { $env:GATEWAY_PROTOCOL_VERSION = '1.1' }
+    if (-not $env:GATEWAY_PROTOCOL_VERSION) { $env:GATEWAY_PROTOCOL_VERSION = '1.2' }
     Run-Checked 'npm.cmd' @('--prefix', 'desktop', 'run', 'build')
     Run-Checked 'npm.cmd' @('--prefix', 'desktop', 'start')
 } finally { Pop-Location }
