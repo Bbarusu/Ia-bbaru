@@ -4,7 +4,8 @@ Autor: Claude Code (frente de compatibilidade da CLI). Data: 11/11/2026.
 Escopo: `docs/PROMPT_CLAUDE_ESCOPO.md` e `docs/DIVISAO_RESPONSABILIDADES.md`.
 Atualizado em 12/11/2026 com a base `4e6679e` (seção 6) e em 16/11/2026 com A1/A2
 da passagem do frontend (seção 7), e em 17/11/2026 com o fechamento pré-teste contínuo,
-base `31c3d43` (seção 8).
+base `31c3d43` (seção 8). Registro para o arquiteto-chefe em 17/11/2026, base
+`ad39437` (logo abaixo).
 Base lida originalmente: `codex/browser-capture-clis` `36e5402`, que já contém meu trabalho até
 `c22beb0` (merge `875d4b4`) e a correção do Codex `aa3933f`.
 
@@ -18,6 +19,92 @@ Este documento substitui, como orientação, as partes de
 (seção P0 "Para confirmar" e item 7). A validação Windows é conduzida pelo Codex
 (`docs/CORRECAO_PROVIDER_ERROR.md`). As pendências C-1 a C-10 daquela passagem
 continuam como propostas e estão resumidas na seção 5.
+
+## Registro para o arquiteto-chefe — 17/11/2026
+
+Ponto de situação da frente de **compatibilidade da CLI oficial Claude Code**. Lê-se
+sozinho; as seções 1 a 8 abaixo são o histórico detalhado, com as evidências.
+
+| Item | Valor |
+| --- | --- |
+| Responsável desta frente | Claude analista: só análise, só este arquivo (`docs/DIVISAO_RESPONSABILIDADES.md`) |
+| Base conferida | `codex/browser-capture-clis` `ad39437` (PR #7), incorporada sem conflito |
+| Branch / PR desta frente | `claude/vibrant-meitner-ksbzgf` / PR #9 (diff contra a base: só este arquivo) |
+| Execução e contratos | Codex. Interface: outro chat do Claude |
+| Geração real nesta frente | Nenhuma desde 11/11 (as 4 de [N] foram na conta do ambiente de nuvem e estão registradas) |
+
+### A. Situação em uma frase
+
+O gateway está **coerente com a CLI oficial em tudo o que dá para verificar sem a
+conta**. Todos os achados desta análise foram implementados pelo Codex e conferidos
+aqui. **Falta a prova com a conta real no Windows.** A última geração real foi o
+429 de cota de 11/11; a última geração real **bem-sucedida** é anterior às mudanças
+de formato.
+
+### B. Verificação feita hoje (Linux, só dublês, `IA_BBARU_REAL_TEST` ausente)
+
+| Verificação | Resultado |
+| --- | --- |
+| `python -m unittest discover -s tests/integrations` | ✅ 108 executados: 107 OK + 1 ignorado (o teste real) |
+| `python -m unittest discover -s tests` (backend) | ✅ 96 OK |
+| `scripts/verify_gateway_v11.py --gateway-checkout .` | ✅ 5 cenários HTTP (sucesso/revisão, término desconhecido, login, cota, timeout), sem repetição |
+| OpenAPI 1.1 do gateway | ✅ sem diferença (`export_openapi --check`) |
+| Os 11 formatos `stream-json` da seção 8.3, repetidos contra o código atual | ✅ todos com o resultado esperado. Exemplos: evento depois do `result` aceito; `assistant` depois do `result` recusado; mensagem `<synthetic>` ignorada; `model_refusal_fallback` recusado; dois blocos concatenados |
+
+### C. Achados desta frente e situação
+
+| Achado | Situação | Como foi conferido |
+| --- | --- | --- |
+| P-1 a P-5: classificação e diagnóstico de falhas | Implementado pelo Codex | Testes do gateway |
+| P-6: limite de uso sem horário virava `provider_error` | Implementado: `api_error` tipado primeiro, texto como reserva | Testes do gateway |
+| P-7: `result` guarda só o último bloco de texto | Implementado: `stream-json` interno, concatenação e conferência com `result` | Testes + reprodução F2 |
+| P-8: evento depois do `result` | Implementado: tolera só eventos sem conteúdo | Reprodução F4/F4b |
+| P-9: mensagem `<synthetic>` | Implementado: ignorada na montagem e na conferência de modelo | Reprodução F6 |
+| P-10: outras trocas de modelo | Implementado: qualquer `model_*fallback` é recusado | Reprodução F7 |
+| P-11: dublês `stream-json` realistas | Implementado: `--verbose` exigido, `ui_invalidate`, sintética, erro de cota tipado | Leitura do dublê + testes |
+| P-12: orçamento diferente no backend e no gateway | Implementado: fórmula única em `backend/prompting.py` (`request_budget`/`planned_budget`) | Leitura do código + testes |
+| P-13: histórico repetia o conteúdo das fontes | Implementado: fontes únicas por id, histórico só com referências | Leitura de `backend/conversations.py` |
+| Prompt de sistema seguro para `cmd.exe` | Implementado: teste de tamanho/ASCII/metacaracteres | `test_stream_output.py` |
+| F-4 (frontend): texto colado vai para o pedido quando não há ponte local | **Aberto**, baixo: só fora do Electron (`frontend/src/App.tsx`, atalhos sem ponte) | Leitura do código |
+
+### D. O que continua sem prova (riscos abertos)
+
+| # | Risco | Nível da evidência hoje | O que fecha |
+| --- | --- | --- | --- |
+| R1 | **Nenhuma geração real com o formato atual** (`stream-json --verbose`, conferência de modelo, montagem de blocos). A última geração real bem-sucedida usou o formato `json` antigo | Pacote [P] + ambiente de nuvem [N], 2.1.322 | O disparo único da seção 8.5 (Codex com o usuário) |
+| R2 | Causa do `provider_error` original ("Revise", 11/11): H1 (teto), H2 (raciocínio dentro do teto 128), H4 (invocação), H5 (limite sem horário). H3 (cota no formato observado) é menos provável | Não recuperável retroativamente | Só por exclusão: o disparo único distingue H2. As demais ficam como hipóteses; as correções cobrem todas |
+| R3 | Resposta cortada `-48dc-b51a-4c4ebcb0da4e).`: mecanismo comprovado e corrigido; **não provado** que foi a causa | [P] | `scripts/inspect_saved_response.py` no Windows (somente leitura). Sem resultado registrado ainda |
+| R4 | **Versão da CLI no Windows é móvel**: 2.1.307 registrada, 2.1.322 vista em 11/11, atualização automática ligada | [R] sem geração | Anotar `claude --version` a cada validação (decisão D1) |
+| R5 | Dependência de campos **internos ou não documentados**: `stop_reason`, `modelUsage`, `api_error` ("@internal"), forma dos eventos `stream-json`, eco de `--replay-user-messages` | [P] em 2.1.307/322/325 | Nada fecha de vez. Mitigado por recusa explícita (nunca sucesso inventado) e pela decisão D1 |
+| R6 | **Fable: a inclusão no plano Pro terminou em 16/11** (aviso da CLI no Windows em 11/11). A partir de 17/11, tratar `fable` como possivelmente cobrado em créditos de uso. Se a conta tiver créditos ou uso extra habilitado, a geração **pode funcionar e ser cobrada** sem erro nenhum, e o gateway não vê a cobrança | [R] sem geração, 11/11 + [P] 2.1.327 ("Draws from usage credits") | Conferir `/model` antes de configurar `fable` (seção 9.4). Recusa por créditos → `provider_model_requires_credits`, sem repetição |
+| R7 | Visão (1.2): eco da imagem pela CLI real nunca observado | Só dublês | Etapa própria, com autorização, depois de R1 |
+| R8 | Limite de 80.000 **caracteres** é aproximação conservadora de tokens (`contextWindow` de 1.000.000 visto em [N]) | [N] | Decisão D4, se o chat precisar de mais contexto |
+
+### E. Decisões que dependem da arquitetura
+
+| # | Decisão | Opções | Recomendação desta frente |
+| --- | --- | --- | --- |
+| D1 | Como conviver com a CLI que se atualiza sozinha e com campos internos (R4, R5) | (a) registrar as versões validadas e o diagnóstico avisar quando a versão instalada for outra; (b) orientar o usuário a fixar a versão (a CLI tem a variável `DISABLE_AUTOUPDATER`, vista no binário 2.1.325, não testada); (c) aceitar a deriva e só confiar nas recusas explícitas | (a), com (b) como opção documentada e decisão do usuário. Hoje já vale (c) por construção |
+| D2 | Expor janela e renovação do limite de uso (C-11) | Campo no erro 429 do contrato (1.2 ou seguinte) lido de `rate_limit_event`/`api_error_params`, ou manter sem horário | Só quando a interface precisar. Hoje, mensagem sem horário (F-3) |
+| D3 | Portão do teste contínuo no navegador | Exigir antes um sucesso do disparo único da seção 8.5 | Sim. Parar em qualquer erro, sem repetir, e analisar a linha `claude_cli_failure` |
+| D4 | Tamanho de contexto do chat (R8) | Manter 80.000 caracteres para todos ou declarar por modelo no catálogo | Manter até haver medição real de tokens e de latência por etapa |
+| D5 | Alias × nome completo | Aliases aceitam qualquer versão da família (5.1 ou 5.2 do Fable); nomes completos fixam a versão | Aliases no uso pessoal; nomes completos quando a versão importar (ex.: comparar respostas) |
+
+### F. Pendências por responsável
+
+| Para | Pendência | Bloqueia o teste contínuo? |
+| --- | --- | --- |
+| Codex + usuário | Suítes no Windows com `ad39437` (`docs/VALIDACAO_WINDOWS_ATUAL.md`) | Sim |
+| Codex + usuário | Disparo único sintético (`docs/CORRECAO_PROVIDER_ERROR.md`; leitura dos resultados na seção 8.5), anotando `claude --version` | Sim (D3) |
+| Codex + usuário | `inspect_saved_response.py` para R3 | Não |
+| Codex | Decisões D1 e D2 | Não |
+| Frontend | F-4 | Não |
+| Claude analista | Nenhuma implementação. Proposta para quando houver transferência explícita: depois do primeiro disparo real, transformar a **forma** sanitizada dos eventos observados (tipos, ordem e campos, nunca texto) em fixture, substituindo as suposições de [N] | — |
+
+Itens pós-disparo e evolução (A3–A7, fixture real, V4, R6) detalhados na **seção 9**.
+
+**Ponto de retomada:** o próximo passo útil desta frente depende do resultado do disparo
+único no Windows. Com ele, revisar a tabela D e converter R1 e R5 em evidência [R].
 
 ## Níveis de evidência
 
@@ -795,3 +882,145 @@ repetição.
 | F-4 | Frontend | Texto colado sem ponte como snapshot, não no pedido |
 
 Nenhuma implementação comigo.
+
+## 9. Pós-disparo real e evolução (não bloqueiam hoje) — 18/11/2026
+
+Base inalterada (`ad39437`). Evidência nova [P]: **2.1.327**, a CLI deste contêiner,
+lida com `strings`, sem gerar. Em uma semana ela passou de 2.1.322 para 2.1.325 e
+2.1.327 sozinha, o que reforça R4. Nada aqui pede teste à pessoa usuária: são
+leituras para depois do disparo único da seção 8.5, conduzido pelo Codex.
+
+### 9.1 A3–A7: o que conferir depois do primeiro disparo real
+
+| Id | Pergunta | O que o pacote mostra hoje [P] | O que observar no disparo (só números e identificadores) | Proposta (Codex) |
+| --- | --- | --- | --- | --- |
+| A3 | A versão instalada mudou o `stream-json`? | Sequência esperada na seção 8.3; tipos `system` estáveis entre 2.1.307 e 2.1.322 | Tipos e subtipos de evento, em ordem; conjunto de campos do `init` e do `result` | Comparar com a lista esperada. Formato desconhecido continua sendo recusa explícita, nunca sucesso. Lista de versões validadas (D1) |
+| A4 | `CLAUDE_CODE_NO_MODEL_FALLBACK` funciona? | Com a variável, a CLI não troca de modelo: encerra com `api_error: "model_substitution_disabled"` e a frase "CLAUDE_CODE_NO_MODEL_FALLBACK is set: model substitution is disabled". O gateway já mapeia isso para `provider_model_unavailable` | Num sucesso não há efeito visível. Só aparece se houver sobrecarga ou falta de acesso | **Não provocar** a situação para testar. Registrar quando ocorrer naturalmente |
+| A5 | O raciocínio consome o teto? | Ver abaixo | `modelUsage[modelo].thinkingTokens` e `outputTokens` (números) e a categoria do erro, se houver | Registrar `thinkingTokens` por etapa. Decidir o tratamento só depois da evidência |
+| A6 | Qual o padrão de `effort` em `-p`? | Existe `--effort` e a configuração `effortLevel`. A tela do Windows mostrou "medium effort" no Opus 5.5 | Não aparece no resultado. Só indiretamente, via `thinkingTokens` | Não mexer antes de A5 |
+| A7 | Como registrar a versão real por etapa? | O `system/init` traz `claude_code_version`, descrito no schema como a versão "do processo que roda os turnos desta sessão" | O valor do `init` no disparo | Guardar `init.claude_code_version` em cada etapa e na assinatura de falha, conferido por padrão (`\d+\.\d+\.\d+`; outro valor vira `null`). Usar no lugar do `last_verified` do diagnóstico, que pode ter até 5 min. Fixture: `init` com `"9.9.9"` → etapa registra; valor malformado → `null` |
+
+**A5 em detalhe** [P, 2.1.327]:
+- `CLAUDE_CODE_MAX_OUTPUT_TOKENS` vira o teto de `max_tokens` da chamada.
+- O raciocínio é escolhido por modelo, a partir do registro de modelos da CLI.
+  - **Adaptativo** (`type: "adaptive"`): o modelo decide quanto pensar. Na API, os
+    tokens de raciocínio contam dentro de `max_tokens`. Com teto 128, qualquer
+    raciocínio relevante pode estourar e virar "API Error: … exceeded the 128 output
+    token maximum" (`provider_output_limit_reached`).
+  - **Com orçamento** (`type: "enabled"`): orçamento = `max(1024, min(max_tokens − 1,
+    limite, padrão))`. Com `max_tokens` ≤ 1024, o orçamento fica ≥ `max_tokens` e a
+    API recusa ("budget_tokens must be less than max_tokens"), o marcador
+    `thinking_output_budget`.
+- Para desligar o raciocínio: `CLAUDE_CODE_DISABLE_THINKING` ou
+  `MAX_THINKING_TOKENS=0`. **Mas** há modelos com raciocínio sempre ligado ou que
+  recusam desligá-lo (`alwaysOn`, `rejectsDisabled`), e o `effort` pode ser limitado
+  sem raciocínio ("Effort … isn't available with thinking turned off on this model").
+- [N] 2.1.322: `thinkingTokens: 0` nas 4 respostas triviais da conta de nuvem.
+- **Leitura:** isso torna **H2 mais plausível** para a falha original "Revise" com
+  teto 128 (uma revisão tende a raciocinar), mas continua **não comprovado**. O
+  padrão 2.048 do chat reduz o risco. O 128 do disparo único é proposital
+  (diagnóstico) e pode reproduzir H2 com uma resposta de uma palavra.
+- **Não propor** desligar o raciocínio antes da evidência: pode piorar a qualidade
+  ou falhar em modelos que não aceitam.
+
+### 9.2 Fixture sanitizada a partir do disparo real (só com transferência explícita)
+
+Objetivo: trocar as suposições de [N] no `fake_claude.py` pela **forma** observada na
+conta real. Especificação para quem implementar:
+
+- **Base:** o `stdout` do disparo único, lido uma vez e transformado na hora. O bruto
+  nunca é gravado nem anexado.
+- **Lista de permissão**, não de proibição:
+  - manter tipo e subtipo de cada evento, a ordem e o conjunto de chaves;
+  - manter tipos de valor, `model`, `stop_reason`, `subtype`, `api_error`,
+    `api_error_status`, `rate_limit_info.status` e `rateLimitType`;
+  - manter números de `usage` e `modelUsage` e `claude_code_version`.
+- **Substituir:**
+  - todo texto (`text`, `result`, `thinking`, `errors[]`) por marcadores fixos
+    (`"<texto-1>"`), preservando quantos blocos havia;
+  - `id`, `uuid` e `session_id` por valores falsos, mantendo as igualdades
+    (mesmo `message.id` → mesmo falso).
+- **Remover:**
+  - `cwd` do `init`: no Windows contém o nome de usuário no caminho;
+  - assinatura de raciocínio;
+  - `resetsAt`: ou remover, ou trocar por deslocamento relativo.
+- **Critério de aceite:** a fixture passa pelo parser atual; um teste compara o
+  conjunto de chaves com a lista esperada; nenhum marcador de conteúdo real
+  sobrevive (canário).
+
+### 9.3 V4: visão antes de liberar com a conta real
+
+**Limites da CLI** [P, 2.1.327; valores padrão, um modelo pode declarar outros no registro]:
+- 2.000 × 2.000 px máximo; acima disso, **redimensiona**;
+- base64 até 5 MiB, bruto-alvo 3,75 MiB;
+- orçamento de 512.000 bytes brutos: acima, **recomprime**;
+- lado de 3.000 px quando há muitas imagens;
+- recusa acima de 8.000 px;
+- formatos PNG, JPEG, GIF, WebP;
+- recodificação de PNG para WebP atrás de uma chave remota, desligada por padrão.
+
+**Contrato 1.2 do gateway:** 1 imagem, ≤ 480.000 bytes (abaixo do orçamento de
+512.000 ✅), ≤ **8.000 px** por lado, ≤ 16 MP.
+
+**Achado V4-1 (alto, antes de liberar visão):**
+- Toda imagem `base64` da mensagem passa pelo processamento acima antes de ir à API.
+- A mensagem devolvida por `--replay-user-messages` é montada a partir da mensagem
+  **já processada**. É leitura do código, ainda não observado.
+- Consequência: uma imagem com lado entre **2.001 e 8.000 px** (permitida pelo
+  contrato) volta redimensionada no eco. A conferência exata do gateway (`X7`)
+  falha: `visual_input_unconfirmed`.
+- **A conferência só ocorre depois da geração terminar.** A cota já foi gasta e a
+  resposta é descartada.
+- Imagens até 2.000 px, dentro do orçamento e sem a chave de WebP devem voltar
+  idênticas.
+
+**Propostas (Codex, toca o contrato 1.2):**
+- (a) **preferida:** limitar a 2.000 px por lado na v1 da visão, redimensionando no
+  backend/captura antes do aceite, para que a pessoa veja exatamente o que vai;
+- (b) aceitar eco com a mesma mídia e dimensões dentro do limite e registrar o hash
+  da imagem **processada**: prova mais fraca.
+
+Em ambos os casos, **uma fixture em que o eco volta com outro `data`** já existe
+(`visual_changed_echo`). Falta uma com dimensões acima de 2.000 px declarando o
+comportamento esperado.
+
+**Várias imagens:**
+- o contrato limita a 1;
+- a CLI processa cada bloco separadamente e o eco traz todos;
+- notas de dimensão podem vir como texto, que `echoed_images` já ignora.
+
+**Cota:**
+- imagem entra como tokens de entrada. Pela documentação pública da API,
+  ≈ largura × altura / 750, cerca de 5.300 tokens para 2.000 × 2.000. Não está no
+  pacote nem foi medido;
+- **o backend reenvia a imagem do histórico em cada turno seguinte** da conversa
+  (`attachment_refs` em `backend/conversations.py`), então cada turno paga de novo;
+- sugestão: deixar isso claro no aceite de visão e considerar a imagem só no turno
+  em que foi anexada, mais uma descrição textual nos seguintes (decisão de produto).
+
+### 9.4 R6: Fable depois de 16/11
+
+- O aviso da CLI no Windows (11/11) dizia que o Fable 5.2 estava **incluído no plano
+  Pro até 16/11** e que consome a cota mais rápido que o Opus 5.5.
+- A partir de 17/11, **não configurar `fable`** em `-Models` ou
+  `IA_BBARU_CLAUDE_CODE_MODELS` sem antes abrir `claude` → `/model`.
+- Se o Fable aparecer com "Requires usage credits" ou "Draws from usage credits",
+  ele é cobrado à parte.
+- **Risco silencioso:** com créditos ou uso extra habilitado na conta, a geração
+  **funciona e é cobrada**, sem erro. O gateway não tem como detectar a cobrança: o
+  campo `isUsingOverage` só existe no `rate_limit_event`, que o gateway não expõe.
+- Sem créditos, a recusa vira `provider_model_requires_credits`, sem repetição.
+- O backend já não escolhe o Fable automaticamente (C-3).
+- **Pedido à documentação comum (Codex):** repetir este aviso em
+  `docs/DIRECAO_CLAUDE_ONLY.md`, que ainda fala só de "pode exigir créditos", e na
+  ajuda do inicializador. Este arquivo é o único que posso editar.
+
+### 9.5 Pendências novas (nenhuma bloqueia o disparo único)
+
+| Id | Para | O quê |
+| --- | --- | --- |
+| A3–A7 | Codex, depois do disparo | Conferências da seção 9.1; registrar `init.claude_code_version` e `thinkingTokens` por etapa |
+| FX-1 | Codex, ou o Claude analista se houver transferência | Fixture sanitizada da seção 9.2 |
+| V4-1 | Codex | Limite de 2.000 px na visão v1, ou eco do processado, antes de liberar visão real |
+| V4-2 | Codex/produto | Reenvio da imagem em todo turno: explicar no aceite ou mudar a política |
+| R6 | Codex (documentação comum) | Aviso do Fable depois de 16/11 em `DIRECAO_CLAUDE_ONLY.md` e no inicializador |
