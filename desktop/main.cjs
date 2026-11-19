@@ -84,6 +84,8 @@ function contextStatus() {
   const url = tab?.view.webContents.getURL() || "";
   const document_id = tab && isWeb(url) ? `${tab.id}:${tab.documentVersion || 0}` : null;
   return { document_id, tab_id: document_id ? tab.id : null, documentVersion: document_id ? tab.documentVersion || 0 : null, url: isWeb(url) ? url : null, title: tab?.title || "",
+    has_video: tab?.mediaStatus?.version === tab?.documentVersion && !!tab?.mediaStatus?.has_video,
+    has_captions: tab?.mediaStatus?.version === tab?.documentVersion && !!tab?.mediaStatus?.has_captions,
     capture_is_current: Boolean(document_id && !tab.loading && capture?.document_id === document_id && capture?.url === url) };
 }
 function focusWorkspace() {
@@ -254,6 +256,7 @@ function newTab(url = null) {
   });
   wc.on("did-stop-loading", () => {
     tab.loading = false;
+    if (tab === active() && isWeb(tab.url)) void videoStatus(tab).then(publish).catch(() => {});
     if (isWeb(tab.url)) browserData.visit(tab.url, tab.title);
     publish();
   });
@@ -374,12 +377,12 @@ function rasterAttachment(image, kind) {
   if (image.isEmpty()) throw new Error("Imagem inválida.");
   const size = image.getSize();
   if (size.width * size.height > 16000000) throw new Error("A imagem excede 16 megapixels.");
-  let width = Math.min(size.width, 1920);
+  let width = Math.max(1, Math.floor(size.width * Math.min(1, 1920 / size.width, 2000 / size.height)));
   for (;;) {
     const scaled = image.resize({ width });
     for (const quality of [90, 75, 60]) {
       const bytes = scaled.toJPEG(quality);
-      if (bytes.length <= 480000) return { kind, data_url: "data:image/jpeg;base64," + bytes.toString("base64") };
+      if (scaled.getSize().height <= 2000 && bytes.length <= 480000) return { kind, data_url: "data:image/jpeg;base64," + bytes.toString("base64") };
     }
     if (width <= 160) throw new Error("Imagem grande demais. Capture uma área menor.");
     width = Math.max(160, Math.floor(width * .75));
@@ -435,18 +438,110 @@ async function capturePageVisual() {
   const version = tab.documentVersion, url = tab.view.webContents.getURL();
   const image = await captureFullPage(tab.view.webContents, () =>
     tab === active() && !tab.loading && tab.documentVersion === version && tab.view.webContents.getURL() === url);
+  let media = { kind: "screenshot", data_url: image.data_url };
+  const pixels = nativeImage.createFromDataURL(image.data_url);
+  const size = pixels.getSize();
+  if (size.width > 2000 || size.height > 2000) media = rasterAttachment(pixels, "screenshot");
   return saveCapture(tab, "Print da página inteira. Descrição: ",
-    { kind: "screenshot", data_url: image.data_url }, "Página inteira: " + tab.title);
+    media, "Página inteira: " + tab.title);
+}
+// Run only on explicit capture.page. Navigation invalidates the snapshot.
+function readPageContext() {
+  const clip = (text, limit) => text.length <= limit ? text : text.slice(0, limit - 16) + " […] [parcial]";
+  const visible = el => el.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+  const root = [...document.querySelectorAll("main, [role=main]")].find(visible)
+    || [...document.querySelectorAll("article")].find(visible) || document.body;
+  function primaryText(root, limit) {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const chunks = [];
+    let length = 0;
+    while (walker.nextNode() && length <= limit) {
+      const node = walker.currentNode, el = node.parentElement;
+      if (!el || el.closest("nav,aside,footer,script,style,form,textarea,[contenteditable],[role=navigation],[role=menu]")) continue;
+      const value = node.textContent.trim();
+      if (!value || !visible(el) || !el.getClientRects().length) continue;
+      chunks.push(value.slice(0, limit + 1)); length += value.length + 1;
+    }
+    return clip(chunks.join(" "), limit);
+  }
+  const headings = [...root.querySelectorAll("h1,h2,h3")].filter(visible)
+    .map(el => el.tagName + ": " + el.innerText.trim()).join("\n");
+  const parts = ["Título: " + clip(document.title, 300), "URL: " + clip(location.href, 1600),
+    "Descrição: " + clip(document.querySelector('meta[name="description" i]')?.content || "", 600),
+    "Seções: " + clip(headings, 1800)];
+  for (const video of [...document.querySelectorAll("video")].slice(0, 5)) {
+    const info = { titulo: clip(video.title || video.getAttribute("aria-label") || document.title, 200),
+      currentTime: video.currentTime, duration: Number.isFinite(video.duration) ? video.duration : null,
+      estado: video.paused || video.ended ? "paused" : "playing" };
+    const cues = [];
+    let chars = 0;
+    for (const track of video.textTracks) {
+      if (!["captions", "subtitles"].includes(track.kind)) continue;
+      for (const cue of track.cues || []) {
+        if (chars >= 1200) break;
+        if (cue.text) { cues.push(clip(cue.text, 1200)); chars += cue.text.length + 1; }
+      }
+    }
+    const chapter = [...video.textTracks].find(t => t.kind === "chapters")?.activeCues?.[0];
+    if (chapter?.text) info.capitulo = clip(chapter.text, 200);
+    parts.push("Vídeo: " + JSON.stringify(info), "Legendas acessíveis: " + (clip(cues.join(" "), 1200) || "indisponíveis"));
+  }
+  if (document.querySelector("video")) {
+    const panel = [...document.querySelectorAll('[id*="transcript" i], [aria-label*="transcri" i], [data-transcript]')]
+      .find(el => visible(el) && !el.matches("button,a") && el.innerText?.trim());
+    parts.push("Painel de transcrição: " + (panel ? clip(panel.innerText, 3000) : "indisponível"));
+  }
+  for (const frame of [...document.querySelectorAll("iframe")].filter(visible).slice(0, 4)) {
+    const doc = frame.contentDocument;
+    if (!doc?.body || !/^https?:$/.test(doc.location.protocol) || doc.location.origin !== location.origin) continue;
+    const body = doc.querySelector("main,article") || doc.body;
+    parts.push("Quadro: " + clip(doc.title, 200) + "\n" + primaryText(body, 1500));
+  }
+  parts.push("Texto principal:");
+  const header = parts.join("\n") + "\n";
+  return header + primaryText(root, 38000 - header.length);
+}
+async function videoStatus(tab) {
+  if (!tab || tab.loading || !isWeb(tab.view.webContents.getURL())) return {};
+  const version = tab.documentVersion;
+  const status = await tab.view.webContents.executeJavaScriptInIsolatedWorld(1001, [{ code: `(() => {
+    const videos = [...document.querySelectorAll("video")];
+    return { has_video: !!videos.length, has_captions: videos.some(v => [...v.textTracks].some(t =>
+      ["captions","subtitles"].includes(t.kind) && t.cues?.length > 0)) };
+  })()` }]);
+  if (tab === active() && version === tab.documentVersion) tab.mediaStatus = { version, ...status };
+  return contextStatus();
+}
+async function captureVideoFrame() {
+  const tab = active();
+  if (!tab || tab.loading || expanded || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página com vídeo visível.");
+  const version = tab.documentVersion;
+  const wc = tab.view.webContents;
+  const rect = await wc.executeJavaScriptInIsolatedWorld(1001, [{ code: `(() => {
+    const videos = [...document.querySelectorAll("video")].filter(v => v.checkVisibility()).sort((a,b) => Number(a.paused)-Number(b.paused));
+    for (const video of videos) {
+      const r = video.getBoundingClientRect();
+      const x = Math.max(0,r.left), y = Math.max(0,r.top);
+      const width = Math.min(innerWidth,r.right)-x, height = Math.min(innerHeight,r.bottom)-y;
+      if (width > 1 && height > 1 && !video.mediaKeys) return {x,y,width,height};
+    }
+    return null;
+  })()` }]);
+  const current = () => tab === active() && !wc.isDestroyed() && tab.documentVersion === version && !tab.loading && !expanded;
+  if (!rect || !current()) throw new Error("Quadro de vídeo indisponível.");
+  const clip = Object.fromEntries(Object.entries(rect).map(([k,v]) => [k, Math.round(v * wc.getZoomFactor())]));
+  const pixels = await wc.capturePage(clip);
+  if (!current()) throw new Error("A página mudou. Capture novamente.");
+  return saveCapture(tab, "Quadro visível do vídeo.", rasterAttachment(pixels,"screenshot"), "Quadro: " + tab.title);
 }
 async function capturePageText() {
   const tab = active();
   if (!tab || !isWeb(tab.view.webContents.getURL())) throw new Error("Abra uma página web.");
   if (tab.loading) throw new Error("Aguarde a página terminar de carregar.");
   const version = tab.documentVersion;
-  const result = await tab.view.webContents.executeJavaScript("({text: (document.body?.innerText || '').slice(0, 38001)})");
+  const text = await tab.view.webContents.executeJavaScriptInIsolatedWorld(1001, [{ code: `(${readPageContext.toString()})()` }]);
   if (tab.documentVersion !== version || tab !== active() || tab.loading) throw new Error("A página mudou. Capture novamente.");
-  if (result.text.length > 38000) throw new Error("A página excede 38.000 caracteres. Selecione o trecho desejado.");
-  return saveCapture(tab, result.text, undefined, undefined, undefined, "page");
+  return saveCapture(tab, text, undefined, undefined, undefined, "page");
 }
 async function selectCapture() {
   const tab = active();
@@ -695,7 +790,11 @@ app
         case "capture.read":
           return capture;
         case "context.status":
+          await videoStatus(active());
           return contextStatus();
+        case "capture.video.frame":
+          try { return { ok: true, capture: await captureVideoFrame() }; }
+          catch (error) { return { ok: false, error: { message: error.message } }; }
         case "capture.page.visual":
           try { return { ok: true, capture: await capturePageVisual() }; }
           catch (error) { return { ok: false, error: { message: error.message } }; }

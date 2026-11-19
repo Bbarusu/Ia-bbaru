@@ -1233,11 +1233,17 @@
             "title": "Max Bytes Per Image",
             "default": 480000
           },
+          "max_side": {
+            "type": "integer",
+            "const": 2000,
+            "title": "Max Side",
+            "default": 2000
+          },
           "max_pixels": {
             "type": "integer",
-            "const": 16000000,
+            "const": 4000000,
             "title": "Max Pixels",
-            "default": 16000000
+            "default": 4000000
           },
           "transport": {
             "type": "string",
@@ -1280,11 +1286,17 @@
             "title": "Max Bytes Per Image",
             "default": 480000
           },
+          "max_side": {
+            "type": "integer",
+            "const": 2000,
+            "title": "Max Side",
+            "default": 2000
+          },
           "max_pixels": {
             "type": "integer",
-            "const": 16000000,
+            "const": 4000000,
             "title": "Max Pixels",
-            "default": 16000000
+            "default": 4000000
           },
           "transport": {
             "type": "string",
@@ -1300,9 +1312,9 @@
           },
           "max_total_pixels": {
             "type": "integer",
-            "const": 32000000,
+            "const": 16000000,
             "title": "Max Total Pixels",
-            "default": 32000000
+            "default": 16000000
           }
         },
         "additionalProperties": false,

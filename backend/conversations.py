@@ -312,6 +312,8 @@ def attach_conversations(app, store, gateway, worker, protected, public_task):
                 history.append({"turn_id": row["id"], "instruction": task["instruction"],
                                 "status": task["status"], "output": task.get("output"),
                                 "error": task.get("error"), "sources": [{"id": s["id"], "title": s["title"]} for s in sources]})
+        if any(max(ref["width"], ref["height"]) > 2000 for ref in attachments):
+            raise HTTPException(422, "image_dimensions_exceeded")
         include_sources(selected)
         context = list(unique_sources.values())
         if history:

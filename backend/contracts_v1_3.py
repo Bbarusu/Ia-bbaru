@@ -8,7 +8,7 @@ from .contracts_v1_2 import (VisualAttachment, AttachmentReceipt, GenerateReques
 class ImageCapabilityV13(ImageCapability):
     max_images: Literal[4] = 4
     max_total_bytes: Literal[1920000] = 1920000
-    max_total_pixels: Literal[32000000] = 32000000
+    max_total_pixels: Literal[16000000] = 16000000
 
 class InputCapabilitiesV13(StrictModel):
     image: ImageCapabilityV13 = Field(default_factory=ImageCapabilityV13)
@@ -28,7 +28,7 @@ class GenerateRequestV13(GenerateRequestV12):
     def bounded_images(self):
         if len({a.id for a in self.attachments}) != len(self.attachments):
             raise ValueError("Duplicate attachments")
-        if sum(a.byte_count for a in self.attachments) > 1920000 or sum(a.width * a.height for a in self.attachments) > 32000000:
+        if sum(a.byte_count for a in self.attachments) > 1920000 or sum(a.width * a.height for a in self.attachments) > 16000000:
             raise ValueError("Total image budget exceeded")
         return self
 

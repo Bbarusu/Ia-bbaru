@@ -1,4 +1,6 @@
 ﻿<#
+
+R6 — Após 16/11, Fable pode consumir créditos sem novo aviso da CLI. Confira os créditos da conta antes de selecionar esse modelo.
 Inicia o Ia-bbaru com o gateway das CLIs oficiais (Claude Code): primeiro início e aberturas seguintes.
 
 Uso, na raiz do checkout integrado:

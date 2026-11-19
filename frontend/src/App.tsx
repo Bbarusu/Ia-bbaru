@@ -708,6 +708,10 @@ export default function App() {
           const reader = new FileReader(); reader.onload = () => resolve(String(reader.result));
           reader.onerror = () => reject(new Error("Não foi possível ler a imagem.")); reader.readAsDataURL(file);
         });
+        const bitmap = await createImageBitmap(file);
+        const fits = Math.max(bitmap.width, bitmap.height) <= 2000;
+        bitmap.close();
+        if (!fits) throw new Error("Use uma imagem de até 2.000 px por lado.");
         added.push({ attachment_id: crypto.randomUUID(), title: file.name.slice(0, 120), media: { kind: "image", data_url } });
       }
       setDirectImages(old => [...old, ...added]); setSendImage(false);
@@ -809,6 +813,10 @@ export default function App() {
     }
     setError("");
     setSendError("");
+    if (imageSources.some(source => Math.max(source.media?.width || 0, source.media?.height || 0) > 2000)) {
+      setError("Reduza a imagem para até 2.000 px por lado antes de enviá-la.");
+      return;
+    }
     // Aceite válido da conversa dispensa a confirmação; imagem e revisão sempre perguntam.
     if (!review && !imageCount && consentCovers(consent, { modelIds: chatModelIds })) {
       void send(consent);
@@ -1152,7 +1160,7 @@ export default function App() {
               <span>Enviar as imagens ao Claude (experimental)</span>
             </label>
             <p className="consent-note">
-              {imageCount} imagem(ns), incluindo {previousImageIds.size} do histórico. Até {imageLimit} por contexto,
+              {imageCount} imagem(ns), incluindo {previousImageIds.size} do histórico. Reenviar essas imagens consome cota novamente. Até {imageLimit} por contexto,
               PNG/JPEG de 480 KB cada. Imagens também usam cota e serão reenviadas com o histórico.
               A leitura visual ainda não foi validada com uma conta real.
             </p>

@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+from fastapi import HTTPException
 from .contracts_v1_2 import VisualAttachment
 
 
@@ -11,6 +12,8 @@ def visual_policy(model):
 
 
 def attachment(source_id, project_id, media):
+    if max(media["width"], media["height"]) > 2000:
+        raise HTTPException(422, "image_dimensions_exceeded")
     encoded = media["data_url"].partition(",")[2]
     return VisualAttachment(id=source_id, project_id=project_id, kind=media["kind"],
         mime_type=media["mime_type"], byte_count=media["byte_count"], width=media["width"], height=media["height"],

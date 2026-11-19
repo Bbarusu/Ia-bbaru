@@ -52,7 +52,7 @@ async function compressImageToDataUrl(file: File): Promise<{ dataUrl: string; wi
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Não foi possível preparar a imagem.");
-  let width = Math.min(1920, img.width);
+  let width = Math.max(1, Math.floor(img.width * Math.min(1, 1920 / img.width, 2000 / img.height)));
   for (;;) {
     canvas.width = width;
     canvas.height = Math.max(1, Math.round(img.height * width / img.width));

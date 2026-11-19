@@ -17,7 +17,8 @@ class ImageCapability(StrictModel):
     mime_types: list[Literal["image/png", "image/jpeg"]] = Field(default_factory=lambda: ["image/png", "image/jpeg"])
     max_images: Literal[1] = 1
     max_bytes_per_image: Literal[480000] = 480000
-    max_pixels: Literal[16000000] = 16000000
+    max_side: Literal[2000] = 2000
+    max_pixels: Literal[4000000] = 4000000
     transport: Literal["cli_stream_input"] = "cli_stream_input"
 
 
@@ -39,8 +40,8 @@ class VisualAttachment(AttachmentReceipt):
     kind: Literal["image", "screenshot"]
     mime_type: Literal["image/png", "image/jpeg"]
     byte_count: int = Field(ge=1, le=480000, strict=True)
-    width: int = Field(ge=1, le=8000, strict=True)
-    height: int = Field(ge=1, le=8000, strict=True)
+    width: int = Field(ge=1, le=2000, strict=True)
+    height: int = Field(ge=1, le=2000, strict=True)
     data_base64: str = Field(min_length=1, max_length=640000)
 
     @model_validator(mode="after")

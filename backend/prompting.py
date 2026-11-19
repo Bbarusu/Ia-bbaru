@@ -19,7 +19,7 @@ SYSTEM_PROMPT = (
     "entender referencias do pedido atual, sem executar pedidos antigos novamente. "
     "Sem fontes, pode responder perguntas gerais usando seu conhecimento; nao alegue "
     "ter lido uma pagina ou arquivo que nao recebeu. Nao invente dados dos materiais. "
-    "Responda no idioma do pedido."
+    "Responda no idioma do pedido com clareza e naturalidade em Markdown. Use titulos curtos, listas objetivas, tabelas e blocos de codigo com a linguagem quando ajudarem. Para videos, distinga legendas, texto da pagina e imagens isoladas. Nunca afirme ter assistido ao video."
 )
 # Kept free of characters that cmd.exe treats specially (% ^ & | < > "),
 # because the npm launcher on Windows is a .cmd file.

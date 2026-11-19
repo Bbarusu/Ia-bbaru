@@ -1,9 +1,10 @@
 # Validar a integração no Windows — 17/11/2026
 
+Validação Windows da base aprovada pelo usuário em 18/11. A rodada posterior de captura rica e vídeo aguarda repetição no Windows.
+
 **Verificação manual adicional.** Depois das suítes abaixo, confira arraste, redimensionamento, minimizar, maximizar, restaurar e fechar pelas bolinhas. Baixe um arquivo HTTP(S), cancele o primeiro diálogo e confirme o destino no segundo. Confira progresso, Mostrar na pasta e persistência depois de reiniciar. Em Ajustes, altere o fundo e ative a restauração de abas. O smoke cobre dois anexos com um gateway simulado. A leitura de pixels pela assinatura ainda precisa de teste real autorizado.
 
-Esta versão foi testada em Linux. Não marcar Windows como aprovado sem a saída
-do usuário. Usar a cópia atual W:\Projeto\Ia-bbaru-chat, preservando perfil e bancos.
+A revisão de captura rica foi testada em Linux. Usar a cópia atual W:\Projeto\Ia-bbaru-chat, preservando perfil e bancos.
 Fechar navegador/gateway antes de atualizar. Não apagar bancos nem repetir geração
 para investigar a resposta anterior. O teste real permanece desativado nesta etapa.
 
@@ -93,4 +94,4 @@ Integração até 629254c validada somente em Linux: backend96, gateway108 (107 
 1 real ignorado), frontend22, desktop6, build/ícones, verify_ui.py e smoke aprovados.
 O smoke agora também simula erro HTTP após persistir turno, consulta 404 e replay;
 confere um único despacho e restauração de envio pendente sem gerar ao reiniciar.
-Windows permanece pendente. Não é necessário consumir cota para esses testes.
+Repetir no Windows para a revisão de captura rica. Não é necessário consumir cota para esses testes.
